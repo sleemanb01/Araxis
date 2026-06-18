@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\ddevi\\\\Desktop\\\\Dev\\\\Araxis\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(ConvertTo-Csv -NoTypeInformation)",
+      "Bash(Out-String)",
+      "PowerShell(Test-Path \"C:\\\\Users\\\\ddevi\\\\Desktop\\\\Dev\\\\Araxis\\\\package.json\"; Test-Path \"C:\\\\Users\\\\ddevi\\\\Desktop\\\\Dev\\\\Araxis\\\\app.json\"; \\(Get-ChildItem \"C:\\\\Users\\\\ddevi\\\\Desktop\\\\Dev\\\\Araxis\" -File -Force\\).Count)",
+      "Bash(npx create-expo-app@latest . --template blank-typescript)",
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(Get-Command npm -ErrorAction SilentlyContinue)"
+    ]
+  }
+}
