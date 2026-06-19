@@ -34,12 +34,12 @@
         "expo-build-properties",
         {
           "ios": {
-            "useFrameworks": "static"
+            "useFrameworks": "static",
+            "forceStaticLinking": ["RNFBApp", "RNFBAuth", "RNFBAppCheck"]
           }
         }
       ],
-      "@react-native-firebase/app-check",
-      "./plugins/withFirebaseNonModularHeaders"
+      "@react-native-firebase/app-check"
     ],
     "extra": {
       "eas": {
