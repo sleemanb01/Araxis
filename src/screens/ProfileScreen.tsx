@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
+import { useAuthStore } from '../store/useAuthStore';
+import { signOutUser } from '../services/authService';
 
 // Placeholder — will connect to auth store in next phase
 const MOCK_USER = {
@@ -13,6 +15,7 @@ const MOCK_USER = {
 };
 
 export function ProfileScreen() {
+  const user = useAuthStore((s) => s.user);
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
@@ -27,7 +30,7 @@ export function ProfileScreen() {
 
         <Text style={styles.name}>{MOCK_USER.name}</Text>
         <Text style={styles.role}>{MOCK_USER.role}</Text>
-        <Text style={styles.email}>{MOCK_USER.email}</Text>
+        <Text style={styles.email}>{user?.phoneNumber ?? MOCK_USER.email}</Text>
 
         <View style={styles.divider} />
 
@@ -35,7 +38,7 @@ export function ProfileScreen() {
         <SettingsRow label="שפה" value="עברית (RTL)" />
         <SettingsRow label="גרסה" value="1.0.0" />
 
-        <TouchableOpacity style={styles.logoutBtn}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => signOutUser()}>
           <Text style={styles.logoutText}>התנתק</Text>
         </TouchableOpacity>
       </View>

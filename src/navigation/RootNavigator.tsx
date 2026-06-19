@@ -4,6 +4,7 @@ import { TabNavigator }             from './TabNavigator';
 import { JobCoordinationScreen }    from '../screens/JobCoordinationScreen';
 import { JobExecutionScreen }       from '../screens/JobExecutionScreen';
 import { NewJobScreen }             from '../screens/NewJobScreen';
+import { WarehouseScreen }          from '../screens/WarehouseScreen';
 import { RootStackParamList }       from './types';
 import { Colors }                   from '../constants/colors';
 

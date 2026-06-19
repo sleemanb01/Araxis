@@ -1,0 +1,34 @@
+
+# Create development builds
+#
+# This workflow shows how to create development builds.
+#
+# Key features:
+# - Can be triggered manually with eas workflow:run create-development-builds.yml
+# - Runs the pre-packaged build job to create Android and iOS development builds
+#     for Android emulators, Android and iOS devices, and iOS simulators
+#
+# For a detailed guide on using this workflow, visit:
+# https://docs.expo.dev/develop/development-builds/introduction/
+#
+# Created by EAS CLI v20.3.0
+#
+
+name: Create development builds
+on:
+  push:
+    branches:
+      - main
+jobs:
+  android_development_build:
+    name: Build development for android
+    type: build
+    params:
+      profile: development
+      platform: android
+  ios_development_build:
+    name: Build development for iOS simulator
+    type: build
+    params:
+      profile: development
+      platform: ios

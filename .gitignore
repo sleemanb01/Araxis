@@ -5,3 +5,7 @@ dist/
 .env.local
 *.log
 .DS_Store
+
+# Firebase native config (inject via EAS secrets / file env vars)
+google-services.json
+GoogleService-Info.plist

@@ -15,32 +15,26 @@ import { Layout } from '../constants/layout';
 import { InventoryItem } from '../types/inventory';
 
 export function WarehouseScreen() {
-  const { items, findByBarcode, setLastScanned, lastScanned } = useInventoryStore();
+  const { items, findByBarcode, setLastScanned } = useInventoryStore();
   const [query, setQuery] = useState('');
+  const [scanInput, setScanInput] = useState('');
 
   const filtered = query
     ? items.filter(
-        (i) =>
-          i.name.includes(query) ||
-          i.barcode.includes(query)
+        (i) => i.name.includes(query) || i.barcode.includes(query)
       )
     : items;
 
   function handleManualScan() {
-    Alert.prompt(
-      'סריקת ברקוד',
-      'הזן ברקוד ידנית:',
-      (barcode) => {
-        if (!barcode) return;
-        const item = findByBarcode(barcode);
-        setLastScanned(item ?? null);
-        if (!item) {
-          Alert.alert('לא נמצא', `פריט עם ברקוד ${barcode} אינו במלאי.`);
-        } else {
-          Alert.alert('נמצא', `${item.name} — כמות: ${item.quantity}`);
-        }
-      }
-    );
+    if (!scanInput.trim()) return;
+    const item = findByBarcode(scanInput.trim());
+    setLastScanned(item ?? null);
+    if (!item) {
+      Alert.alert('לא נמצא', `פריט עם ברקוד ${scanInput} אינו במלאי.`);
+    } else {
+      Alert.alert('נמצא', `${item.name} — כמות: ${item.quantity}`);
+    }
+    setScanInput('');
   }
 
   return (
@@ -48,18 +42,34 @@ export function WarehouseScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>מחסן וציוד</Text>
 
+        {/* Barcode scan row */}
+        <View style={styles.scanRow}>
+          <TouchableOpacity style={styles.scanBtn} onPress={handleManualScan}>
+            <Text style={styles.scanBtnText}>סרוק</Text>
+          </TouchableOpacity>
+          <TextInput
+            style={styles.scanInput}
+            placeholder="הזן ברקוד..."
+            placeholderTextColor={Colors.textSecondary}
+            value={scanInput}
+            onChangeText={setScanInput}
+            onSubmitEditing={handleManualScan}
+            keyboardType="number-pad"
+            textAlign="right"
+            returnKeyType="search"
+          />
+        </View>
+
+        {/* Search row */}
         <View style={styles.searchRow}>
           <TextInput
             style={styles.search}
-            placeholder="חיפוש לפי שם או ברקוד..."
+            placeholder="חיפוש לפי שם..."
             placeholderTextColor={Colors.textSecondary}
             value={query}
             onChangeText={setQuery}
             textAlign="right"
           />
-          <TouchableOpacity style={styles.scanBtn} onPress={handleManualScan}>
-            <Text style={styles.scanBtnText}>סרוק</Text>
-          </TouchableOpacity>
         </View>
 
         <FlatList
@@ -130,7 +140,6 @@ const rowStyles = StyleSheet.create({
   barcode: {
     fontSize: 12,
     color: Colors.textSecondary,
-    fontFamily: 'monospace',
   },
   locationBadge: {
     backgroundColor: Colors.primary + '20',
@@ -193,13 +202,13 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 12,
   },
-  searchRow: {
+  scanRow: {
     flexDirection: 'row',
     paddingHorizontal: Layout.screenPadding,
-    marginBottom: 12,
+    marginBottom: 8,
     gap: 8,
   },
-  search: {
+  scanInput: {
     flex: 1,
     backgroundColor: Colors.surface,
     borderRadius: 10,
@@ -220,6 +229,20 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  searchRow: {
+    paddingHorizontal: Layout.screenPadding,
+    marginBottom: 12,
+  },
+  search: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: Colors.textPrimary,
   },
   list: {
     paddingHorizontal: Layout.screenPadding,

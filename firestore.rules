@@ -1,0 +1,53 @@
+rules_version = '2';
+
+// Araxis Firestore security rules.
+// Principle: deny by default; only authenticated technicians can read/write,
+// and writes are validated. Tighten further with custom claims (roles) later.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ----
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedPhone() {
+      // Phone-auth users always have a phone_number token field.
+      return isSignedIn() && request.auth.token.phone_number != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // ---- Users: each technician can read/write only their own profile ----
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ---- Jobs ----
+    // Any verified technician may read jobs (the shared pool).
+    // Create/update allowed for verified technicians; deletes denied from client.
+    match /jobs/{jobId} {
+      allow read:   if isVerifiedPhone();
+      allow create: if isVerifiedPhone()
+                    && request.resource.data.keys().hasAll(
+                         ['customerName', 'address', 'phone', 'status']
+                       );
+      allow update: if isVerifiedPhone();
+      allow delete: if false;
+    }
+
+    // ---- Inventory: read for all verified techs; writes only via backend ----
+    match /inventory/{itemId} {
+      allow read:  if isVerifiedPhone();
+      allow write: if false; // mutate via Cloud Functions / admin only
+    }
+
+    // ---- Catch-all: deny everything else ----
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

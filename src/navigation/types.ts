@@ -6,6 +6,11 @@ export type RootStackParamList = {
   Warehouse:       undefined;
 };
 
+export type AuthStackParamList = {
+  PhoneLogin: undefined;
+  Otp:        { phone: string };
+};
+
 export type TabParamList = {
   JobPool:   undefined;
   MyJobs:    undefined;

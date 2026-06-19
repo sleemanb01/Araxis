@@ -30,7 +30,6 @@ export function TabNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        animation: 'none',
         tabBarStyle: {
           height: Layout.tabBarHeight,
           backgroundColor: Colors.tabBar,
