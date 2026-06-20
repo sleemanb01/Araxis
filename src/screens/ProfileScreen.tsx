@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { useAuthStore } from '../store/useAuthStore';
@@ -10,9 +8,7 @@ import { signOutUser } from '../services/authService';
 import { subscribeToReviews, summarize } from '../services/reviewService';
 import { StarRating } from '../components/StarRating';
 import { Review } from '../types/review';
-import type { RootStackParamList } from '../navigation/types';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Platform = 'instagram' | 'facebook' | 'tiktok';
 
 const SOCIAL_LABEL: Record<Platform, string> = {
@@ -41,7 +37,6 @@ function SocialButton({ platform, value, color }: { platform: Platform; value?: 
 }
 
 export function ProfileScreen() {
-  const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
 
@@ -118,13 +113,6 @@ export function ProfileScreen() {
             <Text style={styles.ratingText}>
               {count > 0 ? `${avg.toFixed(1)} (${count} דירוגים)` : 'אין דירוגים עדיין'}
             </Text>
-            <TouchableOpacity
-              onPress={() =>
-                navigation.navigate('AddReview', { providerId: user!.uid, providerName: fullName })
-              }
-            >
-              <Text style={[styles.addReview, { color: accent }]}>+ הוסף דירוג</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -176,7 +164,6 @@ const styles = StyleSheet.create({
   ratingBox: { alignItems: 'center', gap: 4, marginBottom: 8 },
   ratingText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
   divider: { height: 1, backgroundColor: Colors.border, width: '100%', marginVertical: 12 },
-  addReview: { fontSize: 14, fontWeight: '600', marginTop: 4 },
   logoutBtn: {
     marginTop: 32, paddingVertical: 14, paddingHorizontal: 40,
     borderRadius: 10, borderWidth: 1, borderColor: Colors.danger,
