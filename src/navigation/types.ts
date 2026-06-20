@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Warehouse:       undefined;
   AddReview:       { providerId: string; providerName: string };
   EditProfile:     undefined;
+  EditLink:        { platform: import('../utils/social').SocialPlatform };
 };
 
 export type AuthStackParamList = {

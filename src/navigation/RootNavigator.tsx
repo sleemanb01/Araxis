@@ -7,6 +7,7 @@ import { NewJobScreen }             from '../screens/NewJobScreen';
 import { WarehouseScreen }          from '../screens/WarehouseScreen';
 import { AddReviewScreen }          from '../screens/AddReviewScreen';
 import { EditProfileScreen }        from '../screens/EditProfileScreen';
+import { EditLinkScreen }           from '../screens/EditLinkScreen';
 import { RootStackParamList }       from './types';
 import { Colors }                   from '../constants/colors';
 
@@ -30,6 +31,7 @@ export function RootNavigator() {
       <Stack.Screen name="Warehouse"        component={WarehouseScreen}       options={{ title: 'מחסן' }} />
       <Stack.Screen name="AddReview"        component={AddReviewScreen}       options={{ title: 'הוספת דירוג' }} />
       <Stack.Screen name="EditProfile"      component={EditProfileScreen}     options={{ title: 'עריכת פרופיל' }} />
+      <Stack.Screen name="EditLink"         component={EditLinkScreen}        options={{ title: 'קישור' }} />
     </Stack.Navigator>
   );
 }

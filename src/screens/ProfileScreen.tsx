@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../constants/colors';
@@ -10,34 +11,34 @@ import { signOutUser } from '../services/authService';
 import { subscribeToReviews, summarize } from '../services/reviewService';
 import { StarRating } from '../components/StarRating';
 import { Review } from '../types/review';
+import { SOCIAL_PLATFORMS, SOCIAL_META, socialUrl, SocialPlatform } from '../utils/social';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Platform = 'instagram' | 'facebook' | 'tiktok' | 'whatsapp';
 
-const SOCIAL_LABEL: Record<Platform, string> = {
-  instagram: 'אינסטגרם',
-  facebook: 'פייסבוק',
-  tiktok: 'טיקטוק',
-  whatsapp: 'וואטסאפ',
-};
-
-function socialUrl(platform: Platform, value?: string): string | null {
-  if (!value) return null;
-  if (value.startsWith('http')) return value;
-  if (platform === 'whatsapp') return `https://wa.me/${value.replace(/\D/g, '')}`;
-  const handle = value.replace(/^@/, '');
-  if (platform === 'instagram') return `https://instagram.com/${handle}`;
-  if (platform === 'facebook') return `https://facebook.com/${handle}`;
-  return `https://www.tiktok.com/@${handle}`;
-}
-
-function SocialButton({ platform, value, color }: { platform: Platform; value?: string; color: string }) {
+function SocialLogo({
+  platform, value, onAdd,
+}: { platform: SocialPlatform; value?: string; onAdd: () => void }) {
+  const meta = SOCIAL_META[platform];
   const url = socialUrl(platform, value);
-  if (!url) return null;
+
+  if (url) {
+    return (
+      <TouchableOpacity
+        style={[styles.logoBtn, { backgroundColor: meta.color }]}
+        onPress={() => Linking.openURL(url)}
+      >
+        <FontAwesome5 name={meta.icon} size={22} color="#FFFFFF" brand />
+      </TouchableOpacity>
+    );
+  }
+  // No link yet — muted icon with a + badge to add it.
   return (
-    <TouchableOpacity style={[styles.socialBtn, { borderColor: color }]} onPress={() => Linking.openURL(url)}>
-      <Text style={[styles.socialText, { color }]}>{SOCIAL_LABEL[platform]}</Text>
+    <TouchableOpacity style={[styles.logoBtn, styles.logoEmpty]} onPress={onAdd}>
+      <FontAwesome5 name={meta.icon} size={22} color={Colors.textSecondary} brand />
+      <View style={styles.plusBadge}>
+        <Text style={styles.plusText}>+</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -98,13 +99,17 @@ export function ProfileScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Social links (optional) */}
-        {isProvider && profile.links && (
+        {/* Social links — brand logos; "+" badge when missing */}
+        {isProvider && (
           <View style={styles.socialRow}>
-            <SocialButton platform="instagram" value={profile.links.instagram} color={accent} />
-            <SocialButton platform="facebook" value={profile.links.facebook} color={accent} />
-            <SocialButton platform="tiktok" value={profile.links.tiktok} color={accent} />
-            <SocialButton platform="whatsapp" value={profile.links.whatsapp} color={accent} />
+            {SOCIAL_PLATFORMS.map((pf) => (
+              <SocialLogo
+                key={pf}
+                platform={pf}
+                value={profile.links?.[pf]}
+                onAdd={() => navigation.navigate('EditLink', { platform: pf })}
+              />
+            ))}
           </View>
         )}
 
@@ -162,11 +167,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10, paddingHorizontal: 28, borderRadius: 22, marginBottom: 14,
   },
   callBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  socialRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
-  socialBtn: {
-    borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6,
+  socialRow: { flexDirection: 'row', gap: 14, marginBottom: 16 },
+  logoBtn: {
+    width: 46, height: 46, borderRadius: 23,
+    alignItems: 'center', justifyContent: 'center',
   },
-  socialText: { fontSize: 12, fontWeight: '600' },
+  logoEmpty: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+  },
+  plusBadge: {
+    position: 'absolute', top: -2, right: -2,
+    width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: Colors.background,
+  },
+  plusText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', lineHeight: 13 },
   serviceChips: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
     justifyContent: 'center', paddingHorizontal: Layout.screenPadding, marginBottom: 14,
