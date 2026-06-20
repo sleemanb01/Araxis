@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Araxis Firestore security rules.
+// Mima Firestore security rules.
 // Principle: deny by default; only authenticated technicians can read/write,
 // and writes are validated. Tighten further with custom claims (roles) later.
 
@@ -59,6 +59,34 @@ service cloud.firestore {
       allow update: if isVerifiedPhone();
       allow create: if isVerifiedPhone();
       allow delete: if false; // deletes via admin only
+    }
+
+    // ---- Customers: the techs' shared customer book ----
+    // Verified techs read/update; creates are stamped with the author's uid;
+    // deletes allowed (it's their own book — e.g. fixing a duplicate).
+    match /customers/{customerId} {
+      allow read:   if isVerifiedPhone();
+      allow create: if isVerifiedPhone()
+                    && request.resource.data.keys().hasAll(
+                         ['name', 'phone', 'createdBy']
+                       )
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isVerifiedPhone();
+      allow delete: if isVerifiedPhone();
+    }
+
+    // ---- Appointments (calendar) ----
+    // Verified techs read/update; creates are stamped with the author's uid;
+    // no client hard-delete — cancel via the `status` field instead.
+    match /appointments/{apptId} {
+      allow read:   if isVerifiedPhone();
+      allow create: if isVerifiedPhone()
+                    && request.resource.data.keys().hasAll(
+                         ['startAt', 'status', 'createdBy']
+                       )
+                    && request.resource.data.createdBy == request.auth.uid;
+      allow update: if isVerifiedPhone();
+      allow delete: if false;
     }
 
     // ---- Catch-all: deny everything else ----

@@ -6,6 +6,9 @@ export interface InventoryItem {
   name: string;
   quantity: number;
   location: ItemLocation;
+  category: string;
 }
+
+export type CreateInventoryPayload = Omit<InventoryItem, 'id'>;
 
 export type ScanResult = { barcode: string; item: InventoryItem | null };

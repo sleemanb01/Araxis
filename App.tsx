@@ -9,6 +9,8 @@ import { RegisterNavigator } from './src/navigation/RegisterNavigator';
 import { useAuthStore } from './src/store/useAuthStore';
 import { useJobStore } from './src/store/useJobStore';
 import { useInventoryStore } from './src/store/useInventoryStore';
+import { useCustomerStore } from './src/store/useCustomerStore';
+import { useCalendarStore } from './src/store/useCalendarStore';
 import { subscribeToAuth } from './src/services/authService';
 import { subscribeToProfile } from './src/services/userService';
 import { initAppCheck } from './src/services/appCheck';
@@ -70,9 +72,19 @@ export default function App() {
     if (profile) {
       useJobStore.getState().init();
       useInventoryStore.getState().init();
+      // Customers & calendar are provider-only tools.
+      if (profile.role === 'provider') {
+        useCustomerStore.getState().init();
+        useCalendarStore.getState().init();
+      } else {
+        useCustomerStore.getState().teardown();
+        useCalendarStore.getState().teardown();
+      }
     } else {
       useJobStore.getState().teardown();
       useInventoryStore.getState().teardown();
+      useCustomerStore.getState().teardown();
+      useCalendarStore.getState().teardown();
     }
   }, [profile]);
 

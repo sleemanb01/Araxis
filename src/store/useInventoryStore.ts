@@ -1,5 +1,9 @@
 import { create } from 'zustand';
-import { InventoryItem } from '../types/inventory';
+import {
+  InventoryItem,
+  ItemLocation,
+  CreateInventoryPayload,
+} from '../types/inventory';
 import * as inventoryService from '../services/inventoryService';
 
 interface InventoryStore {
@@ -14,6 +18,10 @@ interface InventoryStore {
   findByBarcode: (barcode: string) => InventoryItem | undefined;
   setLastScanned: (item: InventoryItem | null) => void;
   updateQuantity: (id: string, delta: number) => Promise<void>;
+  addItem: (payload: CreateInventoryPayload) => Promise<void>;
+  updateItem: (id: string, patch: Partial<InventoryItem>) => Promise<void>;
+  setLocation: (id: string, location: ItemLocation) => Promise<void>;
+  getCategories: () => string[];
 }
 
 export const useInventoryStore = create<InventoryStore>((set, get) => ({
@@ -46,6 +54,16 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
   setLastScanned: (item) => set({ lastScanned: item }),
 
-  // Write to Firestore; realtime listener updates local state.
+  // Writes go to Firestore; the realtime listener updates local state.
   updateQuantity: (id, delta) => inventoryService.adjustQuantity(id, delta),
+  addItem: (payload) => inventoryService.createInventoryItem(payload),
+  updateItem: (id, patch) => inventoryService.updateInventoryItem(id, patch),
+  setLocation: (id, location) => inventoryService.setLocation(id, location),
+
+  // Distinct, non-empty category names (sorted) — the "existing categories"
+  // source for the editor. Typing a new one and saving auto-adds it here.
+  getCategories: () =>
+    Array.from(
+      new Set(get().items.map((i) => i.category).filter((c) => c.trim() !== ''))
+    ).sort((a, b) => a.localeCompare(b, 'he')),
 }));

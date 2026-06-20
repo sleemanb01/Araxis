@@ -6,6 +6,7 @@
 import {
   collection,
   doc,
+  addDoc,
   updateDoc,
   getDocs,
   onSnapshot,
@@ -13,7 +14,11 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { InventoryItem, ItemLocation } from '../types/inventory';
+import {
+  InventoryItem,
+  ItemLocation,
+  CreateInventoryPayload,
+} from '../types/inventory';
 import { SEED_INVENTORY } from './seedData';
 
 const INVENTORY = 'inventory';
@@ -26,6 +31,7 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
     name: d.name ?? '',
     quantity: typeof d.quantity === 'number' ? d.quantity : 0,
     location: (d.location ?? 'warehouse') as ItemLocation,
+    category: d.category ?? '',
   };
 }
 
@@ -50,6 +56,19 @@ export async function adjustQuantity(id: string, delta: number): Promise<void> {
 
 export async function setLocation(id: string, location: ItemLocation): Promise<void> {
   await updateDoc(doc(db, INVENTORY, id), { location });
+}
+
+export async function createInventoryItem(
+  payload: CreateInventoryPayload
+): Promise<void> {
+  await addDoc(collection(db, INVENTORY), payload);
+}
+
+export async function updateInventoryItem(
+  id: string,
+  patch: Partial<InventoryItem>
+): Promise<void> {
+  await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
 }
 
 /** Dev convenience: populate the collection from SEED_INVENTORY if it's empty. */

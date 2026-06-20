@@ -1,6 +1,6 @@
 rules_version = '2';
 
-// Firebase Storage rules for Araxis.
+// Firebase Storage rules for Mima.
 // Logos are readable by anyone (shown in the app) and writable only by the
 // authenticated owner uploading their own file.
 

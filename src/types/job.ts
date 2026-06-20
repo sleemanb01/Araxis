@@ -7,6 +7,7 @@ export type JobStatus =
 
 export interface Job {
   id: string;
+  customerId?: string | null; // link to a Customer record, if any
   customerName: string;
   address: string;
   phone: string;

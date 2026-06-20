@@ -5,6 +5,8 @@ import { JobCoordinationScreen }    from '../screens/JobCoordinationScreen';
 import { JobExecutionScreen }       from '../screens/JobExecutionScreen';
 import { NewJobScreen }             from '../screens/NewJobScreen';
 import { WarehouseScreen }          from '../screens/WarehouseScreen';
+import { ScanScreen }               from '../screens/ScanScreen';
+import { ItemEditorScreen }         from '../screens/ItemEditorScreen';
 import { AddReviewScreen }          from '../screens/AddReviewScreen';
 import { EditProfileScreen }        from '../screens/EditProfileScreen';
 import { EditLinkScreen }           from '../screens/EditLinkScreen';
@@ -29,6 +31,8 @@ export function RootNavigator() {
       <Stack.Screen name="JobExecution"     component={JobExecutionScreen}    options={{ title: 'ביצוע משימה' }} />
       <Stack.Screen name="NewJob"           component={NewJobScreen}          options={{ title: 'משימה חדשה', presentation: 'modal' }} />
       <Stack.Screen name="Warehouse"        component={WarehouseScreen}       options={{ title: 'מחסן' }} />
+      <Stack.Screen name="Scan"             component={ScanScreen}            options={{ headerShown: false, presentation: 'fullScreenModal' }} />
+      <Stack.Screen name="ItemEditor"       component={ItemEditorScreen}      options={{ title: 'פריט', presentation: 'modal' }} />
       <Stack.Screen name="AddReview"        component={AddReviewScreen}       options={{ title: 'הוספת דירוג' }} />
       <Stack.Screen name="EditProfile"      component={EditProfileScreen}     options={{ title: 'עריכת פרופיל' }} />
       <Stack.Screen name="EditLink"         component={EditLinkScreen}        options={{ title: 'קישור' }} />

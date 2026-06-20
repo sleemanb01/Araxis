@@ -23,6 +23,7 @@ function toJob(snap: { id: string; data: () => any }): Job {
   const d = snap.data();
   return {
     id: snap.id,
+    customerId: d.customerId ?? null,
     customerName: d.customerName ?? '',
     address: d.address ?? '',
     phone: d.phone ?? '',
@@ -54,6 +55,7 @@ export function subscribeToJobs(
 export async function createJob(payload: CreateJobPayload): Promise<void> {
   await addDoc(collection(db, JOBS), {
     ...payload,
+    customerId: payload.customerId ?? null,
     createdAt: new Date().toISOString(),
     notes: [],
     photos: [],

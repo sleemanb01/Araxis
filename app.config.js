@@ -66,7 +66,14 @@ module.exports = () => ({
         'expo-image-picker',
         {
           photosPermission:
-            'Araxis needs access to your photos so you can set a business logo.',
+            'Mima needs access to your photos so you can set a business logo.',
+        },
+      ],
+      [
+        'expo-camera',
+        {
+          cameraPermission:
+            'Mima דורש גישה למצלמה כדי לסרוק ברקודים של פריטים.',
         },
       ],
     ],
