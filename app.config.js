@@ -51,7 +51,7 @@ module.exports = () => ({
         {
           ios: {
             useFrameworks: 'static',
-            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBAppCheck'],
+            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBAppCheck', 'RNFBFirestore'],
           },
         },
       ],
