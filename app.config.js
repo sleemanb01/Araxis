@@ -17,7 +17,7 @@ module.exports = () => ({
     splash: {
       image: './assets/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#000000',
+      backgroundColor: '#FFFFFF',
     },
     ios: {
       supportsTablet: false,
@@ -37,7 +37,7 @@ module.exports = () => ({
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#000000',
+        backgroundColor: '#FFFFFF',
       },
       package: 'com.sleemanb01.araxis',
       googleServicesFile:
