@@ -62,7 +62,6 @@ module.exports = () => ({
         },
       ],
       '@react-native-firebase/app-check',
-      '@react-native-firebase/storage',
       [
         'expo-image-picker',
         {
