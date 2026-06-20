@@ -1,9 +1,9 @@
 export interface Review {
   id: string;
-  customerId: string;   // uid of the reviewer
+  customerId: string;   // uid of the rater
   customerName: string; // denormalized for display
   rating: number;       // 1-5
-  comment: string;
+  comment?: string;     // optional — ratings-only flow doesn't use it
   createdAt: string;    // ISO
 }
 

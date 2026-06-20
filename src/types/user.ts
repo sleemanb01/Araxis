@@ -13,12 +13,19 @@ export interface CustomerProfile extends BaseProfile {
   role: 'customer';
 }
 
+export interface SocialLinks {
+  instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+}
+
 export interface ProviderProfile extends BaseProfile {
   role: 'provider';
   location: string;
   logoUrl: string | null;
   themeColor: string;  // hex, e.g. "#2563EB"
   services: string[];  // categories the provider offers
+  links?: SocialLinks; // optional social links
 }
 
 export type UserProfile = CustomerProfile | ProviderProfile;

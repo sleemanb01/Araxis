@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +13,32 @@ import { Review } from '../types/review';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Platform = 'instagram' | 'facebook' | 'tiktok';
+
+const SOCIAL_LABEL: Record<Platform, string> = {
+  instagram: 'אינסטגרם',
+  facebook: 'פייסבוק',
+  tiktok: 'טיקטוק',
+};
+
+function socialUrl(platform: Platform, value?: string): string | null {
+  if (!value) return null;
+  if (value.startsWith('http')) return value;
+  const handle = value.replace(/^@/, '');
+  if (platform === 'instagram') return `https://instagram.com/${handle}`;
+  if (platform === 'facebook') return `https://facebook.com/${handle}`;
+  return `https://www.tiktok.com/@${handle}`;
+}
+
+function SocialButton({ platform, value, color }: { platform: Platform; value?: string; color: string }) {
+  const url = socialUrl(platform, value);
+  if (!url) return null;
+  return (
+    <TouchableOpacity style={[styles.socialBtn, { borderColor: color }]} onPress={() => Linking.openURL(url)}>
+      <Text style={[styles.socialText, { color }]}>{SOCIAL_LABEL[platform]}</Text>
+    </TouchableOpacity>
+  );
+}
 
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
@@ -54,7 +80,25 @@ export function ProfileScreen() {
         {isProvider && !!profile.location && (
           <Text style={styles.location}>{profile.location}</Text>
         )}
-        <Text style={styles.phone}>{user?.phoneNumber ?? ''}</Text>
+
+        {/* Call button (instead of showing the raw number) */}
+        {!!user?.phoneNumber && (
+          <TouchableOpacity
+            style={[styles.callBtn, { backgroundColor: accent }]}
+            onPress={() => Linking.openURL(`tel:${user.phoneNumber}`)}
+          >
+            <Text style={styles.callBtnText}>📞 התקשר</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Social links (optional) */}
+        {isProvider && profile.links && (
+          <View style={styles.socialRow}>
+            <SocialButton platform="instagram" value={profile.links.instagram} color={accent} />
+            <SocialButton platform="facebook" value={profile.links.facebook} color={accent} />
+            <SocialButton platform="tiktok" value={profile.links.tiktok} color={accent} />
+          </View>
+        )}
 
         {/* Services offered */}
         {isProvider && profile.services?.length > 0 && (
@@ -70,47 +114,21 @@ export function ProfileScreen() {
         {/* Provider rating */}
         {isProvider && (
           <View style={styles.ratingBox}>
-            <StarRating rating={avg} size={24} />
+            <StarRating rating={avg} size={26} />
             <Text style={styles.ratingText}>
-              {count > 0 ? `${avg.toFixed(1)} (${count} ביקורות)` : 'אין ביקורות עדיין'}
+              {count > 0 ? `${avg.toFixed(1)} (${count} דירוגים)` : 'אין דירוגים עדיין'}
             </Text>
+            <TouchableOpacity
+              onPress={() =>
+                navigation.navigate('AddReview', { providerId: user!.uid, providerName: fullName })
+              }
+            >
+              <Text style={[styles.addReview, { color: accent }]}>+ הוסף דירוג</Text>
+            </TouchableOpacity>
           </View>
         )}
 
         <View style={styles.divider} />
-
-        {/* Reviews list (providers) */}
-        {isProvider && (
-          <View style={styles.reviews}>
-            <View style={styles.reviewsHeader}>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('AddReview', {
-                    providerId: user!.uid,
-                    providerName: fullName,
-                  })
-                }
-              >
-                <Text style={[styles.addReview, { color: accent }]}>+ הוסף ביקורת</Text>
-              </TouchableOpacity>
-              <Text style={styles.reviewsTitle}>ביקורות</Text>
-            </View>
-
-            {reviews.length === 0 ? (
-              <Text style={styles.empty}>עדיין אין ביקורות</Text>
-            ) : (
-              reviews.map((r) => (
-                <View key={r.id} style={styles.reviewCard}>
-                  <View style={styles.reviewTop}>
-                    <StarRating rating={r.rating} size={14} />
-                    <Text style={styles.reviewer}>{r.customerName}</Text>
-                  </View>
-                  {!!r.comment && <Text style={styles.comment}>{r.comment}</Text>}
-                </View>
-              ))
-            )}
-          </View>
-        )}
 
         <TouchableOpacity style={styles.logoutBtn} onPress={() => signOutUser()}>
           <Text style={styles.logoutText}>התנתק</Text>
@@ -136,8 +154,17 @@ const styles = StyleSheet.create({
   avatarText: { fontSize: 32, fontWeight: '700', color: '#FFFFFF' },
   name: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
   role: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  location: { fontSize: 13, color: Colors.textSecondary, marginBottom: 2 },
-  phone: { fontSize: 13, color: Colors.textSecondary, marginBottom: 16 },
+  location: { fontSize: 13, color: Colors.textSecondary, marginBottom: 12 },
+  callBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10, paddingHorizontal: 28, borderRadius: 22, marginBottom: 14,
+  },
+  callBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  socialRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  socialBtn: {
+    borderWidth: 1, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6,
+  },
+  socialText: { fontSize: 12, fontWeight: '600' },
   serviceChips: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
     justifyContent: 'center', paddingHorizontal: Layout.screenPadding, marginBottom: 14,
@@ -149,22 +176,7 @@ const styles = StyleSheet.create({
   ratingBox: { alignItems: 'center', gap: 4, marginBottom: 8 },
   ratingText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
   divider: { height: 1, backgroundColor: Colors.border, width: '100%', marginVertical: 12 },
-  reviews: { width: '100%', paddingHorizontal: Layout.screenPadding },
-  reviewsHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10,
-  },
-  reviewsTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  addReview: { fontSize: 14, fontWeight: '600' },
-  empty: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right' },
-  reviewCard: {
-    backgroundColor: Colors.surface, borderRadius: 10, padding: 12, marginBottom: 10,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  reviewTop: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4,
-  },
-  reviewer: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
-  comment: { fontSize: 14, color: Colors.textPrimary, textAlign: 'right', lineHeight: 19 },
+  addReview: { fontSize: 14, fontWeight: '600', marginTop: 4 },
   logoutBtn: {
     marginTop: 32, paddingVertical: 14, paddingHorizontal: 40,
     borderRadius: 10, borderWidth: 1, borderColor: Colors.danger,

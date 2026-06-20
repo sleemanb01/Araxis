@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StarRating } from '../components/StarRating';
@@ -20,7 +20,6 @@ export function AddReviewScreen() {
   const profile = useAuthStore((s) => s.profile);
 
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit() {
@@ -38,12 +37,11 @@ export function AddReviewScreen() {
         customerId: user.uid,
         customerName,
         rating,
-        comment: comment.trim(),
       });
       navigation.goBack();
     } catch (e: any) {
-      console.warn('[addReview] failed:', e);
-      Alert.alert('שגיאה', 'שליחת הביקורת נכשלה. נסה שוב.');
+      console.warn('[addRating] failed:', e);
+      Alert.alert('שגיאה', 'שליחת הדירוג נכשלה. נסה שוב.');
       setSaving(false);
     }
   }
@@ -55,23 +53,11 @@ export function AddReviewScreen() {
 
         <Text style={styles.label}>הדירוג שלך</Text>
         <View style={styles.starsWrap}>
-          <StarRating rating={rating} size={40} editable onChange={setRating} />
+          <StarRating rating={rating} size={44} editable onChange={setRating} />
         </View>
 
-        <Text style={styles.label}>חוות דעת</Text>
-        <TextInput
-          style={styles.input}
-          value={comment}
-          onChangeText={setComment}
-          placeholder="ספר על חווית השירות..."
-          placeholderTextColor={Colors.textSecondary}
-          multiline
-          textAlign="right"
-          textAlignVertical="top"
-        />
-
         <CustomButton
-          label="שלח ביקורת"
+          label="שלח דירוג"
           onPress={handleSubmit}
           loading={saving}
           disabled={rating < 1}
@@ -94,14 +80,4 @@ const styles = StyleSheet.create({
     textAlign: 'right', marginBottom: 8,
   },
   starsWrap: { alignItems: 'center', marginBottom: 20 },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 12,
-    fontSize: 15,
-    color: Colors.textPrimary,
-    minHeight: 100,
-  },
 });
