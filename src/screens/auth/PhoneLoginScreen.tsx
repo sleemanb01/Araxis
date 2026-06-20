@@ -38,10 +38,8 @@ export function PhoneLoginScreen() {
       setConfirmation(confirmation);
       navigation.navigate('Otp', { phone: toE164(phone) });
     } catch (e: any) {
-      const rawCode = e?.code ?? e?.message ?? 'unknown';
-      console.log('[sendOtp] failed:', rawCode, e);
-      // Show the raw Firebase code on screen temporarily, for diagnosis.
-      setError((translateError(e?.code) ?? 'שליחת הקוד נכשלה') + `\n[${rawCode}]`);
+      if (__DEV__) console.log('[sendOtp] failed:', e?.code, e);
+      setError(translateError(e?.code) ?? 'שליחת הקוד נכשלה. נסה שוב.');
     } finally {
       setLoading(false);
     }

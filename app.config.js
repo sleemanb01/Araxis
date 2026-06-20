@@ -24,8 +24,14 @@ module.exports = () => ({
       bundleIdentifier: 'com.araxis.app',
       googleServicesFile:
         process.env.GOOGLE_SERVICES_PLIST ?? './GoogleService-Info.plist',
+      // APNs entitlement + background mode are required for Firebase phone auth
+      // to verify the app via silent push on real devices (production).
+      entitlements: {
+        'aps-environment': 'production',
+      },
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        UIBackgroundModes: ['remote-notification'],
       },
     },
     android: {
