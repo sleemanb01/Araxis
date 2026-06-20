@@ -1,28 +1,61 @@
-// Dynamic Expo config.
-// Reads the Firebase native config file paths from EAS file environment
-// variables when building in the cloud, falling back to local files for
-// `expo start` / local prebuilds.
+// Dynamic Expo config (single source of truth — no app.json).
 //
-// EAS file env vars (create with `eas env:create --type file`):
+// Firebase native config file paths are read from EAS file environment
+// variables when building in the cloud, with local fallbacks for
+// `expo start` / local prebuilds:
 //   GOOGLE_SERVICES_PLIST -> ./GoogleService-Info.plist  (iOS)
 //   GOOGLE_SERVICES_JSON  -> ./google-services.json      (Android)
 
-const appJson = require('./app.json');
-
-module.exports = () => {
-  const expo = appJson.expo;
-
-  return {
-    ...expo,
+module.exports = () => ({
+  expo: {
+    name: 'Araxis',
+    slug: 'araxis',
+    version: '1.0.0',
+    orientation: 'portrait',
+    icon: './assets/icon.png',
+    userInterfaceStyle: 'light',
+    splash: {
+      image: './assets/splash.png',
+      resizeMode: 'contain',
+      backgroundColor: '#000000',
+    },
     ios: {
-      ...expo.ios,
+      supportsTablet: false,
+      bundleIdentifier: 'com.araxis.app',
       googleServicesFile:
-        process.env.GOOGLE_SERVICES_PLIST ?? expo.ios.googleServicesFile,
+        process.env.GOOGLE_SERVICES_PLIST ?? './GoogleService-Info.plist',
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
-      ...expo.android,
+      adaptiveIcon: {
+        foregroundImage: './assets/adaptive-icon.png',
+        backgroundColor: '#000000',
+      },
+      package: 'com.araxis.app',
       googleServicesFile:
-        process.env.GOOGLE_SERVICES_JSON ?? expo.android.googleServicesFile,
+        process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     },
-  };
-};
+    plugins: [
+      '@react-native-firebase/app',
+      '@react-native-firebase/auth',
+      [
+        'expo-build-properties',
+        {
+          ios: {
+            useFrameworks: 'static',
+            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBAppCheck'],
+          },
+        },
+      ],
+      '@react-native-firebase/app-check',
+    ],
+    extra: {
+      eas: {
+        projectId: '3bf93c35-fac2-48d2-b256-509233b71429',
+      },
+    },
+    owner: 'sleemanb01',
+  },
+});
