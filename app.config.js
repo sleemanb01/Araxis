@@ -51,11 +51,25 @@ module.exports = () => ({
         {
           ios: {
             useFrameworks: 'static',
-            forceStaticLinking: ['RNFBApp', 'RNFBAuth', 'RNFBAppCheck', 'RNFBFirestore'],
+            forceStaticLinking: [
+              'RNFBApp',
+              'RNFBAuth',
+              'RNFBAppCheck',
+              'RNFBFirestore',
+              'RNFBStorage',
+            ],
           },
         },
       ],
       '@react-native-firebase/app-check',
+      '@react-native-firebase/storage',
+      [
+        'expo-image-picker',
+        {
+          photosPermission:
+            'Araxis needs access to your photos so you can set a business logo.',
+        },
+      ],
     ],
     extra: {
       eas: {

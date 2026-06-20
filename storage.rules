@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Firebase Storage rules for Araxis.
+// Logos are readable by anyone (shown in the app) and writable only by the
+// authenticated owner uploading their own file.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /logos/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

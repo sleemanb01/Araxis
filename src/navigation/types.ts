@@ -11,6 +11,12 @@ export type AuthStackParamList = {
   Otp:        { phone: string };
 };
 
+export type RegisterStackParamList = {
+  RoleSelect:       undefined;
+  CustomerRegister: undefined;
+  ProviderRegister: undefined;
+};
+
 export type TabParamList = {
   JobPool:   undefined;
   MyJobs:    undefined;
