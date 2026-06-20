@@ -32,9 +32,6 @@ module.exports = () => ({
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         UIBackgroundModes: ['remote-notification'],
-        // Declares the binary as a "routing app" so the routing coverage file
-        // set on App Store Connect is valid (clears ITMS-90118).
-        MKDirectionsApplicationSupportedModes: ['MKDirectionsModeCar'],
       },
     },
     android: {
