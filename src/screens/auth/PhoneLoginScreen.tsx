@@ -53,7 +53,7 @@ export function PhoneLoginScreen() {
       >
         <View style={styles.container}>
           <Image source={require('../../../assets/icon.png')} style={styles.logo} />
-          <Text style={styles.title}>ברוכים הבאים ל-Araxis</Text>
+          <Text style={styles.title}>ברוכים הבאים ל-Mima</Text>
           <Text style={styles.subtitle}>הזן את מספר הטלפון שלך לכניסה</Text>
 
           <View style={styles.inputWrapper}>
