@@ -9,3 +9,6 @@ dist/
 # Firebase native config (inject via EAS secrets / file env vars)
 google-services.json
 GoogleService-Info.plist
+
+# App Store Connect API key — secret, never commit
+*.p8

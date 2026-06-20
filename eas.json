@@ -30,7 +30,9 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "sleeman.nabwani@gmail.com",
+        "ascApiKeyPath": "./AuthKey_L8T5979WHD.p8",
+        "ascApiKeyId": "L8T5979WHD",
+        "ascApiKeyIssuerId": "7755e3ea-f335-45de-bafe-518d1f1b4abe",
         "appleTeamId": "89F5K29LBN"
       }
     }
