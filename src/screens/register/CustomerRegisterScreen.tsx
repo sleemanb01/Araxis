@@ -9,6 +9,8 @@ import { Layout } from '../../constants/layout';
 
 export function CustomerRegisterScreen() {
   const user = useAuthStore((s) => s.user);
+  const setProfile = useAuthStore((s) => s.setProfile);
+  const setProfileLoaded = useAuthStore((s) => s.setProfileLoaded);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -22,15 +24,18 @@ export function CustomerRegisterScreen() {
     }
     setSaving(true);
     try {
-      await createProfile({
+      const profile = {
         uid: user.uid,
         phone: user.phoneNumber ?? '',
-        role: 'customer',
+        role: 'customer' as const,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         createdAt: new Date().toISOString(),
-      });
-      // Profile listener in App.tsx routes to the main app automatically.
+      };
+      await createProfile(profile);
+      // Switch to the main app immediately (don't depend on the listener).
+      setProfile(profile);
+      setProfileLoaded(true);
     } catch (e: any) {
       console.warn('[register customer] failed:', e);
       Alert.alert('שגיאה', 'שמירת הפרופיל נכשלה. נסה שוב.');

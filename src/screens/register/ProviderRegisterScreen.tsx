@@ -21,6 +21,8 @@ const THEME_COLORS = ['#2563EB', '#EF4444', '#F97316', '#22C55E', '#A855F7', '#0
 
 export function ProviderRegisterScreen() {
   const user = useAuthStore((s) => s.user);
+  const setProfile = useAuthStore((s) => s.setProfile);
+  const setProfileLoaded = useAuthStore((s) => s.setProfileLoaded);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -63,18 +65,21 @@ export function ProviderRegisterScreen() {
     setSaving(true);
     try {
       const logoUrl = await uploadLogo(user.uid, logoUri!);
-      await createProfile({
+      const profile = {
         uid: user.uid,
         phone: user.phoneNumber ?? '',
-        role: 'provider',
+        role: 'provider' as const,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         location: location.trim(),
         logoUrl,
         themeColor,
         createdAt: new Date().toISOString(),
-      });
-      // Profile listener in App.tsx routes to the main app automatically.
+      };
+      await createProfile(profile);
+      // Switch to the main app immediately (don't depend on the listener).
+      setProfile(profile);
+      setProfileLoaded(true);
     } catch (e: any) {
       console.warn('[register provider] failed:', e);
       Alert.alert('שגיאה', 'שמירת הפרופיל נכשלה. נסה שוב.');
