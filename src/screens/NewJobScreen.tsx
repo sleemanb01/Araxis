@@ -12,14 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { useJobStore } from '../store/useJobStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-
-const MY_TECH_ID = 'tech_1';
 
 export function NewJobScreen() {
   const navigation = useNavigation();
   const addJob = useJobStore((s) => s.addJob);
+  const uid = useAuthStore((s) => s.user?.uid) ?? null;
 
   const [customerName, setCustomerName] = useState('');
   const [address, setAddress]           = useState('');
@@ -39,7 +39,7 @@ export function NewJobScreen() {
       phone:        phone.trim(),
       description:  description.trim(),
       status:       assignToMe ? 'scheduled' : 'awaiting',
-      assignedTo:   assignToMe ? MY_TECH_ID : null,
+      assignedTo:   assignToMe ? uid : null,
       scheduledAt:  null,
     });
 

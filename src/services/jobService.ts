@@ -64,6 +64,10 @@ export async function updateJobStatus(id: string, status: JobStatus): Promise<vo
   await updateDoc(doc(db, JOBS, id), { status });
 }
 
+export async function assignJob(id: string, techId: string | null): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), { assignedTo: techId });
+}
+
 export async function addJobNote(id: string, note: string): Promise<void> {
   await updateDoc(doc(db, JOBS, id), { notes: arrayUnion(note) });
 }

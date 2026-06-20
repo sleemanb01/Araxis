@@ -6,14 +6,12 @@ import { JobCard } from '../components/JobCard';
 import { FAB } from '../components/FAB';
 import { SectionHeader } from '../components/SectionHeader';
 import { useJobStore } from '../store/useJobStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { Colors, StatusColors, StatusLabelsHe } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { Job, JobStatus } from '../types/job';
 import type { RootStackParamList } from '../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-
-// Hard-coded for now; will come from auth store once login is implemented
-const MY_TECH_ID = 'tech_1';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -28,9 +26,10 @@ const STATUS_FILTERS: Array<{ key: JobStatus | 'all'; label: string }> = [
 export function MyJobsScreen() {
   const navigation = useNavigation<Nav>();
   const [activeFilter, setActiveFilter] = useState<JobStatus | 'all'>('all');
-  const getMyJobs = useJobStore((s) => s.getMyJobs);
+  const jobs = useJobStore((s) => s.jobs); // subscribe → re-render on Firestore updates
+  const uid = useAuthStore((s) => s.user?.uid) ?? '';
 
-  const allMyJobs = getMyJobs(MY_TECH_ID);
+  const allMyJobs = jobs.filter((j) => j.assignedTo === uid);
   const visibleJobs =
     activeFilter === 'all'
       ? allMyJobs

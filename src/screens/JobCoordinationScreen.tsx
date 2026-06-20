@@ -12,6 +12,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { StatusBadge } from '../components/StatusBadge';
 import { useJobStore } from '../store/useJobStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -25,8 +26,11 @@ export function JobCoordinationScreen() {
   const route = useRoute<RouteP>();
   const { jobId } = route.params;
 
+  useJobStore((s) => s.jobs); // subscribe → reflect realtime updates
   const getJobById = useJobStore((s) => s.getJobById);
   const updateJobStatus = useJobStore((s) => s.updateJobStatus);
+  const assignJob = useJobStore((s) => s.assignJob);
+  const uid = useAuthStore((s) => s.user?.uid) ?? null;
 
   const job = getJobById(jobId);
 
@@ -48,6 +52,10 @@ export function JobCoordinationScreen() {
   }
 
   function handleConfirmAndDispatch() {
+    // Claim the job for this technician (moves it from the pool to "My Jobs").
+    if (uid && job!.assignedTo !== uid) {
+      assignJob(job!.id, uid);
+    }
     updateJobStatus(job!.id, 'en_route');
     navigation.goBack();
   }

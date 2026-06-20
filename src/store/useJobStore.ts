@@ -14,6 +14,7 @@ interface JobStore {
   setFilter: (filter: JobStatus | 'all') => void;
   addJob: (payload: CreateJobPayload) => Promise<void>;
   updateJobStatus: (id: string, status: JobStatus) => Promise<void>;
+  assignJob: (id: string, techId: string | null) => Promise<void>;
   addNote: (id: string, note: string) => Promise<void>;
   addPhoto: (id: string, uri: string) => Promise<void>;
 
@@ -54,6 +55,7 @@ export const useJobStore = create<JobStore>((set, get) => ({
   // Writes go to Firestore; the realtime listener updates local state.
   addJob: (payload) => jobService.createJob(payload),
   updateJobStatus: (id, status) => jobService.updateJobStatus(id, status),
+  assignJob: (id, techId) => jobService.assignJob(id, techId),
   addNote: (id, note) => jobService.addJobNote(id, note),
   addPhoto: (id, uri) => jobService.addJobPhoto(id, uri),
 
