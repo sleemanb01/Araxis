@@ -8,9 +8,16 @@
  *                      register it in Firebase Console → App Check → Apps → Manage debug tokens)
  *
  * Call initAppCheck() ONCE, as early as possible (before any Firestore/Auth calls).
+ * Uses the modular RN Firebase API (v22+).
  */
 
-import { firebase } from '@react-native-firebase/app-check';
+import { getApp } from '@react-native-firebase/app';
+import { initializeAppCheck } from '@react-native-firebase/app-check';
+
+// The provider class is exported as a runtime value but typed as type-only at
+// the package root (RN Firebase re-export quirk), so require it for the ctor.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { ReactNativeFirebaseAppCheckProvider } = require('@react-native-firebase/app-check');
 
 let initialized = false;
 
@@ -18,7 +25,7 @@ export async function initAppCheck(): Promise<void> {
   if (initialized) return;
   initialized = true;
 
-  const provider = firebase.appCheck().newReactNativeFirebaseAppCheckProvider();
+  const provider = new ReactNativeFirebaseAppCheckProvider();
 
   provider.configure({
     android: {
@@ -29,7 +36,7 @@ export async function initAppCheck(): Promise<void> {
     },
   });
 
-  await firebase.appCheck().initializeAppCheck({
+  await initializeAppCheck(getApp(), {
     provider,
     isTokenAutoRefreshEnabled: true,
   });
