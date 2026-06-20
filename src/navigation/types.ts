@@ -4,6 +4,7 @@ export type RootStackParamList = {
   JobExecution:    { jobId: string };
   NewJob:          undefined;
   Warehouse:       undefined;
+  AddReview:       { providerId: string; providerName: string };
 };
 
 export type AuthStackParamList = {

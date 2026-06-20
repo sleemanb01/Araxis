@@ -21,9 +21,23 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
-    // ---- Users: each technician can read/write only their own profile ----
+    // ---- Users: owner can read/write their own profile; profiles are
+    //      readable by any signed-in user (to view providers). ----
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read:  if isSignedIn();
+      allow write: if isOwner(userId);
+
+      // Reviews of a provider: any verified user can read; a verified user
+      // can create a review authored as themselves; no edits/deletes.
+      match /reviews/{reviewId} {
+        allow read:   if isVerifiedPhone();
+        allow create: if isVerifiedPhone()
+                      && request.resource.data.customerId == request.auth.uid
+                      && request.resource.data.rating is number
+                      && request.resource.data.rating >= 1
+                      && request.resource.data.rating <= 5;
+        allow update, delete: if false;
+      }
     }
 
     // ---- Jobs ----

@@ -5,6 +5,7 @@ import { JobCoordinationScreen }    from '../screens/JobCoordinationScreen';
 import { JobExecutionScreen }       from '../screens/JobExecutionScreen';
 import { NewJobScreen }             from '../screens/NewJobScreen';
 import { WarehouseScreen }          from '../screens/WarehouseScreen';
+import { AddReviewScreen }          from '../screens/AddReviewScreen';
 import { RootStackParamList }       from './types';
 import { Colors }                   from '../constants/colors';
 
@@ -26,6 +27,7 @@ export function RootNavigator() {
       <Stack.Screen name="JobExecution"     component={JobExecutionScreen}    options={{ title: 'ביצוע משימה' }} />
       <Stack.Screen name="NewJob"           component={NewJobScreen}          options={{ title: 'משימה חדשה', presentation: 'modal' }} />
       <Stack.Screen name="Warehouse"        component={WarehouseScreen}       options={{ title: 'מחסן' }} />
+      <Stack.Screen name="AddReview"        component={AddReviewScreen}       options={{ title: 'הוספת ביקורת' }} />
     </Stack.Navigator>
   );
 }
