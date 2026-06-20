@@ -56,6 +56,17 @@ export function ProfileScreen() {
         )}
         <Text style={styles.phone}>{user?.phoneNumber ?? ''}</Text>
 
+        {/* Services offered */}
+        {isProvider && profile.services?.length > 0 && (
+          <View style={styles.serviceChips}>
+            {profile.services.map((s) => (
+              <View key={s} style={[styles.serviceChip, { borderColor: accent }]}>
+                <Text style={[styles.serviceChipText, { color: accent }]}>{s}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Provider rating */}
         {isProvider && (
           <View style={styles.ratingBox}>
@@ -127,6 +138,14 @@ const styles = StyleSheet.create({
   role: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
   location: { fontSize: 13, color: Colors.textSecondary, marginBottom: 2 },
   phone: { fontSize: 13, color: Colors.textSecondary, marginBottom: 16 },
+  serviceChips: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    justifyContent: 'center', paddingHorizontal: Layout.screenPadding, marginBottom: 14,
+  },
+  serviceChip: {
+    borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  serviceChipText: { fontSize: 12, fontWeight: '600' },
   ratingBox: { alignItems: 'center', gap: 4, marginBottom: 8 },
   ratingText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
   divider: { height: 1, backgroundColor: Colors.border, width: '100%', marginVertical: 12 },

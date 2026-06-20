@@ -17,7 +17,8 @@ export interface ProviderProfile extends BaseProfile {
   role: 'provider';
   location: string;
   logoUrl: string | null;
-  themeColor: string; // hex, e.g. "#2563EB"
+  themeColor: string;  // hex, e.g. "#2563EB"
+  services: string[];  // categories the provider offers
 }
 
 export type UserProfile = CustomerProfile | ProviderProfile;

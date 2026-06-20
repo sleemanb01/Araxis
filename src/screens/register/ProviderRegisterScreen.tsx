@@ -16,6 +16,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { createProfile, uploadLogo } from '../../services/userService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
+import { SERVICE_CATEGORIES } from '../../constants/services';
 
 const THEME_COLORS = ['#2563EB', '#EF4444', '#F97316', '#22C55E', '#A855F7', '#0EA5E9'];
 
@@ -29,7 +30,14 @@ export function ProviderRegisterScreen() {
   const [location, setLocation] = useState('');
   const [logoUri, setLogoUri] = useState<string | null>(null);
   const [themeColor, setThemeColor] = useState(THEME_COLORS[0]);
+  const [services, setServices] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  function toggleService(s: string) {
+    setServices((prev) =>
+      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
+    );
+  }
 
   async function pickLogo() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -51,6 +59,7 @@ export function ProviderRegisterScreen() {
   function validate(): string | null {
     if (!firstName.trim() || !lastName.trim()) return 'יש למלא שם פרטי ושם משפחה.';
     if (!location.trim()) return 'יש למלא מיקום.';
+    if (services.length === 0) return 'יש לבחור לפחות שירות אחד.';
     if (!logoUri) return 'יש לבחור לוגו לעסק.';
     return null;
   }
@@ -74,6 +83,7 @@ export function ProviderRegisterScreen() {
         location: location.trim(),
         logoUrl,
         themeColor,
+        services,
         createdAt: new Date().toISOString(),
       };
       await createProfile(profile);
@@ -105,6 +115,26 @@ export function ProviderRegisterScreen() {
         <Field label="שם פרטי" value={firstName} onChange={setFirstName} placeholder="ישראל" />
         <Field label="שם משפחה" value={lastName} onChange={setLastName} placeholder="ישראלי" />
         <Field label="מיקום" value={location} onChange={setLocation} placeholder="תל אביב" />
+
+        {/* Services offered */}
+        <Text style={styles.label}>השירותים שאני מספק</Text>
+        <View style={styles.chipRow}>
+          {SERVICE_CATEGORIES.map((s) => {
+            const selected = services.includes(s);
+            return (
+              <TouchableOpacity
+                key={s}
+                style={[
+                  styles.chip,
+                  selected && { backgroundColor: themeColor, borderColor: themeColor },
+                ]}
+                onPress={() => toggleService(s)}
+              >
+                <Text style={[styles.chipText, selected && { color: '#FFF' }]}>{s}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         {/* Theme */}
         <Text style={styles.label}>צבע ערכת נושא</Text>
@@ -204,5 +234,25 @@ const styles = StyleSheet.create({
   },
   swatchSelected: {
     borderColor: Colors.textPrimary,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'flex-end',
+    marginBottom: 16,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: Colors.surface,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
 });
