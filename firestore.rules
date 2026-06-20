@@ -39,10 +39,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---- Inventory: read for all verified techs; writes only via backend ----
+    // ---- Inventory: verified techs can read and update stock counts ----
     match /inventory/{itemId} {
-      allow read:  if isVerifiedPhone();
-      allow write: if false; // mutate via Cloud Functions / admin only
+      allow read:   if isVerifiedPhone();
+      allow update: if isVerifiedPhone();
+      allow create: if isVerifiedPhone();
+      allow delete: if false; // deletes via admin only
     }
 
     // ---- Catch-all: deny everything else ----

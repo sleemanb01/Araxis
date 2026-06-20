@@ -1,30 +1,63 @@
 /**
- * Inventory service — placeholder implementations.
- * Replace each function body with real API calls when the backend is ready.
+ * Inventory service — backed by Cloud Firestore (collection: "inventory").
+ * Modular RN Firebase API.
  */
 
-import { InventoryItem, ScanResult } from '../types/inventory';
+import {
+  collection,
+  doc,
+  updateDoc,
+  getDocs,
+  onSnapshot,
+  increment,
+  writeBatch,
+} from '@react-native-firebase/firestore';
+import { db } from './firebase';
+import { InventoryItem, ItemLocation } from '../types/inventory';
+import { SEED_INVENTORY } from './seedData';
 
-export async function fetchInventory(): Promise<InventoryItem[]> {
-  // TODO: GET /api/inventory
-  throw new Error('fetchInventory: not yet connected to backend');
+const INVENTORY = 'inventory';
+
+function toItem(snap: { id: string; data: () => any }): InventoryItem {
+  const d = snap.data();
+  return {
+    id: snap.id,
+    barcode: d.barcode ?? '',
+    name: d.name ?? '',
+    quantity: typeof d.quantity === 'number' ? d.quantity : 0,
+    location: (d.location ?? 'warehouse') as ItemLocation,
+  };
 }
 
-export async function scanBarcode(barcode: string): Promise<ScanResult> {
-  // TODO: GET /api/inventory/scan/:barcode
-  throw new Error('scanBarcode: not yet connected to backend');
+/** Real-time subscription to inventory. Returns an unsubscribe function. */
+export function subscribeToInventory(
+  onChange: (items: InventoryItem[]) => void,
+  onError?: (e: Error) => void
+): () => void {
+  return onSnapshot(
+    collection(db, INVENTORY),
+    (snap) => onChange(snap.docs.map(toItem)),
+    (err) => {
+      console.warn('[inventory] listener error:', err);
+      onError?.(err as Error);
+    }
+  );
 }
 
-export async function updateItemQuantity(id: string, quantity: number): Promise<InventoryItem> {
-  // TODO: PATCH /api/inventory/:id  { quantity }
-  throw new Error('updateItemQuantity: not yet connected to backend');
+export async function adjustQuantity(id: string, delta: number): Promise<void> {
+  await updateDoc(doc(db, INVENTORY, id), { quantity: increment(delta) });
 }
 
-export async function transferItem(
-  id: string,
-  from: 'warehouse' | 'vehicle',
-  to: 'warehouse' | 'vehicle'
-): Promise<InventoryItem> {
-  // TODO: POST /api/inventory/:id/transfer  { from, to }
-  throw new Error('transferItem: not yet connected to backend');
+export async function setLocation(id: string, location: ItemLocation): Promise<void> {
+  await updateDoc(doc(db, INVENTORY, id), { location });
+}
+
+/** Dev convenience: populate the collection from SEED_INVENTORY if it's empty. */
+export async function seedInventoryIfEmpty(): Promise<boolean> {
+  const snap = await getDocs(collection(db, INVENTORY));
+  if (!snap.empty) return false;
+  const batch = writeBatch(db);
+  SEED_INVENTORY.forEach((i) => batch.set(doc(collection(db, INVENTORY)), i));
+  await batch.commit();
+  return true;
 }

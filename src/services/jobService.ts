@@ -1,37 +1,83 @@
 /**
- * Job service — placeholder implementations.
- * Replace each function body with real API calls (Firebase / Supabase / REST)
- * when the backend is ready. Signatures and return types stay the same.
+ * Job service — backed by Cloud Firestore (collection: "jobs").
+ * Modular RN Firebase API.
  */
 
-import { Job, CreateJobPayload, UpdateJobStatusPayload } from '../types/job';
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  getDocs,
+  onSnapshot,
+  arrayUnion,
+  writeBatch,
+} from '@react-native-firebase/firestore';
+import { db } from './firebase';
+import { Job, JobStatus, CreateJobPayload } from '../types/job';
+import { SEED_JOBS } from './seedData';
 
-export async function fetchJobs(): Promise<Job[]> {
-  // TODO: GET /api/jobs  or  firestore.collection('jobs').get()
-  throw new Error('fetchJobs: not yet connected to backend');
+const JOBS = 'jobs';
+
+function toJob(snap: { id: string; data: () => any }): Job {
+  const d = snap.data();
+  return {
+    id: snap.id,
+    customerName: d.customerName ?? '',
+    address: d.address ?? '',
+    phone: d.phone ?? '',
+    description: d.description ?? '',
+    status: (d.status ?? 'awaiting') as JobStatus,
+    assignedTo: d.assignedTo ?? null,
+    createdAt: d.createdAt ?? new Date().toISOString(),
+    scheduledAt: d.scheduledAt ?? null,
+    notes: Array.isArray(d.notes) ? d.notes : [],
+    photos: Array.isArray(d.photos) ? d.photos : [],
+  };
 }
 
-export async function fetchJobById(id: string): Promise<Job> {
-  // TODO: GET /api/jobs/:id
-  throw new Error(`fetchJobById(${id}): not yet connected to backend`);
+/** Real-time subscription to all jobs. Returns an unsubscribe function. */
+export function subscribeToJobs(
+  onChange: (jobs: Job[]) => void,
+  onError?: (e: Error) => void
+): () => void {
+  return onSnapshot(
+    collection(db, JOBS),
+    (snap) => onChange(snap.docs.map(toJob)),
+    (err) => {
+      console.warn('[jobs] listener error:', err);
+      onError?.(err as Error);
+    }
+  );
 }
 
-export async function createJob(payload: CreateJobPayload): Promise<Job> {
-  // TODO: POST /api/jobs
-  throw new Error('createJob: not yet connected to backend');
+export async function createJob(payload: CreateJobPayload): Promise<void> {
+  await addDoc(collection(db, JOBS), {
+    ...payload,
+    createdAt: new Date().toISOString(),
+    notes: [],
+    photos: [],
+  });
 }
 
-export async function updateJobStatus(payload: UpdateJobStatusPayload): Promise<Job> {
-  // TODO: PATCH /api/jobs/:id  { status }
-  throw new Error('updateJobStatus: not yet connected to backend');
+export async function updateJobStatus(id: string, status: JobStatus): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), { status });
 }
 
 export async function addJobNote(id: string, note: string): Promise<void> {
-  // TODO: POST /api/jobs/:id/notes
-  throw new Error('addJobNote: not yet connected to backend');
+  await updateDoc(doc(db, JOBS, id), { notes: arrayUnion(note) });
 }
 
-export async function uploadJobPhoto(id: string, localUri: string): Promise<string> {
-  // TODO: upload to Firebase Storage / Supabase Storage, return remote URL
-  throw new Error('uploadJobPhoto: not yet connected to backend');
+export async function addJobPhoto(id: string, uri: string): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), { photos: arrayUnion(uri) });
+}
+
+/** Dev convenience: populate the collection from SEED_JOBS if it's empty. */
+export async function seedJobsIfEmpty(): Promise<boolean> {
+  const snap = await getDocs(collection(db, JOBS));
+  if (!snap.empty) return false;
+  const batch = writeBatch(db);
+  SEED_JOBS.forEach((j) => batch.set(doc(collection(db, JOBS)), j));
+  await batch.commit();
+  return true;
 }

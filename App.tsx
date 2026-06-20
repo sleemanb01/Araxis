@@ -6,6 +6,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
 import { useAuthStore } from './src/store/useAuthStore';
+import { useJobStore } from './src/store/useJobStore';
+import { useInventoryStore } from './src/store/useInventoryStore';
 import { subscribeToAuth } from './src/services/authService';
 import { initAppCheck } from './src/services/appCheck';
 import { Colors } from './src/constants/colors';
@@ -30,6 +32,17 @@ export default function App() {
     });
     return unsubscribe;
   }, [setUser, setInitializing]);
+
+  // Start/stop Firestore subscriptions with the auth session.
+  useEffect(() => {
+    if (user) {
+      useJobStore.getState().init();
+      useInventoryStore.getState().init();
+    } else {
+      useJobStore.getState().teardown();
+      useInventoryStore.getState().teardown();
+    }
+  }, [user]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
