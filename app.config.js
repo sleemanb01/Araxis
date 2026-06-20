@@ -21,7 +21,7 @@ module.exports = () => ({
     },
     ios: {
       supportsTablet: false,
-      bundleIdentifier: 'com.araxis.app',
+      bundleIdentifier: 'com.sleemanb01.araxis',
       googleServicesFile:
         process.env.GOOGLE_SERVICES_PLIST ?? './GoogleService-Info.plist',
       // APNs entitlement + background mode are required for Firebase phone auth
@@ -39,7 +39,7 @@ module.exports = () => ({
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#000000',
       },
-      package: 'com.araxis.app',
+      package: 'com.sleemanb01.araxis',
       googleServicesFile:
         process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     },
