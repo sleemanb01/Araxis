@@ -8,7 +8,7 @@
 
 module.exports = () => ({
   expo: {
-    name: 'Araxis',
+    name: 'Mima',
     slug: 'araxis',
     version: '1.0.0',
     orientation: 'portrait',
