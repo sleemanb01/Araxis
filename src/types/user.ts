@@ -17,6 +17,7 @@ export interface SocialLinks {
   instagram?: string;
   facebook?: string;
   tiktok?: string;
+  whatsapp?: string;
 }
 
 export interface ProviderProfile extends BaseProfile {

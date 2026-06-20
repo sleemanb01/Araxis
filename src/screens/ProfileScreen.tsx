@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { useAuthStore } from '../store/useAuthStore';
@@ -8,18 +10,22 @@ import { signOutUser } from '../services/authService';
 import { subscribeToReviews, summarize } from '../services/reviewService';
 import { StarRating } from '../components/StarRating';
 import { Review } from '../types/review';
+import type { RootStackParamList } from '../navigation/types';
 
-type Platform = 'instagram' | 'facebook' | 'tiktok';
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+type Platform = 'instagram' | 'facebook' | 'tiktok' | 'whatsapp';
 
 const SOCIAL_LABEL: Record<Platform, string> = {
   instagram: 'אינסטגרם',
   facebook: 'פייסבוק',
   tiktok: 'טיקטוק',
+  whatsapp: 'וואטסאפ',
 };
 
 function socialUrl(platform: Platform, value?: string): string | null {
   if (!value) return null;
   if (value.startsWith('http')) return value;
+  if (platform === 'whatsapp') return `https://wa.me/${value.replace(/\D/g, '')}`;
   const handle = value.replace(/^@/, '');
   if (platform === 'instagram') return `https://instagram.com/${handle}`;
   if (platform === 'facebook') return `https://facebook.com/${handle}`;
@@ -37,6 +43,7 @@ function SocialButton({ platform, value, color }: { platform: Platform; value?: 
 }
 
 export function ProfileScreen() {
+  const navigation = useNavigation<Nav>();
   const user = useAuthStore((s) => s.user);
   const profile = useAuthStore((s) => s.profile);
 
@@ -57,7 +64,12 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>פרופיל</Text>
+        <View style={styles.titleRow}>
+          <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
+            <Text style={[styles.editLink, { color: accent }]}>ערוך</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>פרופיל</Text>
+        </View>
 
         {/* Avatar / logo */}
         {isProvider && profile.logoUrl ? (
@@ -92,6 +104,7 @@ export function ProfileScreen() {
             <SocialButton platform="instagram" value={profile.links.instagram} color={accent} />
             <SocialButton platform="facebook" value={profile.links.facebook} color={accent} />
             <SocialButton platform="tiktok" value={profile.links.tiktok} color={accent} />
+            <SocialButton platform="whatsapp" value={profile.links.whatsapp} color={accent} />
           </View>
         )}
 
@@ -129,11 +142,12 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { alignItems: 'center', paddingBottom: Layout.tabBarHeight + 24 },
-  title: {
-    fontSize: 22, fontWeight: '700', color: Colors.textPrimary,
-    paddingHorizontal: Layout.screenPadding, paddingTop: 10, paddingBottom: 20,
-    width: '100%', textAlign: 'right',
+  titleRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    width: '100%', paddingHorizontal: Layout.screenPadding, paddingTop: 10, paddingBottom: 20,
   },
+  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  editLink: { fontSize: 15, fontWeight: '700' },
   logo: { width: 88, height: 88, borderRadius: 20, marginBottom: 12 },
   avatarCircle: {
     width: 80, height: 80, borderRadius: 40,

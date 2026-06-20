@@ -34,6 +34,7 @@ export function ProviderRegisterScreen() {
   const [instagram, setInstagram] = useState('');
   const [facebook, setFacebook] = useState('');
   const [tiktok, setTiktok] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [saving, setSaving] = useState(false);
 
   function toggleService(s: string) {
@@ -77,10 +78,11 @@ export function ProviderRegisterScreen() {
     setSaving(true);
     try {
       const logoUrl = await uploadLogo(user.uid, logoUri!);
-      const links: { instagram?: string; facebook?: string; tiktok?: string } = {};
+      const links: { instagram?: string; facebook?: string; tiktok?: string; whatsapp?: string } = {};
       if (instagram.trim()) links.instagram = instagram.trim();
       if (facebook.trim()) links.facebook = facebook.trim();
       if (tiktok.trim()) links.tiktok = tiktok.trim();
+      if (whatsapp.trim()) links.whatsapp = whatsapp.trim();
 
       const profile = {
         uid: user.uid,
@@ -166,6 +168,7 @@ export function ProviderRegisterScreen() {
         <Field label="אינסטגרם" value={instagram} onChange={setInstagram} placeholder="@username או קישור" />
         <Field label="פייסבוק" value={facebook} onChange={setFacebook} placeholder="@username או קישור" />
         <Field label="טיקטוק" value={tiktok} onChange={setTiktok} placeholder="@username או קישור" />
+        <Field label="וואטסאפ" value={whatsapp} onChange={setWhatsapp} placeholder="מספר טלפון" />
 
         <CustomButton
           label="סיום הרשמה"

@@ -5,6 +5,7 @@ export type RootStackParamList = {
   NewJob:          undefined;
   Warehouse:       undefined;
   AddReview:       { providerId: string; providerName: string };
+  EditProfile:     undefined;
 };
 
 export type AuthStackParamList = {

@@ -3,7 +3,7 @@
  * plus logo upload to Firebase Storage. Modular RN Firebase API.
  */
 
-import { doc, getDoc, setDoc, onSnapshot } from '@react-native-firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } from '@react-native-firebase/firestore';
 import { getApp } from '@react-native-firebase/app';
 import { getStorage, ref, putFile, getDownloadURL } from '@react-native-firebase/storage';
 import { db } from './firebase';
@@ -38,6 +38,17 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
 
 export async function createProfile(profile: UserProfile): Promise<void> {
   await setDoc(doc(db, USERS, profile.uid), profile);
+}
+
+export async function updateProfile(
+  uid: string,
+  data: Partial<UserProfile>
+): Promise<void> {
+  await updateDoc(doc(db, USERS, uid), data as { [k: string]: any });
+}
+
+export async function deleteUserDoc(uid: string): Promise<void> {
+  await deleteDoc(doc(db, USERS, uid));
 }
 
 /** Upload a local image (file:// uri) as the provider's logo; returns its URL. */
