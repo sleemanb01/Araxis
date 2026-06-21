@@ -4,6 +4,7 @@ import { TabNavigator }             from './TabNavigator';
 import { JobCoordinationScreen }    from '../screens/JobCoordinationScreen';
 import { JobExecutionScreen }       from '../screens/JobExecutionScreen';
 import { NewJobScreen }             from '../screens/NewJobScreen';
+import { NewRequestScreen }         from '../screens/customer/NewRequestScreen';
 import { WarehouseScreen }          from '../screens/WarehouseScreen';
 import { ScanScreen }               from '../screens/ScanScreen';
 import { ItemEditorScreen }         from '../screens/ItemEditorScreen';
@@ -30,6 +31,7 @@ export function RootNavigator() {
       <Stack.Screen name="JobCoordination"  component={JobCoordinationScreen} options={{ title: 'תיאום משימה' }} />
       <Stack.Screen name="JobExecution"     component={JobExecutionScreen}    options={{ title: 'ביצוע משימה' }} />
       <Stack.Screen name="NewJob"           component={NewJobScreen}          options={{ title: 'משימה חדשה', presentation: 'modal' }} />
+      <Stack.Screen name="NewRequest"       component={NewRequestScreen}      options={{ title: 'קריאת שירות חדשה', presentation: 'modal' }} />
       <Stack.Screen name="Warehouse"        component={WarehouseScreen}       options={{ title: 'מחסן' }} />
       <Stack.Screen name="Scan"             component={ScanScreen}            options={{ headerShown: false, presentation: 'fullScreenModal' }} />
       <Stack.Screen name="ItemEditor"       component={ItemEditorScreen}      options={{ title: 'פריט', presentation: 'modal' }} />

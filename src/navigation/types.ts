@@ -3,6 +3,7 @@ export type RootStackParamList = {
   JobCoordination: { jobId: string };
   JobExecution:    { jobId: string };
   NewJob:          undefined;
+  NewRequest:      undefined;
   Warehouse:       undefined;
   Scan:            undefined;
   ItemEditor:      { barcode: string };
@@ -23,8 +24,9 @@ export type RegisterStackParamList = {
 };
 
 export type TabParamList = {
-  JobPool:   undefined;
-  MyJobs:    undefined;
-  Warehouse: undefined;
-  Profile:   undefined;
+  JobPool:    undefined;
+  MyJobs:     undefined;
+  Warehouse:  undefined;
+  MyRequests: undefined;
+  Profile:    undefined;
 };

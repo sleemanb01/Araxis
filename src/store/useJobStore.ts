@@ -22,6 +22,7 @@ interface JobStore {
   getFilteredJobs: (filter?: JobStatus | 'all') => Job[];
   getMyJobs: (techId: string) => Job[];
   getPoolJobs: () => Job[];
+  getMyRequests: (customerId: string) => Job[];
 }
 
 export const useJobStore = create<JobStore>((set, get) => ({
@@ -69,4 +70,6 @@ export const useJobStore = create<JobStore>((set, get) => ({
   getMyJobs: (techId) => get().jobs.filter((j) => j.assignedTo === techId),
 
   getPoolJobs: () => get().jobs.filter((j) => j.assignedTo === null),
+
+  getMyRequests: (customerId) => get().jobs.filter((j) => j.customerId === customerId),
 }));
