@@ -31,7 +31,8 @@
     "production": {
       "ios": {
         "appleId": "sleeman.nabwani@gmail.com",
-        "appleTeamId": "89F5K29LBN"
+        "appleTeamId": "89F5K29LBN",
+        "ascAppId": "6782345078"
       }
     }
   }
