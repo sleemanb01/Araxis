@@ -3,31 +3,33 @@ import {
   InventoryItem,
   ItemLocation,
   CreateInventoryPayload,
+  qtyAt,
+  isLowStock,
 } from '../types/inventory';
 import * as inventoryService from '../services/inventoryService';
 
 interface InventoryStore {
   items: InventoryItem[];
   loading: boolean;
-  lastScanned: InventoryItem | null;
   _unsub: (() => void) | null;
 
   init: () => Promise<void>;
   teardown: () => void;
 
   findByBarcode: (barcode: string) => InventoryItem | undefined;
-  setLastScanned: (item: InventoryItem | null) => void;
-  updateQuantity: (id: string, delta: number) => Promise<void>;
   addItem: (payload: CreateInventoryPayload) => Promise<void>;
   updateItem: (id: string, patch: Partial<InventoryItem>) => Promise<void>;
-  setLocation: (id: string, location: ItemLocation) => Promise<void>;
+  adjust: (id: string, location: ItemLocation, delta: number) => Promise<void>;
+  transfer: (id: string, qty: number, direction: 'toVehicle' | 'toWarehouse') => Promise<void>;
+
   getCategories: () => string[];
+  itemsAt: (location: ItemLocation) => InventoryItem[];
+  lowStock: () => InventoryItem[];
 }
 
 export const useInventoryStore = create<InventoryStore>((set, get) => ({
   items: [],
   loading: true,
-  lastScanned: null,
   _unsub: null,
 
   init: async () => {
@@ -52,18 +54,17 @@ export const useInventoryStore = create<InventoryStore>((set, get) => ({
 
   findByBarcode: (barcode) => get().items.find((i) => i.barcode === barcode),
 
-  setLastScanned: (item) => set({ lastScanned: item }),
-
   // Writes go to Firestore; the realtime listener updates local state.
-  updateQuantity: (id, delta) => inventoryService.adjustQuantity(id, delta),
   addItem: (payload) => inventoryService.createInventoryItem(payload),
   updateItem: (id, patch) => inventoryService.updateInventoryItem(id, patch),
-  setLocation: (id, location) => inventoryService.setLocation(id, location),
+  adjust: (id, location, delta) => inventoryService.adjustQuantity(id, location, delta),
+  transfer: (id, qty, direction) => inventoryService.transfer(id, qty, direction),
 
-  // Distinct, non-empty category names (sorted) — the "existing categories"
-  // source for the editor. Typing a new one and saving auto-adds it here.
   getCategories: () =>
     Array.from(
       new Set(get().items.map((i) => i.category).filter((c) => c.trim() !== ''))
     ).sort((a, b) => a.localeCompare(b, 'he')),
+
+  itemsAt: (location) => get().items.filter((i) => qtyAt(i, location) > 0),
+  lowStock: () => get().items.filter(isLowStock),
 }));

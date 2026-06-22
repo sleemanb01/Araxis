@@ -1,5 +1,6 @@
 /**
- * Inventory service — backed by Cloud Firestore (collection: "inventory").
+ * Inventory service — Cloud Firestore (collection: "inventory").
+ * Each product holds stock in two places: warehouseQty + vehicleQty.
  * Modular RN Firebase API.
  */
 
@@ -25,15 +26,29 @@ const INVENTORY = 'inventory';
 
 function toItem(snap: { id: string; data: () => any }): InventoryItem {
   const d = snap.data();
+  // Back-compat: older docs stored a single `quantity` + `location`.
+  let warehouseQty: number | undefined =
+    typeof d.warehouseQty === 'number' ? d.warehouseQty : undefined;
+  let vehicleQty: number | undefined =
+    typeof d.vehicleQty === 'number' ? d.vehicleQty : undefined;
+  if (warehouseQty === undefined && vehicleQty === undefined) {
+    const q = typeof d.quantity === 'number' ? d.quantity : 0;
+    const onVehicle = d.location === 'vehicle';
+    warehouseQty = onVehicle ? 0 : q;
+    vehicleQty = onVehicle ? q : 0;
+  }
   return {
     id: snap.id,
     barcode: d.barcode ?? '',
     name: d.name ?? '',
-    quantity: typeof d.quantity === 'number' ? d.quantity : 0,
-    location: (d.location ?? 'warehouse') as ItemLocation,
     category: d.category ?? '',
+    warehouseQty: warehouseQty ?? 0,
+    vehicleQty: vehicleQty ?? 0,
   };
 }
+
+const fieldFor = (loc: ItemLocation) =>
+  loc === 'warehouse' ? 'warehouseQty' : 'vehicleQty';
 
 /** Real-time subscription to inventory. Returns an unsubscribe function. */
 export function subscribeToInventory(
@@ -50,12 +65,27 @@ export function subscribeToInventory(
   );
 }
 
-export async function adjustQuantity(id: string, delta: number): Promise<void> {
-  await updateDoc(doc(db, INVENTORY, id), { quantity: increment(delta) });
+/** Adjust the stock in one location by a (possibly negative) delta. */
+export async function adjustQuantity(
+  id: string,
+  location: ItemLocation,
+  delta: number
+): Promise<void> {
+  await updateDoc(doc(db, INVENTORY, id), { [fieldFor(location)]: increment(delta) });
 }
 
-export async function setLocation(id: string, location: ItemLocation): Promise<void> {
-  await updateDoc(doc(db, INVENTORY, id), { location });
+/** Atomically move `qty` units between locations in a single write. */
+export async function transfer(
+  id: string,
+  qty: number,
+  direction: 'toVehicle' | 'toWarehouse'
+): Promise<void> {
+  if (qty <= 0) return;
+  const toVehicle = direction === 'toVehicle';
+  await updateDoc(doc(db, INVENTORY, id), {
+    warehouseQty: increment(toVehicle ? -qty : qty),
+    vehicleQty: increment(toVehicle ? qty : -qty),
+  });
 }
 
 export async function createInventoryItem(

@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { useInventoryStore } from '../store/useInventoryStore';
@@ -18,6 +19,28 @@ import { ItemLocation } from '../types/inventory';
 import type { RootStackParamList } from '../navigation/types';
 
 type RouteP = RouteProp<RootStackParamList, 'ItemEditor'>;
+
+function Stepper({
+  value,
+  onChange,
+  min = 0,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+}) {
+  return (
+    <View style={styles.stepper}>
+      <TouchableOpacity style={styles.stepBtn} onPress={() => onChange(Math.max(min, value - 1))}>
+        <Ionicons name="remove" size={16} color={Colors.textPrimary} />
+      </TouchableOpacity>
+      <Text style={styles.stepQty}>{value}</Text>
+      <TouchableOpacity style={[styles.stepBtn, styles.stepBtnPlus]} onPress={() => onChange(value + 1)}>
+        <Ionicons name="add" size={16} color="#FFFFFF" />
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export function ItemEditorScreen() {
   const navigation = useNavigation();
@@ -29,16 +52,17 @@ export function ItemEditorScreen() {
   const updateItem = useInventoryStore((s) => s.updateItem);
   const getCategories = useInventoryStore((s) => s.getCategories);
 
-  // Resolved once at mount: edit if the barcode already exists, else create.
   const existing = useMemo(() => findByBarcode(barcode), [findByBarcode, barcode]);
+  const categories = useMemo(() => getCategories(), [getCategories]);
 
   const [name, setName] = useState(existing?.name ?? '');
-  const [quantity, setQuantity] = useState(String(existing?.quantity ?? 1));
   const [category, setCategory] = useState(existing?.category ?? '');
-  const [location, setLocation] = useState<ItemLocation>(existing?.location ?? 'warehouse');
+  // Edit mode: track both locations. Create mode: pick one location + qty.
+  const [warehouseQty, setWarehouseQty] = useState(existing?.warehouseQty ?? 0);
+  const [vehicleQty, setVehicleQty] = useState(existing?.vehicleQty ?? 0);
+  const [location, setLocation] = useState<ItemLocation>('warehouse');
+  const [qty, setQty] = useState(1);
   const [saving, setSaving] = useState(false);
-
-  const categories = useMemo(() => getCategories(), [getCategories]);
 
   async function handleSave() {
     const trimmedName = name.trim();
@@ -46,26 +70,22 @@ export function ItemEditorScreen() {
       Alert.alert('שגיאה', 'יש להזין שם פריט.');
       return;
     }
-    const parsed = parseInt(quantity, 10);
-    const safeQty = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-    const trimmedCategory = category.trim();
-
     setSaving(true);
     try {
       if (existing) {
         await updateItem(existing.id, {
           name: trimmedName,
-          quantity: safeQty,
-          category: trimmedCategory,
-          location,
+          category: category.trim(),
+          warehouseQty,
+          vehicleQty,
         });
       } else {
         await addItem({
           barcode,
           name: trimmedName,
-          quantity: safeQty,
-          category: trimmedCategory,
-          location,
+          category: category.trim(),
+          warehouseQty: location === 'warehouse' ? qty : 0,
+          vehicleQty: location === 'vehicle' ? qty : 0,
         });
       }
       navigation.goBack();
@@ -83,6 +103,7 @@ export function ItemEditorScreen() {
 
         <Text style={styles.label}>ברקוד</Text>
         <View style={styles.barcodeBox}>
+          <Ionicons name="barcode-outline" size={17} color={Colors.textSecondary} />
           <Text style={styles.barcodeText}>{barcode}</Text>
         </View>
 
@@ -93,15 +114,6 @@ export function ItemEditorScreen() {
           onChangeText={setName}
           placeholder="לדוגמה: פילטר אוויר"
           placeholderTextColor={Colors.textSecondary}
-          textAlign="right"
-        />
-
-        <Text style={styles.label}>כמות</Text>
-        <TextInput
-          style={styles.input}
-          value={quantity}
-          onChangeText={setQuantity}
-          keyboardType="number-pad"
           textAlign="right"
         />
 
@@ -131,28 +143,47 @@ export function ItemEditorScreen() {
           </View>
         )}
 
-        <Text style={styles.label}>מיקום</Text>
-        <View style={styles.segment}>
-          <TouchableOpacity
-            style={[styles.segmentBtn, location === 'warehouse' && styles.segmentActive]}
-            onPress={() => setLocation('warehouse')}
-          >
-            <Text style={[styles.segmentText, location === 'warehouse' && styles.segmentTextActive]}>
-              מחסן
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.segmentBtn, location === 'vehicle' && styles.segmentActiveVehicle]}
-            onPress={() => setLocation('vehicle')}
-          >
-            <Text style={[styles.segmentText, location === 'vehicle' && styles.segmentTextActive]}>
-              רכב
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {existing ? (
+          <>
+            <Text style={styles.label}>כמות במלאי</Text>
+            <View style={styles.qtyRow}>
+              <Text style={styles.qtyLoc}>מחסן</Text>
+              <Stepper value={warehouseQty} onChange={setWarehouseQty} />
+            </View>
+            <View style={styles.qtyRow}>
+              <Text style={styles.qtyLoc}>רכב</Text>
+              <Stepper value={vehicleQty} onChange={setVehicleQty} />
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>מיקום</Text>
+            <View style={styles.segment}>
+              {(['warehouse', 'vehicle'] as ItemLocation[]).map((loc) => {
+                const active = location === loc;
+                return (
+                  <TouchableOpacity
+                    key={loc}
+                    style={[styles.segBtn, active && styles.segBtnActive]}
+                    onPress={() => setLocation(loc)}
+                  >
+                    <Text style={[styles.segText, active && styles.segTextActive]}>
+                      {loc === 'warehouse' ? 'מחסן' : 'רכב'}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <Text style={styles.label}>כמות</Text>
+            <View style={styles.qtyRow}>
+              <Text style={styles.qtyLoc}>{location === 'warehouse' ? 'מחסן' : 'רכב'}</Text>
+              <Stepper value={qty} onChange={setQty} min={1} />
+            </View>
+          </>
+        )}
 
         <CustomButton
-          label={existing ? 'שמור שינויים' : 'הוסף פריט'}
+          label={existing ? 'שמור שינויים' : 'הוסף למלאי'}
           onPress={handleSave}
           loading={saving}
           style={{ marginTop: 24 }}
@@ -184,7 +215,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'right',
     marginBottom: 6,
-    marginTop: 12,
+    marginTop: 14,
   },
   input: {
     backgroundColor: Colors.surface,
@@ -197,25 +228,17 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   barcodeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'flex-end',
     backgroundColor: Colors.border + '60',
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  barcodeText: {
-    fontSize: 15,
-    color: Colors.textPrimary,
-    textAlign: 'right',
-    fontWeight: '600',
-    letterSpacing: 1,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 10,
-    justifyContent: 'flex-end',
-  },
+  barcodeText: { fontSize: 15, color: Colors.textPrimary, fontWeight: '600', letterSpacing: 1 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10, justifyContent: 'flex-end' },
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -224,10 +247,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
-  chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { fontSize: 13, color: Colors.textPrimary },
   chipTextActive: { color: '#FFFFFF', fontWeight: '600' },
   segment: {
@@ -237,14 +257,33 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     overflow: 'hidden',
   },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 12,
+  segBtn: { flex: 1, paddingVertical: 11, alignItems: 'center', backgroundColor: Colors.surface },
+  segBtnActive: { backgroundColor: Colors.primary },
+  segText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
+  segTextActive: { color: '#FFFFFF' },
+  qtyRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
   },
-  segmentActive: { backgroundColor: Colors.primary },
-  segmentActiveVehicle: { backgroundColor: '#F97316' },
-  segmentText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
-  segmentTextActive: { color: '#FFFFFF' },
+  qtyLoc: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepBtnPlus: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  stepQty: { fontSize: 17, fontWeight: '700', minWidth: 24, textAlign: 'center', color: Colors.textPrimary },
 });

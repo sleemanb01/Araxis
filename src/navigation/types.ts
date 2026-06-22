@@ -7,6 +7,7 @@ export type RootStackParamList = {
   Warehouse:       undefined;
   Scan:            undefined;
   ItemEditor:      { barcode: string };
+  Transfer:        undefined;
   AddReview:       { providerId: string; providerName: string };
   EditProfile:     undefined;
   EditLink:        { platform: import('../utils/social').SocialPlatform };

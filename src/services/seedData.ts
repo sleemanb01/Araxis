@@ -72,11 +72,11 @@ export const SEED_JOBS: Omit<Job, 'id'>[] = [
 ];
 
 export const SEED_INVENTORY: Omit<InventoryItem, 'id'>[] = [
-  { barcode: '7290000000001', name: 'פילטר אוויר 12"',   quantity: 8,  location: 'warehouse', category: 'פילטרים' },
-  { barcode: '7290000000002', name: 'גז פריאון R410A',    quantity: 3,  location: 'warehouse', category: 'גז'      },
-  { barcode: '7290000000003', name: 'שלט אוניברסלי',      quantity: 12, location: 'warehouse', category: 'אביזרים' },
-  { barcode: '7290000000004', name: 'חיבור נחושת 1/4"',   quantity: 50, location: 'vehicle',   category: 'אביזרים' },
-  { barcode: '7290000000005', name: 'תרמוסטט דיגיטלי',    quantity: 5,  location: 'vehicle',   category: 'חשמל'    },
+  { barcode: '7290000000001', name: 'פילטר אוויר 12"',   category: 'פילטרים', warehouseQty: 8,  vehicleQty: 3  },
+  { barcode: '7290000000002', name: 'גז פריאון R410A',    category: 'גז',      warehouseQty: 2,  vehicleQty: 1  },
+  { barcode: '7290000000003', name: 'שלט אוניברסלי',      category: 'אביזרים', warehouseQty: 12, vehicleQty: 0  },
+  { barcode: '7290000000004', name: 'חיבור נחושת 1/4"',   category: 'אביזרים', warehouseQty: 50, vehicleQty: 10 },
+  { barcode: '7290000000005', name: 'תרמוסטט דיגיטלי',    category: 'חשמל',    warehouseQty: 5,  vehicleQty: 0  },
 ];
 
 // createdAt + createdBy are stamped at seed time by customerService.
