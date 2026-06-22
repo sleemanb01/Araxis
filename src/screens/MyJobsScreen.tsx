@@ -75,7 +75,7 @@ export function MyJobsScreen() {
           data={visibleJobs}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <JobCard job={item} onPress={handleJobPress} />
+            <JobCard job={item} onPress={handleJobPress} canCall />
           )}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}

@@ -1,44 +1,86 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Job } from '../types/job';
-import { StatusColors } from '../constants/colors';
+import { StatusColors, Colors } from '../constants/colors';
 import { StatusBadge } from './StatusBadge';
-import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
+import { navigateToAddress } from '../utils/navigation';
 
 interface Props {
   job: Job;
   onPress: (job: Job) => void;
+  /** Provider screens pass true to show a "call customer" button on same-day jobs. */
+  canCall?: boolean;
 }
 
-export function JobCard({ job, onPress }: Props) {
-  const accentColor = StatusColors[job.status];
+function isToday(iso: string | null): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  const n = new Date();
+  return (
+    d.getFullYear() === n.getFullYear() &&
+    d.getMonth() === n.getMonth() &&
+    d.getDate() === n.getDate()
+  );
+}
+
+export function JobCard({ job, onPress, canCall = false }: Props) {
+  const color = StatusColors[job.status];
+  const showCall = canCall && isToday(job.scheduledAt) && !!job.phone;
 
   return (
-    <TouchableOpacity
-      style={[styles.card, { borderStartColor: accentColor }]}
-      onPress={() => onPress(job)}
-      activeOpacity={0.8}
-    >
-      <View style={styles.header}>
-        <Text style={styles.customerName}>{job.customerName}</Text>
-        <StatusBadge status={job.status} />
-      </View>
+    <TouchableOpacity style={styles.card} onPress={() => onPress(job)} activeOpacity={0.85}>
+      {/* Status-colored edge on the info side */}
+      <View style={[styles.edge, { backgroundColor: color }]} />
 
-      <Text style={styles.address} numberOfLines={1}>
-        {job.address}
-      </Text>
-
-      <Text style={styles.description} numberOfLines={2}>
-        {job.description}
-      </Text>
-
-      <View style={styles.footer}>
-        <Text style={styles.phone}>{job.phone}</Text>
-        {job.scheduledAt && (
-          <Text style={styles.date}>
-            {new Date(job.scheduledAt).toLocaleDateString('he-IL')}
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.name} numberOfLines={1}>
+            {job.customerName}
           </Text>
+          <StatusBadge status={job.status} />
+        </View>
+
+        {!!job.description && (
+          <Text style={styles.description} numberOfLines={2}>
+            {job.description}
+          </Text>
+        )}
+
+        {/* Tap the address to navigate (Waze / Google Maps) */}
+        <TouchableOpacity
+          style={styles.row}
+          onPress={() => navigateToAddress(job.address)}
+          activeOpacity={0.6}
+        >
+          <Ionicons name="location-outline" size={15} color={Colors.primary} />
+          <Text style={styles.address} numberOfLines={1}>
+            {job.address}
+          </Text>
+        </TouchableOpacity>
+
+        {!!job.scheduledAt && (
+          <View style={styles.row}>
+            <Ionicons name="time-outline" size={14} color={Colors.textSecondary} />
+            <Text style={styles.meta}>
+              {new Date(job.scheduledAt).toLocaleString('he-IL', {
+                dateStyle: 'short',
+                timeStyle: 'short',
+              })}
+            </Text>
+          </View>
+        )}
+
+        {showCall && (
+          <TouchableOpacity
+            style={styles.callBtn}
+            onPress={() => Linking.openURL(`tel:${job.phone}`)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="call" size={16} color="#FFFFFF" />
+            <Text style={styles.callText}>התקשר ללקוח</Text>
+          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -47,18 +89,23 @@ export function JobCard({ job, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
     backgroundColor: Colors.surface,
     borderRadius: Layout.cardBorderRadius,
-    padding: Layout.cardPadding,
     marginBottom: 12,
-    borderStartWidth: 4,
-    // Shadow — iOS
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 6,
-    // Shadow — Android
     elevation: 2,
+  },
+  edge: {
+    width: 5,
+  },
+  content: {
+    flex: 1,
+    padding: Layout.cardPadding,
   },
   header: {
     flexDirection: 'row',
@@ -66,7 +113,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
-  customerName: {
+  name: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
@@ -74,30 +121,43 @@ const styles = StyleSheet.create({
     marginEnd: 8,
     textAlign: 'right',
   },
-  address: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 4,
-    textAlign: 'right',
-  },
   description: {
     fontSize: 14,
-    color: Colors.textPrimary,
-    marginBottom: 10,
+    color: Colors.textSecondary,
+    marginBottom: 8,
     lineHeight: 20,
     textAlign: 'right',
   },
-  footer: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
   },
-  phone: {
+  address: {
     fontSize: 13,
-    color: Colors.textSecondary,
+    color: Colors.textPrimary,
+    flex: 1,
+    textAlign: 'right',
   },
-  date: {
+  meta: {
     fontSize: 12,
     color: Colors.textSecondary,
+  },
+  callBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 7,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginTop: 12,
+  },
+  callText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

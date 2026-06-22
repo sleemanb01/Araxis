@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { JobPoolScreen }    from '../screens/JobPoolScreen';
 import { MyJobsScreen }     from '../screens/MyJobsScreen';
@@ -13,12 +13,12 @@ import { TabParamList }     from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
-const TAB_ICONS: Record<keyof TabParamList, string> = {
-  JobPool:    '📋',
-  MyJobs:     '🔧',
-  Warehouse:  '📦',
-  MyRequests: '🛎',
-  Profile:    '👤',
+const TAB_ICONS: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
+  JobPool:    'grid-outline',
+  MyJobs:     'construct-outline',
+  Warehouse:  'cube-outline',
+  MyRequests: 'clipboard-outline',
+  Profile:    'person-outline',
 };
 
 const TAB_LABELS: Record<keyof TabParamList, string> = {
@@ -51,10 +51,12 @@ export function TabNavigator() {
           fontWeight: '600',
           paddingBottom: 4,
         },
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.55 }}>
-            {TAB_ICONS[route.name as keyof TabParamList]}
-          </Text>
+        tabBarIcon: ({ color }) => (
+          <Ionicons
+            name={TAB_ICONS[route.name as keyof TabParamList]}
+            size={22}
+            color={color}
+          />
         ),
         tabBarLabel: TAB_LABELS[route.name as keyof TabParamList],
       })}
