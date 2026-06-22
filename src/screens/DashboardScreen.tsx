@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -27,29 +27,32 @@ export function DashboardScreen() {
   const jobs = useJobStore((s) => s.jobs);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
+  const [owedOpen, setOwedOpen] = useState(false);
 
   const mine = useMemo(() => jobs.filter((j) => j.assignedTo === uid), [jobs, uid]);
   const active = useMemo(() => mine.filter((j) => j.status !== 'completed'), [mine]);
   const completed = useMemo(() => mine.filter((j) => j.status === 'completed'), [mine]);
-  // Income from completed work: total, this month, and split by payment status.
+  // Revenue from all assigned jobs, based on the actual amount paid.
   const income = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth();
-    const sum = (arr: Job[]) => arr.reduce((s, j) => s + (j.price ?? 0), 0);
-    const thisMonth = completed.filter((j) => {
-      if (!j.completionDate) return false;
-      const d = new Date(j.completionDate);
-      return d.getFullYear() === y && d.getMonth() === m;
-    });
-    return {
-      total: sum(completed),
-      month: sum(thisMonth),
-      paid: sum(completed.filter((j) => j.paymentStatus === 'paid')),
-      partial: sum(completed.filter((j) => j.paymentStatus === 'partial')),
-      unpaid: sum(completed.filter((j) => (j.paymentStatus ?? 'unpaid') === 'unpaid')),
-    };
-  }, [completed]);
+    const collected = mine.reduce((s, j) => s + (j.paidAmount ?? 0), 0);
+    const owed = mine.reduce((s, j) => s + Math.max(0, (j.price ?? 0) - (j.paidAmount ?? 0)), 0);
+    const expected = mine.reduce((s, j) => s + (j.price ?? 0), 0);
+    const month = mine.reduce((s, j) => {
+      if (!j.paidAt) return s;
+      const d = new Date(j.paidAt);
+      return d.getFullYear() === y && d.getMonth() === m ? s + (j.paidAmount ?? 0) : s;
+    }, 0);
+    return { total: collected, month, paid: collected, owed, expected };
+  }, [mine]);
+
+  // Jobs that still owe money (price greater than paid so far).
+  const unpaidJobs = useMemo(
+    () => mine.filter((j) => (j.price ?? 0) - (j.paidAmount ?? 0) > 0),
+    [mine]
+  );
 
   // Next 14 days, each with a count of my active jobs scheduled that day.
   const days = useMemo(() => {
@@ -95,15 +98,15 @@ export function DashboardScreen() {
         <View style={styles.payRow}>
           <View style={styles.payCell}>
             <Text style={[styles.payVal, { color: '#16A34A' }]}>₪{income.paid}</Text>
-            <Text style={styles.payLabel}>שולם</Text>
+            <Text style={styles.payLabel}>נגבה</Text>
           </View>
+          <TouchableOpacity style={styles.payCell} onPress={() => setOwedOpen(true)} activeOpacity={0.7}>
+            <Text style={[styles.payVal, { color: '#854F0B' }]}>₪{income.owed}</Text>
+            <Text style={styles.payLabel}>ממתין לתשלום ›</Text>
+          </TouchableOpacity>
           <View style={styles.payCell}>
-            <Text style={[styles.payVal, { color: '#854F0B' }]}>₪{income.partial}</Text>
-            <Text style={styles.payLabel}>ממתין לתשלום</Text>
-          </View>
-          <View style={styles.payCell}>
-            <Text style={[styles.payVal, { color: '#A32D2D' }]}>₪{income.unpaid}</Text>
-            <Text style={styles.payLabel}>לא שולם</Text>
+            <Text style={[styles.payVal, { color: Colors.textSecondary }]}>₪{income.expected}</Text>
+            <Text style={styles.payLabel}>שווי כולל</Text>
           </View>
         </View>
 
@@ -183,6 +186,58 @@ export function DashboardScreen() {
             ))
           ))}
       </ScrollView>
+
+      <Modal
+        visible={owedOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOwedOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>ממתין לתשלום · ₪{income.owed}</Text>
+              <TouchableOpacity
+                onPress={() => setOwedOpen(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {unpaidJobs.length === 0 ? (
+                <Text style={styles.modalEmpty}>אין חובות פתוחים.</Text>
+              ) : (
+                unpaidJobs.map((j) => {
+                  const remaining = (j.price ?? 0) - (j.paidAmount ?? 0);
+                  return (
+                    <TouchableOpacity
+                      key={j.id}
+                      style={styles.owedRow}
+                      onPress={() => {
+                        setOwedOpen(false);
+                        navigation.navigate('JobCoordination', { jobId: j.id });
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.owedInfo}>
+                        <Text style={styles.owedName} numberOfLines={1}>{j.customerName}</Text>
+                        <Text style={styles.owedSub}>
+                          שולם ₪{j.paidAmount ?? 0} מתוך ₪{j.price ?? 0}
+                        </Text>
+                      </View>
+                      <View style={styles.owedRemainingWrap}>
+                        <Text style={styles.owedRemaining}>₪{remaining}</Text>
+                        <Text style={styles.owedRemainingLabel}>נותר</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -270,4 +325,34 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   collapseTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 18,
+    paddingBottom: 28,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  modalEmpty: { textAlign: 'center', color: Colors.textSecondary, paddingVertical: 24, fontSize: 15 },
+  owedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
+  },
+  owedInfo: { flex: 1, minWidth: 0, marginEnd: 10 },
+  owedName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  owedSub: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
+  owedRemainingWrap: { alignItems: 'center' },
+  owedRemaining: { fontSize: 16, fontWeight: '700', color: '#854F0B' },
+  owedRemainingLabel: { fontSize: 11, color: Colors.textSecondary },
 });

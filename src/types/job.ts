@@ -19,7 +19,9 @@ export interface Job {
   createdAt: string;         // ISO date string
   scheduledAt: string | null;
   price?: number | null;          // optional quote/price in ₪
-  paymentStatus?: PaymentStatus;  // 'unpaid' (default) | 'partial' | 'paid'
+  paidAmount?: number | null;     // how much the customer has paid so far (₪)
+  paidAt?: string | null;         // ISO timestamp the latest payment was recorded
+  paymentStatus?: PaymentStatus;  // derived from paidAmount vs price
   completionDate?: string | null; // ISO timestamp set when the work was finished
   customerConfirmed?: boolean;    // customer acknowledged the work is done
   notes: string[];

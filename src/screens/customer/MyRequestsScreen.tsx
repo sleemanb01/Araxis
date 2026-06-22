@@ -35,7 +35,7 @@ export function MyRequestsScreen() {
       return;
     }
     const when = job.scheduledAt
-      ? `\nמועד: ${new Date(job.scheduledAt).toLocaleString('he-IL')}`
+      ? `\nמועד: ${new Date(job.scheduledAt).toLocaleDateString('he-IL')}`
       : '';
     const confirmed = job.customerConfirmed ? '\n\n✓ אישרת שהעבודה הושלמה' : '';
     Alert.alert(

@@ -12,24 +12,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
+import { Ionicons } from '@expo/vector-icons';
 import { StatusBadge } from '../components/StatusBadge';
 import { DateStrip } from '../components/DateStrip';
+import { callNumber } from '../utils/contact';
+import { navigateToAddress } from '../utils/navigation';
 import { useJobStore } from '../store/useJobStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { PaymentStatus } from '../types/job';
 import type { RootStackParamList } from '../navigation/types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type RouteP = RouteProp<RootStackParamList, 'JobCoordination'>;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-const PAYMENT_LABELS: Record<PaymentStatus, string> = {
-  unpaid: 'לא שולם',
-  partial: 'חלקי',
-  paid: 'שולם',
-};
 
 export function JobCoordinationScreen() {
   const navigation = useNavigation<Nav>();
@@ -42,11 +38,12 @@ export function JobCoordinationScreen() {
   const assignWithDate = useJobStore((s) => s.assignWithDate);
   const unassignJob = useJobStore((s) => s.unassignJob);
   const setPrice = useJobStore((s) => s.setPrice);
-  const setPaymentStatus = useJobStore((s) => s.setPaymentStatus);
+  const setPaidAmount = useJobStore((s) => s.setPaidAmount);
   const uid = useAuthStore((s) => s.user?.uid) ?? null;
 
   const job = getJobById(jobId);
   const [priceStr, setPriceStr] = useState(job?.price != null ? String(job.price) : '');
+  const [paidStr, setPaidStr] = useState(job?.paidAmount != null ? String(job.paidAmount) : '');
   const [pickedDate, setPickedDate] = useState<string | null>(null);
 
   if (!job) {
@@ -57,14 +54,18 @@ export function JobCoordinationScreen() {
     );
   }
 
-  function handleCallCustomer() {
-    Linking.openURL(`tel:${job!.phone}`);
-  }
-
   function savePrice() {
     const trimmed = priceStr.trim();
     const parsed = trimmed ? Number(trimmed) : NaN;
     setPrice(job!.id, Number.isFinite(parsed) ? parsed : null);
+  }
+
+  const priceVal = priceStr.trim() && Number.isFinite(Number(priceStr)) ? Number(priceStr) : null;
+  const paidVal = paidStr.trim() && Number.isFinite(Number(paidStr)) ? Number(paidStr) : 0;
+  const balance = priceVal != null ? priceVal - paidVal : null;
+
+  function savePaid() {
+    setPaidAmount(job!.id, Math.max(0, paidVal), priceVal);
   }
 
   function handleAssignToMe() {
@@ -95,20 +96,30 @@ export function JobCoordinationScreen() {
 
         {/* Detail rows */}
         <View style={styles.card}>
-          <DetailRow label="כתובת"   value={job.address} />
-          <DetailRow label="טלפון"   value={job.phone} />
+          <DetailRow
+            label="כתובת"
+            value={job.address}
+            icon="location-outline"
+            onPress={() => navigateToAddress(job.address)}
+          />
+          <DetailRow
+            label="טלפון"
+            value={job.phone}
+            icon="call-outline"
+            onPress={() => callNumber(job.phone)}
+          />
           <DetailRow label="תיאור"   value={job.description} />
           {job.scheduledAt && (
             <DetailRow
               label="תאריך"
-              value={new Date(job.scheduledAt).toLocaleString('he-IL')}
+              value={new Date(job.scheduledAt).toLocaleDateString('he-IL')}
             />
           )}
         </View>
 
-        {/* Price (optional quote) */}
+        {/* Price + payment */}
         <View style={styles.priceSection}>
-          <Text style={styles.priceLabel}>מחיר (אופציונלי)</Text>
+          <Text style={styles.priceLabel}>מחיר</Text>
           <View style={styles.priceInputRow}>
             <Text style={styles.shekel}>₪</Text>
             <TextInput
@@ -123,37 +134,33 @@ export function JobCoordinationScreen() {
               returnKeyType="done"
             />
           </View>
-        </View>
 
-        {/* Payment status */}
-        <View style={styles.priceSection}>
-          <Text style={styles.priceLabel}>סטטוס תשלום</Text>
-          <View style={styles.paySegment}>
-            {(['unpaid', 'partial', 'paid'] as PaymentStatus[]).map((ps) => {
-              const active = (job.paymentStatus ?? 'unpaid') === ps;
-              return (
-                <TouchableOpacity
-                  key={ps}
-                  style={[styles.paySeg, active && styles.paySegActive]}
-                  onPress={() => setPaymentStatus(job.id, ps)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.paySegText, active && styles.paySegTextActive]}>
-                    {PAYMENT_LABELS[ps]}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+          <Text style={[styles.priceLabel, { marginTop: 14 }]}>שולם עד כה</Text>
+          <View style={styles.priceInputRow}>
+            <Text style={styles.shekel}>₪</Text>
+            <TextInput
+              style={styles.priceInput}
+              value={paidStr}
+              onChangeText={setPaidStr}
+              onEndEditing={savePaid}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={Colors.textSecondary}
+              textAlign="right"
+              returnKeyType="done"
+            />
           </View>
+
+          {balance != null && balance > 0 && (
+            <Text style={styles.balanceText}>יתרה לתשלום: ₪{balance}</Text>
+          )}
+          {balance != null && balance <= 0 && priceVal != null && priceVal > 0 && (
+            <Text style={styles.paidFullText}>שולם במלואו ✓</Text>
+          )}
         </View>
 
         {/* Actions */}
         <View style={styles.actions}>
-          <CustomButton
-            label="התקשר ללקוח"
-            variant="secondary"
-            onPress={handleCallCustomer}
-          />
           {job.assignedTo == null ? (
             <>
               <Text style={styles.assignDateLabel}>בחר מועד לשיבוץ</Text>
@@ -185,12 +192,34 @@ export function JobCoordinationScreen() {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={detailStyles.row}>
-      <Text style={detailStyles.value}>{value}</Text>
+function DetailRow({
+  label,
+  value,
+  onPress,
+  icon,
+}: {
+  label: string;
+  value: string;
+  onPress?: () => void;
+  icon?: keyof typeof Ionicons.glyphMap;
+}) {
+  const inner = (
+    <>
+      <View style={detailStyles.valueWrap}>
+        {icon && <Ionicons name={icon} size={15} color={Colors.primary} />}
+        <Text style={[detailStyles.value, onPress && detailStyles.link]} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
       <Text style={detailStyles.label}>{label}</Text>
-    </View>
+    </>
+  );
+  return onPress ? (
+    <TouchableOpacity style={detailStyles.row} onPress={onPress} activeOpacity={0.6}>
+      {inner}
+    </TouchableOpacity>
+  ) : (
+    <View style={detailStyles.row}>{inner}</View>
   );
 }
 
@@ -208,11 +237,22 @@ const detailStyles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'right',
   },
+  valueWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    marginEnd: 8,
+  },
   value: {
     fontSize: 14,
     color: Colors.textPrimary,
-    flex: 1,
+    flexShrink: 1,
     textAlign: 'left',
+  },
+  link: {
+    color: Colors.primary,
+    fontWeight: '600',
   },
 });
 
@@ -305,6 +345,8 @@ const styles = StyleSheet.create({
   paySegActive: { backgroundColor: Colors.primary },
   paySegText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
   paySegTextActive: { color: '#FFFFFF' },
+  balanceText: { fontSize: 13, fontWeight: '600', color: '#854F0B', textAlign: 'right', marginTop: 12 },
+  paidFullText: { fontSize: 13, fontWeight: '600', color: '#16A34A', textAlign: 'right', marginTop: 12 },
   actions: {
     gap: 12,
     marginTop: 8,

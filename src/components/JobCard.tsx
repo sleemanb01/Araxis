@@ -54,10 +54,7 @@ export function JobCard({ job, onPress, canCall = false }: Props) {
           <View style={styles.row}>
             <Ionicons name="time-outline" size={14} color={Colors.textSecondary} />
             <Text style={styles.meta}>
-              {new Date(job.scheduledAt).toLocaleString('he-IL', {
-                dateStyle: 'short',
-                timeStyle: 'short',
-              })}
+              {new Date(job.scheduledAt).toLocaleDateString('he-IL')}
             </Text>
           </View>
         )}

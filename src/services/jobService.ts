@@ -33,6 +33,8 @@ function toJob(snap: { id: string; data: () => any }): Job {
     createdAt: d.createdAt ?? new Date().toISOString(),
     scheduledAt: d.scheduledAt ?? null,
     price: typeof d.price === 'number' ? d.price : null,
+    paidAmount: typeof d.paidAmount === 'number' ? d.paidAmount : null,
+    paidAt: d.paidAt ?? null,
     paymentStatus: (d.paymentStatus as PaymentStatus) ?? 'unpaid',
     completionDate: d.completionDate ?? null,
     customerConfirmed: d.customerConfirmed === true,
@@ -84,6 +86,25 @@ export async function setPaymentStatus(
   paymentStatus: PaymentStatus
 ): Promise<void> {
   await updateDoc(doc(db, JOBS, id), { paymentStatus });
+}
+
+/** Record how much has been paid; derives the paid/partial/unpaid status. */
+export async function setPaidAmount(
+  id: string,
+  paidAmount: number,
+  price: number | null
+): Promise<void> {
+  const status: PaymentStatus =
+    paidAmount <= 0
+      ? 'unpaid'
+      : price != null && price > 0 && paidAmount >= price
+      ? 'paid'
+      : 'partial';
+  await updateDoc(doc(db, JOBS, id), {
+    paidAmount,
+    paymentStatus: status,
+    paidAt: new Date().toISOString(),
+  });
 }
 
 export async function assignJob(id: string, techId: string | null): Promise<void> {

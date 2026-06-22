@@ -16,6 +16,7 @@ interface JobStore {
   updateJobStatus: (id: string, status: JobStatus) => Promise<void>;
   completeJob: (id: string) => Promise<void>;
   setPaymentStatus: (id: string, paymentStatus: PaymentStatus) => Promise<void>;
+  setPaidAmount: (id: string, paidAmount: number, price: number | null) => Promise<void>;
   assignJob: (id: string, techId: string | null) => Promise<void>;
   assignWithDate: (id: string, techId: string, dateISO: string) => Promise<void>;
   unassignJob: (id: string) => Promise<void>;
@@ -64,6 +65,7 @@ export const useJobStore = create<JobStore>((set, get) => ({
   updateJobStatus: (id, status) => jobService.updateJobStatus(id, status),
   completeJob: (id) => jobService.completeJob(id),
   setPaymentStatus: (id, paymentStatus) => jobService.setPaymentStatus(id, paymentStatus),
+  setPaidAmount: (id, paidAmount, price) => jobService.setPaidAmount(id, paidAmount, price),
   assignJob: (id, techId) => jobService.assignJob(id, techId),
   assignWithDate: (id, techId, dateISO) => jobService.assignWithDate(id, techId, dateISO),
   unassignJob: (id) => jobService.unassignJob(id),
