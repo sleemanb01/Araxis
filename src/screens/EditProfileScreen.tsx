@@ -17,6 +17,8 @@ import { useAuthStore } from '../store/useAuthStore';
 import { updateProfile, deleteUserDoc, uploadLogo } from '../services/userService';
 import { signOutUser } from '../services/authService';
 import { SERVICE_CATEGORIES } from '../constants/services';
+import { DateStrip } from '../components/DateStrip';
+import { HE_WEEKDAYS_SHORT, DEFAULT_WORKING_DAYS } from '../utils/availability';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { ProviderProfile } from '../types/user';
@@ -43,10 +45,18 @@ export function EditProfileScreen() {
   const [facebook, setFacebook] = useState(p?.links?.facebook ?? '');
   const [tiktok, setTiktok] = useState(p?.links?.tiktok ?? '');
   const [whatsapp, setWhatsapp] = useState(p?.links?.whatsapp ?? '');
+  const [workingDays, setWorkingDays] = useState<number[]>(p?.workingDays ?? DEFAULT_WORKING_DAYS);
+  const [nextAvailable, setNextAvailable] = useState<string | null>(p?.nextAvailable ?? null);
   const [saving, setSaving] = useState(false);
 
   function toggleService(s: string) {
     setServices((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+  }
+
+  function toggleWorkingDay(d: number) {
+    setWorkingDays((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort((a, b) => a - b)
+    );
   }
 
   async function pickLogo() {
@@ -98,6 +108,8 @@ export function EditProfileScreen() {
           themeColor,
           logoUrl: finalLogoUrl,
           links,
+          workingDays,
+          nextAvailable,
         };
         await updateProfile(user.uid, updated);
         setProfile(updated);
@@ -198,6 +210,33 @@ export function EditProfileScreen() {
             <Field label="פייסבוק" value={facebook} onChange={setFacebook} placeholder="@username או קישור" />
             <Field label="טיקטוק" value={tiktok} onChange={setTiktok} placeholder="@username או קישור" />
             <Field label="וואטסאפ" value={whatsapp} onChange={setWhatsapp} placeholder="מספר טלפון" />
+
+            <Text style={[styles.label, { marginTop: 8 }]}>ימי עבודה</Text>
+            <View style={styles.daysRow}>
+              {HE_WEEKDAYS_SHORT.map((w, idx) => {
+                const on = workingDays.includes(idx);
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[styles.dayChip, on && { backgroundColor: themeColor, borderColor: themeColor }]}
+                    onPress={() => toggleWorkingDay(idx)}
+                  >
+                    <Text style={[styles.dayChipText, on && { color: '#FFF' }]}>{w}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.nextAvailRow}>
+              <Text style={styles.label}>התור הפנוי הבא</Text>
+              {nextAvailable && (
+                <TouchableOpacity onPress={() => setNextAvailable(null)}>
+                  <Text style={[styles.autoLink, { color: themeColor }]}>אוטומטי</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <DateStrip value={nextAvailable} onChange={setNextAvailable} workingDays={workingDays} />
+            <View style={{ height: 16 }} />
           </>
         )}
 
@@ -261,6 +300,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7, backgroundColor: Colors.surface,
   },
   chipText: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
+  daysRow: { flexDirection: 'row', gap: 8, justifyContent: 'flex-end', marginBottom: 16 },
+  dayChip: {
+    width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
+  },
+  dayChipText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  nextAvailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  autoLink: { fontSize: 13, fontWeight: '600' },
   swatchRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'flex-end', marginBottom: 8 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: 'transparent' },
   swatchSelected: { borderColor: Colors.textPrimary },

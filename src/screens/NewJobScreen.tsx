@@ -5,7 +5,6 @@ import {
   TextInput,
   StyleSheet,
   ScrollView,
-  Switch,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { useJobStore } from '../store/useJobStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { DateStrip } from '../components/DateStrip';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
@@ -25,7 +25,8 @@ export function NewJobScreen() {
   const [address, setAddress]           = useState('');
   const [phone, setPhone]               = useState('');
   const [description, setDescription]   = useState('');
-  const [assignToMe, setAssignToMe]     = useState(false);
+  const [price, setPrice]               = useState('');
+  const [scheduledAt, setScheduledAt]   = useState<string | null>(null);
 
   function handleSubmit() {
     if (!customerName.trim() || !address.trim() || !phone.trim()) {
@@ -33,14 +34,22 @@ export function NewJobScreen() {
       return;
     }
 
+    if (!scheduledAt) {
+      Alert.alert('שגיאה', 'יש לבחור מועד למשימה.');
+      return;
+    }
+
+    const parsedPrice = price.trim() ? Number(price) : NaN;
+
     addJob({
       customerName: customerName.trim(),
       address:      address.trim(),
       phone:        phone.trim(),
       description:  description.trim(),
-      status:       assignToMe ? 'scheduled' : 'awaiting',
-      assignedTo:   assignToMe ? uid : null,
-      scheduledAt:  null,
+      status:       'scheduled',
+      assignedTo:   uid,
+      scheduledAt,
+      price:        Number.isFinite(parsedPrice) ? parsedPrice : null,
     });
 
     navigation.goBack();
@@ -55,19 +64,12 @@ export function NewJobScreen() {
         <Field label="כתובת"   value={address}      onChange={setAddress}      placeholder="רחוב הרצל 1, תל אביב" />
         <Field label="טלפון"   value={phone}        onChange={setPhone}        placeholder="050-0000000" keyboardType="phone-pad" />
         <Field label="תיאור"   value={description}  onChange={setDescription}  placeholder="תיאור הבעיה..." multiline />
+        <Field label="מחיר (אופציונלי)" value={price} onChange={setPrice} placeholder="₪ —" keyboardType="numeric" />
 
-        {/* Assign toggle */}
-        <View style={styles.toggleRow}>
-          <Switch
-            value={assignToMe}
-            onValueChange={setAssignToMe}
-            trackColor={{ true: Colors.primary }}
-            thumbColor={assignToMe ? '#FFFFFF' : '#F4F4F5'}
-          />
-          <Text style={styles.toggleLabel}>
-            {assignToMe ? 'שייך אליי' : 'שלח לבריכה הכללית'}
-          </Text>
-        </View>
+        {/* Date — the job is assigned to you on this date */}
+        <Text style={styles.dateLabel}>מועד</Text>
+        <DateStrip value={scheduledAt} onChange={setScheduledAt} />
+        <View style={{ height: 20 }} />
 
         <View style={styles.actions}>
           <CustomButton label="שמור משימה" onPress={handleSubmit} />
@@ -84,7 +86,7 @@ interface FieldProps {
   onChange: (v: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: 'default' | 'phone-pad' | 'email-address';
+  keyboardType?: 'default' | 'phone-pad' | 'email-address' | 'numeric';
 }
 
 function Field({ label, value, onChange, placeholder, multiline, keyboardType = 'default' }: FieldProps) {
@@ -146,6 +148,13 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     textAlign: 'right',
     marginBottom: 24,
+  },
+  dateLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    textAlign: 'right',
+    marginBottom: 8,
   },
   toggleRow: {
     flexDirection: 'row',

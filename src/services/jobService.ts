@@ -14,7 +14,7 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { Job, JobStatus, CreateJobPayload } from '../types/job';
+import { Job, JobStatus, PaymentStatus, CreateJobPayload } from '../types/job';
 import { SEED_JOBS } from './seedData';
 
 const JOBS = 'jobs';
@@ -32,6 +32,10 @@ function toJob(snap: { id: string; data: () => any }): Job {
     assignedTo: d.assignedTo ?? null,
     createdAt: d.createdAt ?? new Date().toISOString(),
     scheduledAt: d.scheduledAt ?? null,
+    price: typeof d.price === 'number' ? d.price : null,
+    paymentStatus: (d.paymentStatus as PaymentStatus) ?? 'unpaid',
+    completionDate: d.completionDate ?? null,
+    customerConfirmed: d.customerConfirmed === true,
     notes: Array.isArray(d.notes) ? d.notes : [],
     photos: Array.isArray(d.photos) ? d.photos : [],
   };
@@ -56,6 +60,7 @@ export async function createJob(payload: CreateJobPayload): Promise<void> {
   await addDoc(collection(db, JOBS), {
     ...payload,
     customerId: payload.customerId ?? null,
+    price: payload.price ?? null,
     createdAt: new Date().toISOString(),
     notes: [],
     photos: [],
@@ -66,8 +71,50 @@ export async function updateJobStatus(id: string, status: JobStatus): Promise<vo
   await updateDoc(doc(db, JOBS, id), { status });
 }
 
+/** Mark a job done — stamps completionDate so income is dated to when work finished. */
+export async function completeJob(id: string): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), {
+    status: 'completed',
+    completionDate: new Date().toISOString(),
+  });
+}
+
+export async function setPaymentStatus(
+  id: string,
+  paymentStatus: PaymentStatus
+): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), { paymentStatus });
+}
+
 export async function assignJob(id: string, techId: string | null): Promise<void> {
   await updateDoc(doc(db, JOBS, id), { assignedTo: techId });
+}
+
+/** Claim a job for a tech with a date — assignment requires a scheduled date. */
+export async function assignWithDate(id: string, techId: string, dateISO: string): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), {
+    assignedTo: techId,
+    scheduledAt: dateISO,
+    status: 'scheduled',
+  });
+}
+
+/** Release a job back to the shared pool. */
+export async function unassignJob(id: string): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), {
+    assignedTo: null,
+    scheduledAt: null,
+    status: 'awaiting',
+  });
+}
+
+export async function setJobPrice(id: string, price: number | null): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), { price });
+}
+
+/** Customer confirms the work is done (the only job change a customer can make). */
+export async function confirmJobByCustomer(id: string): Promise<void> {
+  await updateDoc(doc(db, JOBS, id), { customerConfirmed: true });
 }
 
 export async function addJobNote(id: string, note: string): Promise<void> {

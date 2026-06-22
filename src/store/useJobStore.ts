@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Job, JobStatus, CreateJobPayload } from '../types/job';
+import { Job, JobStatus, PaymentStatus, CreateJobPayload } from '../types/job';
 import * as jobService from '../services/jobService';
 
 interface JobStore {
@@ -14,7 +14,13 @@ interface JobStore {
   setFilter: (filter: JobStatus | 'all') => void;
   addJob: (payload: CreateJobPayload) => Promise<void>;
   updateJobStatus: (id: string, status: JobStatus) => Promise<void>;
+  completeJob: (id: string) => Promise<void>;
+  setPaymentStatus: (id: string, paymentStatus: PaymentStatus) => Promise<void>;
   assignJob: (id: string, techId: string | null) => Promise<void>;
+  assignWithDate: (id: string, techId: string, dateISO: string) => Promise<void>;
+  unassignJob: (id: string) => Promise<void>;
+  setPrice: (id: string, price: number | null) => Promise<void>;
+  confirmByCustomer: (id: string) => Promise<void>;
   addNote: (id: string, note: string) => Promise<void>;
   addPhoto: (id: string, uri: string) => Promise<void>;
 
@@ -56,7 +62,13 @@ export const useJobStore = create<JobStore>((set, get) => ({
   // Writes go to Firestore; the realtime listener updates local state.
   addJob: (payload) => jobService.createJob(payload),
   updateJobStatus: (id, status) => jobService.updateJobStatus(id, status),
+  completeJob: (id) => jobService.completeJob(id),
+  setPaymentStatus: (id, paymentStatus) => jobService.setPaymentStatus(id, paymentStatus),
   assignJob: (id, techId) => jobService.assignJob(id, techId),
+  assignWithDate: (id, techId, dateISO) => jobService.assignWithDate(id, techId, dateISO),
+  unassignJob: (id) => jobService.unassignJob(id),
+  setPrice: (id, price) => jobService.setJobPrice(id, price),
+  confirmByCustomer: (id) => jobService.confirmJobByCustomer(id),
   addNote: (id, note) => jobService.addJobNote(id, note),
   addPhoto: (id, uri) => jobService.addJobPhoto(id, uri),
 

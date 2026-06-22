@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, FlatList, StyleSheet, ScrollView, TouchableOpacity, Text } from 'react-native';
+import { View, FlatList, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { JobCard } from '../components/JobCard';
@@ -15,12 +15,12 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+// Completed jobs move to the Dashboard, so they aren't filtered here.
 const STATUS_FILTERS: Array<{ key: JobStatus | 'all'; label: string }> = [
   { key: 'all',        label: 'הכל' },
   { key: 'scheduled',  label: StatusLabelsHe['scheduled'] },
   { key: 'en_route',   label: StatusLabelsHe['en_route'] },
   { key: 'in_progress',label: StatusLabelsHe['in_progress'] },
-  { key: 'completed',  label: StatusLabelsHe['completed'] },
 ];
 
 export function MyJobsScreen() {
@@ -29,7 +29,7 @@ export function MyJobsScreen() {
   const jobs = useJobStore((s) => s.jobs); // subscribe → re-render on Firestore updates
   const uid = useAuthStore((s) => s.user?.uid) ?? '';
 
-  const allMyJobs = jobs.filter((j) => j.assignedTo === uid);
+  const allMyJobs = jobs.filter((j) => j.assignedTo === uid && j.status !== 'completed');
   const visibleJobs =
     activeFilter === 'all'
       ? allMyJobs
@@ -48,28 +48,36 @@ export function MyJobsScreen() {
       <View style={styles.container}>
         <SectionHeader title="המשימות שלי" count={allMyJobs.length} />
 
-        {/* Filter chips */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterRow}
-        >
+        {/* Status filter tabs */}
+        <View style={styles.tabBar}>
           {STATUS_FILTERS.map((f) => {
             const isActive = activeFilter === f.key;
             const color = f.key === 'all' ? Colors.primary : StatusColors[f.key as JobStatus];
             return (
               <TouchableOpacity
                 key={f.key}
-                style={[styles.chip, isActive && { backgroundColor: color, borderColor: color }]}
+                style={styles.tab}
                 onPress={() => setActiveFilter(f.key)}
+                activeOpacity={0.7}
               >
-                <Text style={[styles.chipText, isActive && { color: '#FFF' }]}>
+                <Text
+                  style={[styles.tabText, isActive && { color, fontWeight: '700' }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.85}
+                >
                   {f.label}
                 </Text>
+                <View
+                  style={[
+                    styles.tabIndicator,
+                    { backgroundColor: isActive ? color : 'transparent' },
+                  ]}
+                />
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
 
         <FlatList
           data={visibleJobs}
@@ -94,24 +102,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  filterRow: {
+  tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: Layout.screenPadding,
-    paddingBottom: 10,
-    gap: 8,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
     backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    marginBottom: 12,
   },
-  chipText: {
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 10,
+  },
+  tabText: {
     fontSize: 13,
     fontWeight: '500',
     color: Colors.textSecondary,
+    paddingHorizontal: 3,
+  },
+  tabIndicator: {
+    height: 3,
+    width: '80%',
+    borderRadius: 2,
+    marginTop: 8,
   },
   list: {
     paddingHorizontal: Layout.screenPadding,

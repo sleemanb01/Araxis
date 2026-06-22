@@ -27,7 +27,7 @@ export function JobExecutionScreen() {
   const { jobId } = route.params;
 
   const getJobById     = useJobStore((s) => s.getJobById);
-  const updateJobStatus = useJobStore((s) => s.updateJobStatus);
+  const completeJob = useJobStore((s) => s.completeJob);
   const addNote         = useJobStore((s) => s.addNote);
 
   const job = getJobById(jobId);
@@ -65,7 +65,7 @@ export function JobExecutionScreen() {
         {
           text: 'אשר',
           onPress: () => {
-            updateJobStatus(job!.id, 'completed');
+            completeJob(job!.id);
             navigation.goBack();
           },
         },

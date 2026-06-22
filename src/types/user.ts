@@ -27,6 +27,8 @@ export interface ProviderProfile extends BaseProfile {
   themeColor: string;  // hex, e.g. "#2563EB"
   services: string[];  // categories the provider offers
   links?: SocialLinks; // optional social links
+  workingDays?: number[];        // weekday indices the provider works (0=Sun..6=Sat)
+  nextAvailable?: string | null; // manual override; otherwise derived from the calendar
 }
 
 export type UserProfile = CustomerProfile | ProviderProfile;

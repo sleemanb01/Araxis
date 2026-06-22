@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { JobPoolScreen }    from '../screens/JobPoolScreen';
 import { MyJobsScreen }     from '../screens/MyJobsScreen';
 import { WarehouseScreen }  from '../screens/WarehouseScreen';
+import { DashboardScreen }  from '../screens/DashboardScreen';
 import { MyRequestsScreen } from '../screens/customer/MyRequestsScreen';
 import { ProfileScreen }    from '../screens/ProfileScreen';
 import { useAuthStore }     from '../store/useAuthStore';
@@ -17,6 +18,7 @@ const TAB_ICONS: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
   JobPool:    'grid-outline',
   MyJobs:     'construct-outline',
   Warehouse:  'cube-outline',
+  Dashboard:  'stats-chart-outline',
   MyRequests: 'clipboard-outline',
   Profile:    'person-outline',
 };
@@ -25,6 +27,7 @@ const TAB_LABELS: Record<keyof TabParamList, string> = {
   JobPool:    'בריכה',
   MyJobs:     'המשימות שלי',
   Warehouse:  'מחסן',
+  Dashboard:  'לוח בקרה',
   MyRequests: 'הקריאות שלי',
   Profile:    'פרופיל',
 };
@@ -68,6 +71,7 @@ export function TabNavigator() {
           <Tab.Screen name="JobPool"   component={JobPoolScreen} />
           <Tab.Screen name="MyJobs"    component={MyJobsScreen} />
           <Tab.Screen name="Warehouse" component={WarehouseScreen} />
+          <Tab.Screen name="Dashboard" component={DashboardScreen} />
         </>
       )}
       <Tab.Screen name="Profile" component={ProfileScreen} />

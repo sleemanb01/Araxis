@@ -19,12 +19,29 @@ export function MyRequestsScreen() {
   const navigation = useNavigation<Nav>();
   const uid = useAuthStore((s) => s.user?.uid) ?? '';
   const myRequests = useJobStore((s) => s.getMyRequests(uid));
+  const confirmByCustomer = useJobStore((s) => s.confirmByCustomer);
 
   function handlePress(job: Job) {
+    // The only change a customer can make: confirm a completed job is done.
+    if (job.status === 'completed' && !job.customerConfirmed) {
+      Alert.alert(
+        'אישור סיום',
+        `האם העבודה "${job.description}" הושלמה לשביעות רצונך?`,
+        [
+          { text: 'עדיין לא', style: 'cancel' },
+          { text: 'כן, אני מאשר', onPress: () => confirmByCustomer(job.id) },
+        ]
+      );
+      return;
+    }
     const when = job.scheduledAt
       ? `\nמועד: ${new Date(job.scheduledAt).toLocaleString('he-IL')}`
       : '';
-    Alert.alert('סטטוס הקריאה', `${job.description}\n\nסטטוס: ${StatusLabelsHe[job.status]}${when}`);
+    const confirmed = job.customerConfirmed ? '\n\n✓ אישרת שהעבודה הושלמה' : '';
+    Alert.alert(
+      'סטטוס הקריאה',
+      `${job.description}\n\nסטטוס: ${StatusLabelsHe[job.status]}${when}${confirmed}`
+    );
   }
 
   return (

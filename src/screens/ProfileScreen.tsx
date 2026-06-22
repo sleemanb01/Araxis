@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { useAuthStore } from '../store/useAuthStore';
+import { useJobStore } from '../store/useJobStore';
+import { nextAvailableDate, HE_WEEKDAYS_SHORT, DEFAULT_WORKING_DAYS } from '../utils/availability';
 import { signOutUser } from '../services/authService';
 import { subscribeToReviews, summarize } from '../services/reviewService';
 import { StarRating } from '../components/StarRating';
@@ -51,6 +53,15 @@ export function ProfileScreen() {
   const isProvider = profile?.role === 'provider';
   const fullName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : '';
   const accent = isProvider ? profile.themeColor : Colors.primary;
+
+  const jobs = useJobStore((s) => s.jobs);
+  const workingDays = isProvider ? profile.workingDays ?? DEFAULT_WORKING_DAYS : DEFAULT_WORKING_DAYS;
+  const nextAvail = useMemo(() => {
+    if (!isProvider) return null;
+    if (profile.nextAvailable) return profile.nextAvailable;
+    const busy = jobs.filter((j) => j.assignedTo === user?.uid).map((j) => j.scheduledAt);
+    return nextAvailableDate(workingDays, busy);
+  }, [isProvider, profile, jobs, user?.uid, workingDays]);
 
   const [reviews, setReviews] = useState<Review[]>([]);
 
@@ -124,6 +135,36 @@ export function ProfileScreen() {
           </View>
         )}
 
+        {/* Availability (public) */}
+        {isProvider && (
+          <View style={styles.availBox}>
+            <Text style={styles.availTitle}>זמינות</Text>
+            <View style={styles.availDays}>
+              {HE_WEEKDAYS_SHORT.map((w, idx) => {
+                const on = workingDays.includes(idx);
+                return (
+                  <View
+                    key={idx}
+                    style={[styles.dayDot, on && { backgroundColor: accent, borderColor: accent }]}
+                  >
+                    <Text style={[styles.dayDotText, on && { color: '#FFF' }]}>{w}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            {nextAvail && (
+              <Text style={styles.nextAvailText}>
+                התור הפנוי הבא:{' '}
+                {new Date(nextAvail).toLocaleDateString('he-IL', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'numeric',
+                })}
+              </Text>
+            )}
+          </View>
+        )}
+
         {/* Provider rating */}
         {isProvider && (
           <View style={styles.ratingBox}>
@@ -147,6 +188,15 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { alignItems: 'center', paddingBottom: Layout.tabBarHeight + 24 },
+  availBox: { alignItems: 'center', marginTop: 16, gap: 8 },
+  availTitle: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
+  availDays: { flexDirection: 'row', gap: 6 },
+  dayDot: {
+    width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
+  },
+  dayDotText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  nextAvailText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   titleRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     width: '100%', paddingHorizontal: Layout.screenPadding, paddingTop: 10, paddingBottom: 20,

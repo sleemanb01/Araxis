@@ -1,33 +1,23 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Job } from '../types/job';
 import { StatusColors, Colors } from '../constants/colors';
 import { StatusBadge } from './StatusBadge';
 import { Layout } from '../constants/layout';
 import { navigateToAddress } from '../utils/navigation';
+import { callNumber, openWhatsApp } from '../utils/contact';
 
 interface Props {
   job: Job;
   onPress: (job: Job) => void;
-  /** Provider screens pass true to show a "call customer" button on same-day jobs. */
+  /** Provider screens pass true to show call + WhatsApp buttons (contacts the customer). */
   canCall?: boolean;
-}
-
-function isToday(iso: string | null): boolean {
-  if (!iso) return false;
-  const d = new Date(iso);
-  const n = new Date();
-  return (
-    d.getFullYear() === n.getFullYear() &&
-    d.getMonth() === n.getMonth() &&
-    d.getDate() === n.getDate()
-  );
 }
 
 export function JobCard({ job, onPress, canCall = false }: Props) {
   const color = StatusColors[job.status];
-  const showCall = canCall && isToday(job.scheduledAt) && !!job.phone;
+  const showContact = canCall && !!job.phone;
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(job)} activeOpacity={0.85}>
@@ -72,15 +62,33 @@ export function JobCard({ job, onPress, canCall = false }: Props) {
           </View>
         )}
 
-        {showCall && (
-          <TouchableOpacity
-            style={styles.callBtn}
-            onPress={() => Linking.openURL(`tel:${job.phone}`)}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="call" size={16} color="#FFFFFF" />
-            <Text style={styles.callText}>התקשר ללקוח</Text>
-          </TouchableOpacity>
+        {job.price != null && (
+          <View style={styles.row}>
+            <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+            <Text style={styles.price}>₪{job.price}</Text>
+            {job.paymentStatus === 'paid' && <Text style={styles.paid}>· שולם</Text>}
+          </View>
+        )}
+
+        {showContact && (
+          <View style={styles.contactRow}>
+            <TouchableOpacity
+              style={[styles.contactBtn, styles.callBtn]}
+              onPress={() => callNumber(job.phone)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="call" size={16} color="#FFFFFF" />
+              <Text style={styles.contactText}>התקשר</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.contactBtn, styles.waBtn]}
+              onPress={() => openWhatsApp(job.phone)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+              <Text style={styles.contactText}>וואטסאפ</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </View>
     </TouchableOpacity>
@@ -137,25 +145,40 @@ const styles = StyleSheet.create({
   address: {
     fontSize: 13,
     color: Colors.textPrimary,
-    flex: 1,
+    flexShrink: 1,
     textAlign: 'right',
   },
   meta: {
     fontSize: 12,
     color: Colors.textSecondary,
   },
-  callBtn: {
+  price: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  paid: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#16A34A',
+  },
+  contactRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 7,
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
+    gap: 8,
     marginTop: 12,
   },
-  callText: {
+  contactBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 9,
+    borderRadius: 999,
+  },
+  callBtn: { backgroundColor: '#16A34A' },
+  waBtn: { backgroundColor: '#25D366' },
+  contactText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',

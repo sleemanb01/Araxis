@@ -9,6 +9,7 @@ import { WarehouseScreen }          from '../screens/WarehouseScreen';
 import { ScanScreen }               from '../screens/ScanScreen';
 import { ItemEditorScreen }         from '../screens/ItemEditorScreen';
 import { TransferScreen }           from '../screens/TransferScreen';
+import { FullCalendarScreen }       from '../screens/FullCalendarScreen';
 import { AddReviewScreen }          from '../screens/AddReviewScreen';
 import { EditProfileScreen }        from '../screens/EditProfileScreen';
 import { EditLinkScreen }           from '../screens/EditLinkScreen';
@@ -37,6 +38,7 @@ export function RootNavigator() {
       <Stack.Screen name="Scan"             component={ScanScreen}            options={{ headerShown: false, presentation: 'fullScreenModal' }} />
       <Stack.Screen name="ItemEditor"       component={ItemEditorScreen}      options={{ title: 'פריט', presentation: 'modal' }} />
       <Stack.Screen name="Transfer"         component={TransferScreen}        options={{ title: 'העברה לרכב', presentation: 'modal' }} />
+      <Stack.Screen name="FullCalendar"     component={FullCalendarScreen}    options={{ title: 'יומן' }} />
       <Stack.Screen name="AddReview"        component={AddReviewScreen}       options={{ title: 'הוספת דירוג' }} />
       <Stack.Screen name="EditProfile"      component={EditProfileScreen}     options={{ title: 'עריכת פרופיל' }} />
       <Stack.Screen name="EditLink"         component={EditLinkScreen}        options={{ title: 'קישור' }} />

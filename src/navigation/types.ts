@@ -8,6 +8,7 @@ export type RootStackParamList = {
   Scan:            undefined;
   ItemEditor:      { barcode: string };
   Transfer:        undefined;
+  FullCalendar:    { picker?: boolean; selected?: string } | undefined;
   AddReview:       { providerId: string; providerName: string };
   EditProfile:     undefined;
   EditLink:        { platform: import('../utils/social').SocialPlatform };
@@ -28,6 +29,7 @@ export type TabParamList = {
   JobPool:    undefined;
   MyJobs:     undefined;
   Warehouse:  undefined;
+  Dashboard:  undefined;
   MyRequests: undefined;
   Profile:    undefined;
 };
