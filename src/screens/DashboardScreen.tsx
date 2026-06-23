@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ export function DashboardScreen() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [pastOpen, setPastOpen] = useState(false);
   const [owedOpen, setOwedOpen] = useState(false);
+  const calRef = useRef<ScrollView>(null);
 
   const mine = useMemo(() => jobs.filter((j) => j.assignedTo === uid), [jobs, uid]);
   const active = useMemo(() => mine.filter((j) => j.status !== 'completed'), [mine]);
@@ -63,7 +64,7 @@ export function DashboardScreen() {
       d.setDate(today.getDate() + i);
       const key = dayKey(d);
       const count = active.filter((j) => j.scheduledAt && dayKey(j.scheduledAt) === key).length;
-      return { date: d, key, count };
+      return { date: d, key, count, isToday: i === 0 };
     });
   }, [active]);
 
@@ -122,21 +123,27 @@ export function DashboardScreen() {
           </TouchableOpacity>
         </View>
         <ScrollView
+          ref={calRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.calendar}
+          onContentSizeChange={() => calRef.current?.scrollToEnd({ animated: false })}
         >
-          {days.map(({ date, key, count }) => {
+          {days.map(({ date, key, count, isToday }) => {
             const selected = selectedKey === key;
             return (
               <TouchableOpacity
                 key={key}
-                style={[styles.dayCell, selected && styles.dayCellSelected]}
+                style={[
+                  styles.dayCell,
+                  !selected && isToday && styles.dayCellToday,
+                  selected && styles.dayCellSelected,
+                ]}
                 onPress={() => setSelectedKey(selected ? null : key)}
                 activeOpacity={0.8}
               >
                 <Text style={[styles.weekday, selected && styles.daySelText]}>
-                  {HE_WEEKDAYS[date.getDay()]}
+                  {isToday ? 'היום' : HE_WEEKDAYS[date.getDay()]}
                 </Text>
                 <Text style={[styles.dayNum, selected && styles.daySelText]}>
                   {date.getDate()}
@@ -299,6 +306,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dayCellSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayCellToday: { borderColor: Colors.primary, borderWidth: 1.5 },
   weekday: { fontSize: 12, color: Colors.textSecondary },
   dayNum: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
   daySelText: { color: '#FFFFFF' },
