@@ -6,8 +6,6 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Linking,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -334,17 +332,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textPrimary,
   },
-  paySegment: {
-    flexDirection: 'row',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  paySeg: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: Colors.surface },
-  paySegActive: { backgroundColor: Colors.primary },
-  paySegText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  paySegTextActive: { color: '#FFFFFF' },
   balanceText: { fontSize: 13, fontWeight: '600', color: '#854F0B', textAlign: 'right', marginTop: 12 },
   paidFullText: { fontSize: 13, fontWeight: '600', color: '#16A34A', textAlign: 'right', marginTop: 12 },
   actions: {

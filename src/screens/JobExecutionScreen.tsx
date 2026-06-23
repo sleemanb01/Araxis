@@ -6,7 +6,6 @@ import {
   ScrollView,
   TextInput,
   Alert,
-  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';

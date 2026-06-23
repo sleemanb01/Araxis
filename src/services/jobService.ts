@@ -81,13 +81,6 @@ export async function completeJob(id: string): Promise<void> {
   });
 }
 
-export async function setPaymentStatus(
-  id: string,
-  paymentStatus: PaymentStatus
-): Promise<void> {
-  await updateDoc(doc(db, JOBS, id), { paymentStatus });
-}
-
 /** Record how much has been paid; derives the paid/partial/unpaid status. */
 export async function setPaidAmount(
   id: string,
@@ -105,10 +98,6 @@ export async function setPaidAmount(
     paymentStatus: status,
     paidAt: new Date().toISOString(),
   });
-}
-
-export async function assignJob(id: string, techId: string | null): Promise<void> {
-  await updateDoc(doc(db, JOBS, id), { assignedTo: techId });
 }
 
 /** Claim a job for a tech with a date — assignment requires a scheduled date. */

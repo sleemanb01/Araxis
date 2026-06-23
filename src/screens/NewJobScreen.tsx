@@ -156,23 +156,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 8,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginBottom: 24,
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  toggleLabel: {
-    fontSize: 15,
-    color: Colors.textPrimary,
-    fontWeight: '500',
-  },
   actions: {
     gap: 12,
   },
