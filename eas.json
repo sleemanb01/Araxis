@@ -33,6 +33,10 @@
         "appleId": "sleeman.nabwani@gmail.com",
         "appleTeamId": "89F5K29LBN",
         "ascAppId": "6782345078"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
       }
     }
   }

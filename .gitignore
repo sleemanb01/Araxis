@@ -13,5 +13,9 @@ GoogleService-Info.plist
 # App Store Connect API key — secret, never commit
 *.p8
 
+# Google Play service account key — secret, never commit
+google-play-service-account.json
+*play-service-account*.json
+
 # App Store assets (large binaries — keep out of git)
 screenshots/
