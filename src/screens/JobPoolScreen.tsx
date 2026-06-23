@@ -6,6 +6,7 @@ import { JobCard } from '../components/JobCard';
 import { FAB } from '../components/FAB';
 import { SectionHeader } from '../components/SectionHeader';
 import { useJobStore } from '../store/useJobStore';
+import { useShallow } from 'zustand/react/shallow';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { Job } from '../types/job';
@@ -16,7 +17,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function JobPoolScreen() {
   const navigation = useNavigation<Nav>();
-  const poolJobs = useJobStore((s) => s.getPoolJobs());
+  const poolJobs = useJobStore(useShallow((s) => s.getPoolJobs()));
 
   function handleJobPress(job: Job) {
     navigation.navigate('JobCoordination', { jobId: job.id });

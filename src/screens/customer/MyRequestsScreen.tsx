@@ -7,6 +7,7 @@ import { JobCard } from '../../components/JobCard';
 import { FAB } from '../../components/FAB';
 import { SectionHeader } from '../../components/SectionHeader';
 import { useJobStore } from '../../store/useJobStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, StatusLabelsHe } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
@@ -18,7 +19,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function MyRequestsScreen() {
   const navigation = useNavigation<Nav>();
   const uid = useAuthStore((s) => s.user?.uid) ?? '';
-  const myRequests = useJobStore((s) => s.getMyRequests(uid));
+  const myRequests = useJobStore(useShallow((s) => s.getMyRequests(uid)));
   const confirmByCustomer = useJobStore((s) => s.confirmByCustomer);
 
   function handlePress(job: Job) {

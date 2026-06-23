@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextField as Field } from '../components/TextField';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { useJobStore } from '../store/useJobStore';
@@ -79,60 +79,6 @@ export function NewJobScreen() {
     </SafeAreaView>
   );
 }
-
-interface FieldProps {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  keyboardType?: 'default' | 'phone-pad' | 'email-address' | 'numeric';
-}
-
-function Field({ label, value, onChange, placeholder, multiline, keyboardType = 'default' }: FieldProps) {
-  return (
-    <View style={fieldStyles.wrapper}>
-      <Text style={fieldStyles.label}>{label}</Text>
-      <TextInput
-        style={[fieldStyles.input, multiline && fieldStyles.multiline]}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.textSecondary}
-        multiline={multiline}
-        keyboardType={keyboardType}
-        textAlign="right"
-        textAlignVertical={multiline ? 'top' : 'center'}
-      />
-    </View>
-  );
-}
-
-const fieldStyles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.textSecondary,
-    textAlign: 'right',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 12,
-    fontSize: 15,
-    color: Colors.textPrimary,
-  },
-  multiline: {
-    minHeight: 90,
-    textAlignVertical: 'top',
-  },
-});
 
 const styles = StyleSheet.create({
   safe: {

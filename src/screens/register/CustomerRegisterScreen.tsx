@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextField as Field } from '../../components/TextField';
 import { CustomButton } from '../../components/CustomButton';
 import { useAuthStore } from '../../store/useAuthStore';
 import { createProfile } from '../../services/userService';
@@ -63,43 +64,11 @@ export function CustomerRegisterScreen() {
   );
 }
 
-function Field({
-  label, value, onChange, placeholder,
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={styles.input}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.textSecondary}
-        textAlign="right"
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Layout.screenPadding },
   title: {
     fontSize: 22, fontWeight: '700', color: Colors.textPrimary,
     textAlign: 'right', marginBottom: 24,
-  },
-  field: { marginBottom: 16 },
-  label: {
-    fontSize: 13, fontWeight: '600', color: Colors.textSecondary,
-    textAlign: 'right', marginBottom: 6,
-  },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 12,
-    fontSize: 15,
-    color: Colors.textPrimary,
   },
 });

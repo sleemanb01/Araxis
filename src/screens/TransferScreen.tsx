@@ -4,13 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useInventoryStore } from '../store/useInventoryStore';
+import { useShallow } from 'zustand/react/shallow';
 import { InventoryItem } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
 export function TransferScreen() {
   const navigation = useNavigation();
-  const items = useInventoryStore((s) => s.itemsAt('warehouse'));
+  const items = useInventoryStore(useShallow((s) => s.itemsAt('warehouse')));
   const transfer = useInventoryStore((s) => s.transfer);
   const [moves, setMoves] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);

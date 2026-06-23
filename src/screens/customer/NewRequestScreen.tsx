@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextField as Field } from '../../components/TextField';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
 import { useJobStore } from '../../store/useJobStore';
@@ -115,34 +115,6 @@ export function NewRequestScreen() {
   );
 }
 
-interface FieldProps {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  multiline?: boolean;
-  keyboardType?: 'default' | 'phone-pad';
-}
-
-function Field({ label, value, onChange, placeholder, multiline, keyboardType = 'default' }: FieldProps) {
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={[styles.input, multiline && styles.multiline]}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={Colors.textSecondary}
-        multiline={multiline}
-        keyboardType={keyboardType}
-        textAlign="right"
-        textAlignVertical={multiline ? 'top' : 'center'}
-      />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Layout.screenPadding },
@@ -159,7 +131,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 20,
   },
-  fieldWrap: { marginBottom: 16 },
   label: {
     fontSize: 13,
     fontWeight: '600',
@@ -167,16 +138,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     marginBottom: 6,
   },
-  input: {
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 12,
-    fontSize: 15,
-    color: Colors.textPrimary,
-  },
-  multiline: { minHeight: 90, textAlignVertical: 'top' },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
