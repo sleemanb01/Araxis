@@ -31,10 +31,18 @@ service cloud.firestore {
     // are written ONLY by the Cloud Function (Admin SDK bypasses rules), so a
     // tech can't escalate; a user may update only their own `name`.
     match /users/{userId} {
-      allow read: if isTech();
+      // A signed-in tech reads crew profiles; a user can always read their own.
+      allow read: if isTech() || request.auth.uid == userId;
+      // Self-register a pending profile on first run (placeholder role, no team).
+      // The real role + team + claim are set only by the setUserRole Cloud
+      // Function (Admin SDK), so a user cannot self-escalate.
+      allow create: if request.auth.uid == userId
+                    && request.resource.data.uid == userId
+                    && request.resource.data.role == 'junior_tech'
+                    && request.resource.data.teamId == '';
       allow update: if request.auth.uid == userId
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
-      allow create, delete: if false;
+      allow delete: if false;
     }
 
     // ---- Service calls ----

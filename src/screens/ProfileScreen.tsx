@@ -1,11 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
 import { UserRole } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
+import type { RootStackParamList } from '../navigation/types';
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const ROLE_HE: Record<UserRole, string> = {
   admin: 'מנהל',
@@ -14,7 +19,8 @@ const ROLE_HE: Record<UserRole, string> = {
 };
 
 export function ProfileScreen() {
-  const { profile, user, signOut } = useUser();
+  const navigation = useNavigation<Nav>();
+  const { profile, user, role, signOut } = useUser();
   if (!profile) return null;
 
   return (
@@ -31,6 +37,14 @@ export function ProfileScreen() {
           <Row label="טלפון" value={user?.phoneNumber ?? '—'} />
         </View>
 
+        {role === 'admin' && (
+          <CustomButton
+            label="ניהול צוות"
+            variant="secondary"
+            onPress={() => navigation.navigate('Crew')}
+            style={styles.btnSecondary}
+          />
+        )}
         <CustomButton label="התנתק" variant="danger" onPress={signOut} style={styles.btn} />
       </View>
     </SafeAreaView>
@@ -79,5 +93,6 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 14, color: Colors.textSecondary },
   rowValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  btn: { alignSelf: 'stretch', marginTop: 28 },
+  btnSecondary: { alignSelf: 'stretch', marginTop: 24 },
+  btn: { alignSelf: 'stretch', marginTop: 12 },
 });

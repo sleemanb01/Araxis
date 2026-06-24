@@ -66,6 +66,22 @@ export async function updateProfile(
   await updateDoc(doc(db, USERS, uid), data as { [k: string]: any });
 }
 
+/**
+ * Self-register a pending profile after first sign-in. No role claim is granted
+ * here (rules only allow the placeholder below); an admin provisions the real
+ * role via the setUserRole Cloud Function.
+ */
+export async function createPendingProfile(uid: string, name: string): Promise<void> {
+  await setDoc(doc(db, USERS, uid), {
+    uid,
+    name,
+    role: 'junior_tech', // placeholder; real role + claim set by setUserRole
+    teamId: '',
+    managerId: null,
+    createdAt: new Date().toISOString(),
+  });
+}
+
 export async function deleteUserDoc(uid: string): Promise<void> {
   await deleteDoc(doc(db, USERS, uid));
 }

@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { AuthNavigator } from './src/navigation/AuthNavigator';
+import { RegisterScreen } from './src/screens/RegisterScreen';
 import { PendingScreen } from './src/screens/PendingScreen';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { InventoryProvider } from './src/context/InventoryContext';
@@ -24,11 +25,13 @@ function Loading() {
 }
 
 function Root() {
-  const { user, profile, initializing, profileLoaded } = useUser();
+  const { user, initializing, profileLoaded, needsRegistration, claimLoaded, role } = useUser();
   if (initializing) return <Loading />;
   if (!user) return <AuthNavigator />;
-  if (!profileLoaded) return <Loading />; // checking Firestore for a profile
-  if (!profile) return <PendingScreen />; // signed in, awaiting admin provisioning
+  if (!profileLoaded) return <Loading />;
+  if (needsRegistration) return <RegisterScreen />; // signed in, no profile yet
+  if (!claimLoaded) return <Loading />;
+  if (!role) return <PendingScreen />; // registered, awaiting admin provisioning
   return <RootNavigator />;
 }
 

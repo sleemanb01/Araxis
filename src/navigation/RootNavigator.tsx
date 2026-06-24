@@ -4,6 +4,7 @@ import { TabNavigator } from './TabNavigator';
 import { ServiceCallDetailScreen } from '../screens/ServiceCallDetailScreen';
 import { ItemEditorScreen } from '../screens/ItemEditorScreen';
 import { TransferScreen } from '../screens/TransferScreen';
+import { CrewScreen } from '../screens/CrewScreen';
 import { RootStackParamList } from './types';
 import { Colors } from '../constants/colors';
 
@@ -24,6 +25,7 @@ export function RootNavigator() {
       <Stack.Screen name="ServiceCallDetail" component={ServiceCallDetailScreen} options={{ title: 'פרטי קריאה' }} />
       <Stack.Screen name="ItemEditor" component={ItemEditorScreen} options={{ title: 'פריט', presentation: 'modal' }} />
       <Stack.Screen name="Transfer" component={TransferScreen} options={{ title: 'העברת ציוד', presentation: 'modal' }} />
+      <Stack.Screen name="Crew" component={CrewScreen} options={{ title: 'ניהול צוות' }} />
     </Stack.Navigator>
   );
 }

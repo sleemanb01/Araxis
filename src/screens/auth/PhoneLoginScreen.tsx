@@ -15,6 +15,7 @@ import { useUser } from '../../context/UserContext';
 import { sendOtp, toE164 } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
+import { BUSINESS_NAME } from '../../constants/business';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/types';
 
@@ -53,7 +54,7 @@ export function PhoneLoginScreen() {
       >
         <View style={styles.container}>
           <Image source={require('../../../assets/icon.png')} style={styles.logo} />
-          <Text style={styles.title}>ברוכים הבאים ל-Mima</Text>
+          <Text style={styles.title}>ברוכים הבאים ל-{BUSINESS_NAME}</Text>
           <Text style={styles.subtitle}>הזן את מספר הטלפון שלך לכניסה</Text>
 
           <View style={styles.inputWrapper}>

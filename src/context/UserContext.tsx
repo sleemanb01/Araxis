@@ -3,7 +3,6 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
@@ -14,11 +13,13 @@ import { UserProfile, UserRole } from '../types/user';
 
 interface UserContextValue {
   user: FirebaseAuthTypes.User | null;
-  profile: UserProfile | null;
-  role: UserRole | null; // from the profile doc; drives the UI
-  initializing: boolean; // true until the first auth callback
-  profileLoaded: boolean; // true once Firestore has been checked for a profile
-  confirmation: FirebaseAuthTypes.ConfirmationResult | null; // transient OTP handle
+  profile: UserProfile | null; // Firestore doc — name/team/role-display
+  role: UserRole | null; // AUTHORITATIVE role from the custom claim
+  initializing: boolean;
+  profileLoaded: boolean;
+  claimLoaded: boolean;
+  needsRegistration: boolean; // signed in, no profile doc yet
+  confirmation: FirebaseAuthTypes.ConfirmationResult | null;
   setConfirmation: (c: FirebaseAuthTypes.ConfirmationResult | null) => void;
   signOut: () => Promise<void>;
 }
@@ -30,11 +31,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const [claimRole, setClaimRole] = useState<UserRole | null>(null);
+  const [claimLoaded, setClaimLoaded] = useState(false);
   const [confirmation, setConfirmation] =
     useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
-  const refreshedForRole = useRef<string | null>(null);
 
-  // Auth state.
   useEffect(() => {
     initAppCheck().catch((e) => console.warn('App Check init failed:', e));
     const unsub = subscribeToAuth((u) => {
@@ -44,12 +45,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, []);
 
-  // Profile doc while signed in.
   useEffect(() => {
     if (!user) {
       setProfile(null);
       setProfileLoaded(false);
-      refreshedForRole.current = null;
+      setClaimRole(null);
+      setClaimLoaded(false);
       return;
     }
     const unsub = subscribeToProfile(
@@ -63,22 +64,40 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [user]);
 
-  // When a role first appears, force-refresh the ID token so the custom claim
-  // (set by the setUserRole Cloud Function) is present for Firestore rules.
+  // Authoritative role lives in the ID-token custom claim. Force-refresh while a
+  // profile exists but no claim is present yet, so a user picks up their claim
+  // right after an admin provisions them (no re-login needed).
   useEffect(() => {
-    if (user && profile?.role && refreshedForRole.current !== profile.role) {
-      refreshedForRole.current = profile.role;
-      user.getIdToken(true).catch(() => {});
-    }
-  }, [user, profile?.role]);
+    if (!user) return;
+    let cancelled = false;
+    const force = !!profile && claimRole === null;
+    setClaimLoaded(false);
+    user
+      .getIdTokenResult(force)
+      .then((res) => {
+        if (cancelled) return;
+        setClaimRole((res.claims.role as UserRole) ?? null);
+        setClaimLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setClaimRole(null);
+        setClaimLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, profile, claimRole]);
 
   const value = useMemo<UserContextValue>(
     () => ({
       user,
       profile,
-      role: profile?.role ?? null,
+      role: claimRole,
       initializing,
       profileLoaded,
+      claimLoaded,
+      needsRegistration: !!user && profileLoaded && !profile,
       confirmation,
       setConfirmation,
       signOut: async () => {
@@ -86,7 +105,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         await signOutUser();
       },
     }),
-    [user, profile, initializing, profileLoaded, confirmation]
+    [user, profile, claimRole, initializing, profileLoaded, claimLoaded, confirmation]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
