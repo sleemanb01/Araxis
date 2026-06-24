@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useUser } from '../../context/UserContext';
 import { sendOtp, toE164 } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
@@ -22,7 +22,7 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'PhoneLogin'>;
 
 export function PhoneLoginScreen() {
   const navigation = useNavigation<Nav>();
-  const setConfirmation = useAuthStore((s) => s.setConfirmation);
+  const { setConfirmation } = useUser();
 
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);

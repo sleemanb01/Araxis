@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useUser } from '../../context/UserContext';
 import { confirmOtp, sendOtp } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
@@ -26,8 +26,7 @@ export function OtpScreen() {
   const route = useRoute<RouteP>();
   const { phone } = route.params;
 
-  const confirmation = useAuthStore((s) => s.confirmation);
-  const setConfirmation = useAuthStore((s) => s.setConfirmation);
+  const { confirmation, setConfirmation } = useUser();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
