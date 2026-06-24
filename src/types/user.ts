@@ -1,34 +1,25 @@
-export type UserRole = 'customer' | 'provider';
+export type UserRole = 'admin' | 'lead_tech' | 'junior_tech';
 
-export interface BaseProfile {
+/**
+ * A crew member. Stored in the `users` collection keyed by auth uid.
+ * `role` is mirrored into a Firebase custom claim (see functions/) so security
+ * rules can gate on `request.auth.token.role`.
+ */
+export interface UserProfile {
   uid: string;
-  phone: string;
+  name: string;
   role: UserRole;
-  firstName: string;
-  lastName: string;
-  createdAt: string;
+  managerId: string | null; // lead tech this user reports to (null for admin / lead)
+  teamId: string;           // e.g. "team_alpha"
+  createdAt?: string;       // ISO date string
 }
 
-export interface CustomerProfile extends BaseProfile {
-  role: 'customer';
+export type CreateUserPayload = Omit<UserProfile, 'createdAt'>;
+
+export function isAdmin(p: UserProfile | null): boolean {
+  return p?.role === 'admin';
 }
 
-export interface SocialLinks {
-  instagram?: string;
-  facebook?: string;
-  tiktok?: string;
-  whatsapp?: string;
+export function isLeadTech(p: UserProfile | null): boolean {
+  return p?.role === 'lead_tech';
 }
-
-export interface ProviderProfile extends BaseProfile {
-  role: 'provider';
-  location: string;
-  logoUrl: string | null;
-  themeColor: string;  // hex, e.g. "#2563EB"
-  services: string[];  // categories the provider offers
-  links?: SocialLinks; // optional social links
-  workingDays?: number[];        // weekday indices the provider works (0=Sun..6=Sat)
-  nextAvailable?: string | null; // manual override; otherwise derived from the calendar
-}
-
-export type UserProfile = CustomerProfile | ProviderProfile;

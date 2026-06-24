@@ -1,6 +1,7 @@
 /**
  * Inventory service — Cloud Firestore (collection: "inventory").
- * Each product holds stock in two places: warehouseQty + vehicleQty.
+ * Stock is a per-location map (warehouse + each team vehicle). Hardware is
+ * assigned to a service call via an atomic batch write (deduct + record).
  * Modular RN Firebase API.
  */
 
@@ -9,48 +10,27 @@ import {
   doc,
   addDoc,
   updateDoc,
-  getDocs,
   onSnapshot,
   increment,
+  arrayUnion,
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import {
-  InventoryItem,
-  ItemLocation,
-  CreateInventoryPayload,
-} from '../types/inventory';
-import { SEED_INVENTORY } from './seedData';
+import { InventoryItem, CreateInventoryPayload } from '../types/inventory';
 
 const INVENTORY = 'inventory';
+const CALLS = 'serviceCalls';
 
 function toItem(snap: { id: string; data: () => any }): InventoryItem {
   const d = snap.data();
-  // Back-compat: older docs stored a single `quantity` + `location`.
-  let warehouseQty: number | undefined =
-    typeof d.warehouseQty === 'number' ? d.warehouseQty : undefined;
-  let vehicleQty: number | undefined =
-    typeof d.vehicleQty === 'number' ? d.vehicleQty : undefined;
-  if (warehouseQty === undefined && vehicleQty === undefined) {
-    const q = typeof d.quantity === 'number' ? d.quantity : 0;
-    const onVehicle = d.location === 'vehicle';
-    warehouseQty = onVehicle ? 0 : q;
-    vehicleQty = onVehicle ? q : 0;
-  }
   return {
     id: snap.id,
-    barcode: d.barcode ?? '',
-    name: d.name ?? '',
-    category: d.category ?? '',
-    warehouseQty: warehouseQty ?? 0,
-    vehicleQty: vehicleQty ?? 0,
+    itemName: d.itemName ?? d.name ?? '',
+    locations: d.locations && typeof d.locations === 'object' ? d.locations : {},
   };
 }
 
-const fieldFor = (loc: ItemLocation) =>
-  loc === 'warehouse' ? 'warehouseQty' : 'vehicleQty';
-
-/** Real-time subscription to inventory. Returns an unsubscribe function. */
+/** Real-time subscription to the master ledger. Returns an unsubscribe function. */
 export function subscribeToInventory(
   onChange: (items: InventoryItem[]) => void,
   onError?: (e: Error) => void
@@ -65,32 +45,48 @@ export function subscribeToInventory(
   );
 }
 
-/** Adjust the stock in one location by a (possibly negative) delta. */
+/** Adjust stock at one location by a (possibly negative) delta. */
 export async function adjustQuantity(
   id: string,
-  location: ItemLocation,
+  location: string,
   delta: number
 ): Promise<void> {
-  await updateDoc(doc(db, INVENTORY, id), { [fieldFor(location)]: increment(delta) });
+  await updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) });
 }
 
-/** Atomically move `qty` units between locations in a single write. */
+/** Atomically move `qty` units between two locations in a single write. */
 export async function transfer(
   id: string,
   qty: number,
-  direction: 'toVehicle' | 'toWarehouse'
+  from: string,
+  to: string
 ): Promise<void> {
-  if (qty <= 0) return;
-  const toVehicle = direction === 'toVehicle';
+  if (qty <= 0 || from === to) return;
   await updateDoc(doc(db, INVENTORY, id), {
-    warehouseQty: increment(toVehicle ? -qty : qty),
-    vehicleQty: increment(toVehicle ? qty : -qty),
+    [`locations.${from}`]: increment(-qty),
+    [`locations.${to}`]: increment(qty),
   });
 }
 
-export async function createInventoryItem(
-  payload: CreateInventoryPayload
+/**
+ * Assign hardware to a service call: in ONE batch, deduct the unit from the
+ * source location's stock and record the item id on the call's `hardwareUsed`.
+ */
+export async function assignHardwareToCall(
+  itemId: string,
+  fromLocation: string,
+  ticketId: string,
+  qty = 1
 ): Promise<void> {
+  const batch = writeBatch(db);
+  batch.update(doc(db, INVENTORY, itemId), {
+    [`locations.${fromLocation}`]: increment(-qty),
+  });
+  batch.update(doc(db, CALLS, ticketId), { hardwareUsed: arrayUnion(itemId) });
+  await batch.commit();
+}
+
+export async function createInventoryItem(payload: CreateInventoryPayload): Promise<void> {
   await addDoc(collection(db, INVENTORY), payload);
 }
 
@@ -99,14 +95,4 @@ export async function updateInventoryItem(
   patch: Partial<InventoryItem>
 ): Promise<void> {
   await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
-}
-
-/** Dev convenience: populate the collection from SEED_INVENTORY if it's empty. */
-export async function seedInventoryIfEmpty(): Promise<boolean> {
-  const snap = await getDocs(collection(db, INVENTORY));
-  if (!snap.empty) return false;
-  const batch = writeBatch(db);
-  SEED_INVENTORY.forEach((i) => batch.set(doc(collection(db, INVENTORY)), i));
-  await batch.commit();
-  return true;
 }

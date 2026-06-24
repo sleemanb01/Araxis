@@ -1,25 +1,28 @@
-export type ItemLocation = 'warehouse' | 'vehicle';
-
+/**
+ * Master inventory ledger (collection `inventory`). Stock is tracked per
+ * location in a map: the warehouse plus one entry per team vehicle
+ * (e.g. "warehouse", "car_alpha", "car_bravo").
+ */
 export interface InventoryItem {
   id: string;
-  barcode: string;
-  name: string;
-  category: string;
-  warehouseQty: number; // units in the warehouse
-  vehicleQty: number;   // units loaded in the car/van
+  itemName: string;
+  locations: Record<string, number>; // location key -> quantity on hand
 }
 
 export type CreateInventoryPayload = Omit<InventoryItem, 'id'>;
 
-/** Flag an item as low-stock when its total across both locations is at/below this. */
+/** The master-stock location key. */
+export const WAREHOUSE = 'warehouse';
+
+/** Flag low stock when the total across all locations is at/below this. */
 export const LOW_STOCK_THRESHOLD = 3;
 
 export function totalQty(i: InventoryItem): number {
-  return i.warehouseQty + i.vehicleQty;
+  return Object.values(i.locations).reduce((sum, n) => sum + (n ?? 0), 0);
 }
 
-export function qtyAt(i: InventoryItem, loc: ItemLocation): number {
-  return loc === 'warehouse' ? i.warehouseQty : i.vehicleQty;
+export function qtyAt(i: InventoryItem, location: string): number {
+  return i.locations[location] ?? 0;
 }
 
 export function isLowStock(i: InventoryItem): boolean {
