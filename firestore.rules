@@ -1,8 +1,8 @@
 rules_version = '2';
 
-// Mima Firestore security rules.
-// Principle: deny by default; only authenticated technicians can read/write,
-// and writes are validated. Tighten further with custom claims (roles) later.
+// Araxis v2 — internal field-service ops. Role-based access enforced via Firebase
+// custom claims (request.auth.token.role), set only by the setUserRole Cloud
+// Function (Admin SDK). Deny by default.
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -11,87 +11,58 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-
-    function isVerifiedPhone() {
-      // Phone-auth users always have a phone_number token field.
-      return isSignedIn() && request.auth.token.phone_number != null;
+    function role() {
+      return request.auth.token.role;
+    }
+    function isAdmin() {
+      return isSignedIn() && role() == 'admin';
+    }
+    function isTech() {
+      return isSignedIn() && role() in ['admin', 'lead_tech', 'junior_tech'];
     }
 
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
+    // ---- Admin: full access to everything ----
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
 
-    // ---- Users: owner can read/write their own profile; profiles are
-    //      readable by any signed-in user (to view providers). ----
+    // ---- Users ----
+    // Any crew member can read profiles (to see teammates). Role/team/identity
+    // are written ONLY by the Cloud Function (Admin SDK bypasses rules), so a
+    // tech can't escalate; a user may update only their own `name`.
     match /users/{userId} {
-      allow read:  if isSignedIn();
-      allow write: if isOwner(userId);
+      allow read: if isTech();
+      allow update: if request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+      allow create, delete: if false;
+    }
 
-      // Reviews of a provider: any verified user can read; a verified user
-      // can create a review authored as themselves; no edits/deletes.
-      match /reviews/{reviewId} {
-        allow read:   if isVerifiedPhone();
-        allow create: if isVerifiedPhone()
-                      && request.resource.data.customerId == request.auth.uid
-                      && request.resource.data.rating is number
-                      && request.resource.data.rating >= 1
-                      && request.resource.data.rating <= 5;
-        allow update, delete: if false;
+    // ---- Service calls ----
+    // A tech reads a call only if they are on its crew. The lead tech on a call
+    // may update it (status, hardwareUsed). Creates/deletes are admin-only.
+    match /serviceCalls/{ticketId} {
+      allow read: if isTech()
+                  && (resource.data.teamAssignment.leadTech == request.auth.uid
+                      || request.auth.uid in resource.data.teamAssignment.assistants);
+      allow update: if isTech()
+                    && resource.data.teamAssignment.leadTech == request.auth.uid;
+      allow create, delete: if false;
+
+      // Financials — ADMIN ONLY (the invisible wall). Already covered by the
+      // admin catch-all above; this locks it explicitly for any future change.
+      match /privateData/{docId} {
+        allow read, write: if isAdmin();
       }
     }
 
-    // ---- Jobs ----
-    // Any verified technician may read jobs (the shared pool).
-    // Create/update allowed for verified technicians; deletes denied from client.
-    match /jobs/{jobId} {
-      allow read:   if isVerifiedPhone();
-      allow create: if isVerifiedPhone()
-                    && request.resource.data.keys().hasAll(
-                         ['customerName', 'address', 'phone', 'status']
-                       );
-      allow update: if isVerifiedPhone();
-      allow delete: if false;
-    }
-
-    // ---- Inventory: verified techs can read and update stock counts ----
+    // ---- Inventory master ledger ----
+    // Any tech reads; writes (stock adjustments, hardware assignment, vehicle
+    // loading) by admins and lead techs.
     match /inventory/{itemId} {
-      allow read:   if isVerifiedPhone();
-      allow update: if isVerifiedPhone();
-      allow create: if isVerifiedPhone();
-      allow delete: if false; // deletes via admin only
+      allow read: if isTech();
+      allow write: if isSignedIn() && role() in ['admin', 'lead_tech'];
     }
 
-    // ---- Customers: the techs' shared customer book ----
-    // Verified techs read/update; creates are stamped with the author's uid;
-    // deletes allowed (it's their own book — e.g. fixing a duplicate).
-    match /customers/{customerId} {
-      allow read:   if isVerifiedPhone();
-      allow create: if isVerifiedPhone()
-                    && request.resource.data.keys().hasAll(
-                         ['name', 'phone', 'createdBy']
-                       )
-                    && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isVerifiedPhone();
-      allow delete: if isVerifiedPhone();
-    }
-
-    // ---- Appointments (calendar) ----
-    // Verified techs read/update; creates are stamped with the author's uid;
-    // no client hard-delete — cancel via the `status` field instead.
-    match /appointments/{apptId} {
-      allow read:   if isVerifiedPhone();
-      allow create: if isVerifiedPhone()
-                    && request.resource.data.keys().hasAll(
-                         ['startAt', 'status', 'createdBy']
-                       )
-                    && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isVerifiedPhone();
-      allow delete: if false;
-    }
-
-    // ---- Catch-all: deny everything else ----
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // Anything not matched above is denied by default.
   }
 }
