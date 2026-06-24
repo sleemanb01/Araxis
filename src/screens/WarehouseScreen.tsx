@@ -1,50 +1,31 @@
 import React, { useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useInventoryStore } from '../store/useInventoryStore';
+import { useInventory } from '../context/InventoryContext';
+import { useUser } from '../context/UserContext';
+import { adjustQuantity } from '../services/inventoryService';
+import { InventoryItem, isLowStock, qtyAt, WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { InventoryItem, ItemLocation, isLowStock, qtyAt } from '../types/inventory';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Filter = 'all' | ItemLocation;
 
 export function WarehouseScreen() {
   const navigation = useNavigation<Nav>();
-  const items = useInventoryStore((s) => s.items);
-  const [filter, setFilter] = useState<Filter>('all');
+  const { items } = useInventory();
+  const { role } = useUser();
+  const canEdit = role === 'admin' || role === 'lead_tech';
   const [query, setQuery] = useState('');
 
   const lowCount = useMemo(() => items.filter(isLowStock).length, [items]);
-  const counts = useMemo(
-    () => ({
-      all: items.length,
-      warehouse: items.filter((i) => i.warehouseQty > 0).length,
-      vehicle: items.filter((i) => i.vehicleQty > 0).length,
-    }),
-    [items]
-  );
-
   const visible = useMemo(() => {
-    const byLoc =
-      filter === 'all' ? items : items.filter((i) => qtyAt(i, filter) > 0);
     const q = query.trim();
-    if (!q) return byLoc;
-    return byLoc.filter(
-      (i) => i.name.includes(q) || i.barcode.includes(q) || i.category.includes(q)
-    );
-  }, [items, filter, query]);
+    return q ? items.filter((i) => i.itemName.includes(q)) : items;
+  }, [items, query]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -54,14 +35,13 @@ export function WarehouseScreen() {
         renderItem={({ item }) => (
           <InventoryRow
             item={item}
-            filter={filter}
-            onEdit={() => navigation.navigate('ItemEditor', { barcode: item.barcode })}
+            canEdit={canEdit}
+            onEdit={() => navigation.navigate('ItemEditor', { itemId: item.id })}
           />
         )}
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>מחסן וציוד</Text>
-
             <View style={styles.metrics}>
               <View style={styles.metric}>
                 <Text style={styles.metricLabel}>סה״כ פריטים</Text>
@@ -73,54 +53,29 @@ export function WarehouseScreen() {
               </View>
             </View>
 
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={styles.scanBtn}
-                onPress={() => navigation.navigate('Scan')}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="barcode-outline" size={20} color="#FFFFFF" />
-                <Text style={styles.scanText}>סרוק פריט</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.loadBtn}
-                onPress={() => navigation.navigate('Transfer')}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="car-outline" size={20} color={Colors.primary} />
-                <Text style={styles.loadText}>טען לרכב</Text>
-              </TouchableOpacity>
-            </View>
+            {canEdit && (
+              <View style={styles.actions}>
+                <TouchableOpacity style={styles.addBtn} onPress={() => navigation.navigate('ItemEditor', {})} activeOpacity={0.85}>
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                  <Text style={styles.addText}>פריט חדש</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.loadBtn} onPress={() => navigation.navigate('Transfer')} activeOpacity={0.85}>
+                  <Ionicons name="car-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.loadText}>טען לרכב</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <View style={styles.searchRow}>
               <Ionicons name="search" size={17} color={Colors.textSecondary} />
               <TextInput
                 style={styles.search}
-                placeholder="חיפוש לפי שם, ברקוד או קטגוריה…"
+                placeholder="חיפוש לפי שם…"
                 placeholderTextColor={Colors.textSecondary}
                 value={query}
                 onChangeText={setQuery}
                 textAlign="right"
               />
-            </View>
-
-            <View style={styles.segment}>
-              {(['all', 'warehouse', 'vehicle'] as Filter[]).map((f) => {
-                const active = filter === f;
-                const label =
-                  f === 'all' ? 'הכל' : f === 'warehouse' ? 'מחסן' : 'רכב';
-                return (
-                  <TouchableOpacity
-                    key={f}
-                    style={[styles.segBtn, active && styles.segBtnActive]}
-                    onPress={() => setFilter(f)}
-                  >
-                    <Text style={[styles.segText, active && styles.segTextActive]}>
-                      {label} · {counts[f]}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
             </View>
           </View>
         }
@@ -134,56 +89,46 @@ export function WarehouseScreen() {
 
 function InventoryRow({
   item,
-  filter,
+  canEdit,
   onEdit,
 }: {
   item: InventoryItem;
-  filter: Filter;
+  canEdit: boolean;
   onEdit: () => void;
 }) {
-  const adjust = useInventoryStore((s) => s.adjust);
   const low = isLowStock(item);
-  const stepperLoc: ItemLocation | null =
-    filter === 'warehouse' ? 'warehouse' : filter === 'vehicle' ? 'vehicle' : null;
+  const breakdown = Object.entries(item.locations)
+    .filter(([, n]) => n > 0)
+    .map(([loc, n]) => `${loc} ${n}`)
+    .join(' · ');
 
   return (
     <View style={styles.row}>
       <TouchableOpacity style={styles.rowInfo} onPress={onEdit} activeOpacity={0.7}>
-        <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+        <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
         <View style={styles.rowMeta}>
-          {!!item.category && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>{item.category}</Text>
-            </View>
-          )}
           {low && (
             <View style={styles.lowTag}>
               <Ionicons name="alert-circle-outline" size={12} color="#A32D2D" />
               <Text style={styles.lowText}>מלאי נמוך</Text>
             </View>
           )}
-          {filter === 'all' && (
-            <Text style={styles.split}>
-              מחסן {item.warehouseQty} · רכב {item.vehicleQty}
-            </Text>
-          )}
+          <Text style={styles.split}>{breakdown || 'אין מלאי'}</Text>
         </View>
       </TouchableOpacity>
 
-      {stepperLoc && (
+      {canEdit && (
         <View style={styles.stepper}>
           <TouchableOpacity
             style={styles.stepBtn}
-            onPress={() => qtyAt(item, stepperLoc) > 0 && adjust(item.id, stepperLoc, -1)}
+            onPress={() => qtyAt(item, WAREHOUSE) > 0 && adjustQuantity(item.id, WAREHOUSE, -1)}
           >
             <Ionicons name="remove" size={16} color={Colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={[styles.stepQty, low && { color: '#A32D2D' }]}>
-            {qtyAt(item, stepperLoc)}
-          </Text>
+          <Text style={[styles.stepQty, low && { color: '#A32D2D' }]}>{qtyAt(item, WAREHOUSE)}</Text>
           <TouchableOpacity
             style={[styles.stepBtn, styles.stepBtnPlus]}
-            onPress={() => adjust(item.id, stepperLoc, 1)}
+            onPress={() => adjustQuantity(item.id, WAREHOUSE, 1)}
           >
             <Ionicons name="add" size={16} color="#FFFFFF" />
           </TouchableOpacity>
@@ -196,14 +141,7 @@ function InventoryRow({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'right',
-    paddingTop: 10,
-    paddingBottom: 12,
-  },
+  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', paddingTop: 10, paddingBottom: 12 },
   metrics: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   metric: { flex: 1, backgroundColor: Colors.surface, borderRadius: 10, padding: 12 },
   metricWarn: { backgroundColor: '#FAEEDA' },
@@ -211,7 +149,7 @@ const styles = StyleSheet.create({
   metricWarnText: { color: '#854F0B' },
   metricValue: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
   actions: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  scanBtn: {
+  addBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -221,7 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 13,
   },
-  scanText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  addText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
   loadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,21 +182,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  search: { flex: 1, paddingVertical: 10, fontSize: 14, color: Colors.textPrimary },
-  segment: {
-    flexDirection: 'row',
-    gap: 6,
-    backgroundColor: Colors.surface,
-    borderRadius: 999,
-    padding: 4,
     marginBottom: 14,
   },
-  segBtn: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 999 },
-  segBtnActive: { backgroundColor: Colors.primary },
-  segText: { fontSize: 13, fontWeight: '500', color: Colors.textSecondary },
-  segTextActive: { color: '#FFFFFF' },
+  search: { flex: 1, paddingVertical: 10, fontSize: 14, color: Colors.textPrimary },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -276,8 +202,6 @@ const styles = StyleSheet.create({
   rowInfo: { flex: 1, minWidth: 0, marginEnd: 10, gap: 5 },
   rowName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   rowMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  tag: { backgroundColor: Colors.background, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  tagText: { fontSize: 11, color: Colors.textSecondary },
   lowTag: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,252 +1,83 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontAwesome5 } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CustomButton } from '../components/CustomButton';
+import { useUser } from '../context/UserContext';
+import { UserRole } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { useAuthStore } from '../store/useAuthStore';
-import { useJobStore } from '../store/useJobStore';
-import { nextAvailableDate, HE_WEEKDAYS_SHORT, DEFAULT_WORKING_DAYS } from '../utils/availability';
-import { signOutUser } from '../services/authService';
-import { subscribeToReviews, summarize } from '../services/reviewService';
-import { StarRating } from '../components/StarRating';
-import { Review } from '../types/review';
-import { SOCIAL_PLATFORMS, SOCIAL_META, socialUrl, SocialPlatform } from '../utils/social';
-import type { RootStackParamList } from '../navigation/types';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-function SocialLogo({
-  platform, value, onAdd,
-}: { platform: SocialPlatform; value?: string; onAdd: () => void }) {
-  const meta = SOCIAL_META[platform];
-  const url = socialUrl(platform, value);
-
-  if (url) {
-    return (
-      <TouchableOpacity
-        style={[styles.logoBtn, { backgroundColor: meta.color }]}
-        onPress={() => Linking.openURL(url)}
-      >
-        <FontAwesome5 name={meta.icon} size={22} color="#FFFFFF" brand />
-      </TouchableOpacity>
-    );
-  }
-  // No link yet — muted icon with a + badge to add it.
-  return (
-    <TouchableOpacity style={[styles.logoBtn, styles.logoEmpty]} onPress={onAdd}>
-      <FontAwesome5 name={meta.icon} size={22} color={Colors.textSecondary} brand />
-      <View style={styles.plusBadge}>
-        <Text style={styles.plusText}>+</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
+const ROLE_HE: Record<UserRole, string> = {
+  admin: 'מנהל',
+  lead_tech: 'טכנאי ראשי',
+  junior_tech: 'טכנאי',
+};
 
 export function ProfileScreen() {
-  const navigation = useNavigation<Nav>();
-  const user = useAuthStore((s) => s.user);
-  const profile = useAuthStore((s) => s.profile);
-
-  const isProvider = profile?.role === 'provider';
-  const fullName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : '';
-  const accent = isProvider ? profile.themeColor : Colors.primary;
-
-  const jobs = useJobStore((s) => s.jobs);
-  const workingDays = isProvider ? profile.workingDays ?? DEFAULT_WORKING_DAYS : DEFAULT_WORKING_DAYS;
-  const nextAvail = useMemo(() => {
-    if (!isProvider) return null;
-    if (profile.nextAvailable) return profile.nextAvailable;
-    const busy = jobs.filter((j) => j.assignedTo === user?.uid).map((j) => j.scheduledAt);
-    return nextAvailableDate(workingDays, busy);
-  }, [isProvider, profile, jobs, user?.uid, workingDays]);
-
-  const [reviews, setReviews] = useState<Review[]>([]);
-
-  useEffect(() => {
-    if (!isProvider || !user) return;
-    const unsub = subscribeToReviews(user.uid, setReviews);
-    return unsub;
-  }, [isProvider, user]);
-
-  const { avg, count } = summarize(reviews);
+  const { profile, user, signOut } = useUser();
+  if (!profile) return null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleRow}>
-          <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-            <Text style={[styles.editLink, { color: accent }]}>ערוך</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>פרופיל</Text>
+      <View style={styles.container}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{profile.name.charAt(0)}</Text>
+        </View>
+        <Text style={styles.name}>{profile.name}</Text>
+        <Text style={styles.role}>{ROLE_HE[profile.role]}</Text>
+
+        <View style={styles.card}>
+          <Row label="צוות" value={profile.teamId} />
+          <Row label="טלפון" value={user?.phoneNumber ?? '—'} />
         </View>
 
-        {/* Avatar / logo */}
-        {isProvider && profile.logoUrl ? (
-          <Image source={{ uri: profile.logoUrl }} style={styles.logo} />
-        ) : (
-          <View style={[styles.avatarCircle, { backgroundColor: accent }]}>
-            <Text style={styles.avatarText}>{fullName.charAt(0) || '?'}</Text>
-          </View>
-        )}
-
-        <Text style={styles.name}>{fullName || 'משתמש'}</Text>
-        <Text style={[styles.role, { color: accent }]}>
-          {isProvider ? 'נותן שירות' : 'לקוח'}
-        </Text>
-        {isProvider && !!profile.location && (
-          <Text style={styles.location}>{profile.location}</Text>
-        )}
-
-        {/* Call button (instead of showing the raw number) */}
-        {!!user?.phoneNumber && (
-          <TouchableOpacity
-            style={[styles.callBtn, { backgroundColor: accent }]}
-            onPress={() => Linking.openURL(`tel:${user.phoneNumber}`)}
-          >
-            <Text style={styles.callBtnText}>📞 התקשר</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Social links — brand logos; "+" badge when missing */}
-        {isProvider && (
-          <View style={styles.socialRow}>
-            {SOCIAL_PLATFORMS.map((pf) => (
-              <SocialLogo
-                key={pf}
-                platform={pf}
-                value={profile.links?.[pf]}
-                onAdd={() => navigation.navigate('EditLink', { platform: pf })}
-              />
-            ))}
-          </View>
-        )}
-
-        {/* Services offered */}
-        {isProvider && profile.services?.length > 0 && (
-          <View style={styles.serviceChips}>
-            {profile.services.map((s) => (
-              <View key={s} style={[styles.serviceChip, { borderColor: accent }]}>
-                <Text style={[styles.serviceChipText, { color: accent }]}>{s}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Availability (public) */}
-        {isProvider && (
-          <View style={styles.availBox}>
-            <Text style={styles.availTitle}>זמינות</Text>
-            <View style={styles.availDays}>
-              {HE_WEEKDAYS_SHORT.map((w, idx) => {
-                const on = workingDays.includes(idx);
-                return (
-                  <View
-                    key={idx}
-                    style={[styles.dayDot, on && { backgroundColor: accent, borderColor: accent }]}
-                  >
-                    <Text style={[styles.dayDotText, on && { color: '#FFF' }]}>{w}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            {nextAvail && (
-              <Text style={styles.nextAvailText}>
-                התור הפנוי הבא:{' '}
-                {new Date(nextAvail).toLocaleDateString('he-IL', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'numeric',
-                })}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Provider rating */}
-        {isProvider && (
-          <View style={styles.ratingBox}>
-            <StarRating rating={avg} size={26} />
-            <Text style={styles.ratingText}>
-              {count > 0 ? `${avg.toFixed(1)} (${count} דירוגים)` : 'אין דירוגים עדיין'}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.divider} />
-
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => signOutUser()}>
-          <Text style={styles.logoutText}>התנתק</Text>
-        </TouchableOpacity>
-      </ScrollView>
+        <CustomButton label="התנתק" variant="danger" onPress={signOut} style={styles.btn} />
+      </View>
     </SafeAreaView>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowValue}>{value}</Text>
+      <Text style={styles.rowLabel}>{label}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  container: { alignItems: 'center', paddingBottom: Layout.tabBarHeight + 24 },
-  availBox: { alignItems: 'center', marginTop: 16, gap: 8 },
-  availTitle: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  availDays: { flexDirection: 'row', gap: 6 },
-  dayDot: {
-    width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
+  container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 32 },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
-  dayDotText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  nextAvailText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  titleRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    width: '100%', paddingHorizontal: Layout.screenPadding, paddingTop: 10, paddingBottom: 20,
-  },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  editLink: { fontSize: 15, fontWeight: '700' },
-  logo: { width: 88, height: 88, borderRadius: 20, marginBottom: 12 },
-  avatarCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-  },
-  avatarText: { fontSize: 32, fontWeight: '700', color: '#FFFFFF' },
-  name: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  role: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  location: { fontSize: 13, color: Colors.textSecondary, marginBottom: 12 },
-  callBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 10, paddingHorizontal: 28, borderRadius: 22, marginBottom: 14,
-  },
-  callBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  socialRow: { flexDirection: 'row', gap: 14, marginBottom: 16 },
-  logoBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  logoEmpty: {
+  avatarText: { fontSize: 36, fontWeight: '800', color: '#FFFFFF' },
+  name: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
+  role: { fontSize: 15, color: Colors.textSecondary, marginTop: 2 },
+  card: {
+    alignSelf: 'stretch',
     backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 6,
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  plusBadge: {
-    position: 'absolute', top: -2, right: -2,
-    width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.background,
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
   },
-  plusText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', lineHeight: 13 },
-  serviceChips: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
-    justifyContent: 'center', paddingHorizontal: Layout.screenPadding, marginBottom: 14,
-  },
-  serviceChip: {
-    borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4,
-  },
-  serviceChipText: { fontSize: 12, fontWeight: '600' },
-  ratingBox: { alignItems: 'center', gap: 4, marginBottom: 8 },
-  ratingText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  divider: { height: 1, backgroundColor: Colors.border, width: '100%', marginVertical: 12 },
-  logoutBtn: {
-    marginTop: 32, paddingVertical: 14, paddingHorizontal: 40,
-    borderRadius: 10, borderWidth: 1, borderColor: Colors.danger,
-  },
-  logoutText: { color: Colors.danger, fontSize: 15, fontWeight: '600' },
+  rowLabel: { fontSize: 14, color: Colors.textSecondary },
+  rowValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  btn: { alignSelf: 'stretch', marginTop: 28 },
 });
