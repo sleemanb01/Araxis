@@ -160,7 +160,7 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
   function confirmRemove() {
     Alert.alert(
       'הסרת חבר צוות',
-      `להסיר את ${user.name || user.phone || user.uid}? הגישה שלו תבוטל והוא יימחק לצמיתות.`,
+      `להסיר את ${user.name || user.phone || user.uid} מהצוות? הגישה שלו תבוטל אך החשבון לא יימחק.`,
       [
         { text: 'ביטול', style: 'cancel' },
         { text: 'הסר', style: 'destructive', onPress: remove },

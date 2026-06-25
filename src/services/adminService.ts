@@ -22,7 +22,8 @@ export async function setUserCaps(input: SetCapsInput): Promise<void> {
   await fn(input);
 }
 
-/** Remove a crew member: revokes their claim, deletes their doc and Auth account. */
+/** Remove a crew member from the crew: revokes their claim and deletes their crew
+ *  profile doc. Their Auth account is kept (the user is not deleted). */
 export async function removeUser(uid: string): Promise<void> {
   const fn = httpsCallable(functions, 'removeUser');
   await fn({ uid });
