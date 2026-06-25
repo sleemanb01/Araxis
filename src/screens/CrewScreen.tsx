@@ -36,6 +36,17 @@ import {
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
+function dialPhone(phone: string) {
+  Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('שגיאה', 'לא ניתן לחייג.'));
+}
+
+function openWhatsapp(phone: string) {
+  const digits = phone.replace(/\D/g, ''); // wa.me wants digits only
+  Linking.openURL(`https://wa.me/${digits}`).catch(() =>
+    Alert.alert('שגיאה', 'לא ניתן לפתוח את וואטסאפ.')
+  );
+}
+
 export function CrewScreen() {
   const { user: me, profile } = useUser();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -83,15 +94,34 @@ export function CrewScreen() {
           data={crew}
           keyExtractor={(u) => u.uid}
           renderItem={({ item }) => (
-            <TouchableOpacity style={styles.row} onPress={() => setEditing(item)} activeOpacity={0.8}>
-              <Text style={styles.chev}>‹</Text>
-              <View style={styles.rowInfo}>
-                <Text style={styles.name}>{item.name || '(ללא שם)'}</Text>
-                <Text style={styles.meta}>
-                  {capsLabel(item.caps)} · {item.teamId || 'ללא צוות'}
-                </Text>
-              </View>
-            </TouchableOpacity>
+            <View style={styles.row}>
+              {!!item.phone && (
+                <View style={styles.rowActions}>
+                  <TouchableOpacity
+                    style={[styles.iconBtn, styles.callIcon]}
+                    onPress={() => dialPhone(item.phone!)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="call" size={15} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.iconBtn, styles.waIcon]}
+                    onPress={() => openWhatsapp(item.phone!)}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              )}
+              <TouchableOpacity style={styles.rowMain} onPress={() => setEditing(item)} activeOpacity={0.8}>
+                <View style={styles.rowInfo}>
+                  <Text style={styles.name}>{item.name || '(ללא שם)'}</Text>
+                  <Text style={styles.meta}>
+                    {capsLabel(item.caps)} · {item.teamId || 'ללא צוות'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            </View>
           )}
           ListHeaderComponent={<Text style={styles.title}>הצוות שלי</Text>}
           ListEmptyComponent={
@@ -177,15 +207,11 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
   }
 
   function callMember() {
-    if (user.phone) Linking.openURL(`tel:${user.phone}`);
+    if (user.phone) dialPhone(user.phone);
   }
 
   function whatsappMember() {
-    if (!user.phone) return;
-    const digits = user.phone.replace(/\D/g, ''); // wa.me wants digits only
-    Linking.openURL(`https://wa.me/${digits}`).catch(() =>
-      Alert.alert('שגיאה', 'לא ניתן לפתוח את וואטסאפ.')
-    );
+    if (user.phone) openWhatsapp(user.phone);
   }
 
   function confirmRemove() {
@@ -286,16 +312,25 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: Colors.surface,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
   },
+  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginEnd: 12 },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  callIcon: { backgroundColor: Colors.primary },
+  waIcon: { backgroundColor: '#25D366' },
   rowInfo: { flex: 1, alignItems: 'flex-end' },
   name: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   meta: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
-  chev: { fontSize: 24, color: Colors.textSecondary },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
   label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
   capRow: {
