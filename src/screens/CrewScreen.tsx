@@ -9,8 +9,10 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { FAB } from '../components/FAB';
@@ -174,6 +176,18 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
     setCaps((c) => ({ ...c, [k]: !c[k] }));
   }
 
+  function callMember() {
+    if (user.phone) Linking.openURL(`tel:${user.phone}`);
+  }
+
+  function whatsappMember() {
+    if (!user.phone) return;
+    const digits = user.phone.replace(/\D/g, ''); // wa.me wants digits only
+    Linking.openURL(`https://wa.me/${digits}`).catch(() =>
+      Alert.alert('שגיאה', 'לא ניתן לפתוח את וואטסאפ.')
+    );
+  }
+
   function confirmRemove() {
     Alert.alert(
       'הסרה מהצוות',
@@ -220,6 +234,18 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
       <ScrollView contentContainerStyle={styles.editor}>
         <Text style={styles.title}>{user.name || user.phone || user.uid}</Text>
         {!!user.phone && <Text style={styles.hint}>{user.phone}</Text>}
+        {!!user.phone && (
+          <View style={styles.contactRow}>
+            <TouchableOpacity style={[styles.contactBtn, styles.callBtn]} onPress={callMember} activeOpacity={0.85}>
+              <Ionicons name="call" size={18} color="#FFFFFF" />
+              <Text style={styles.contactText}>התקשר</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.contactBtn, styles.waBtn]} onPress={whatsappMember} activeOpacity={0.85}>
+              <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" />
+              <Text style={styles.contactText}>וואטסאפ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         <Text style={styles.label}>הרשאות</Text>
         {CAP_KEYS.map((k) => (
           <View key={k} style={styles.capRow}>
@@ -285,4 +311,17 @@ const styles = StyleSheet.create({
   capLabel: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right', marginStart: 12 },
   btn: { marginTop: 12, marginBottom: 8 },
   removeBtn: { marginTop: 24 },
+  contactRow: { flexDirection: 'row', gap: 10, marginTop: 6, marginBottom: 16 },
+  contactBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 10,
+    paddingVertical: 12,
+  },
+  callBtn: { backgroundColor: Colors.primary },
+  waBtn: { backgroundColor: '#25D366' },
+  contactText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
 });
