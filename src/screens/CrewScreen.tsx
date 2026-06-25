@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute, type RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { FAB } from '../components/FAB';
+import { CrewMemberRow } from '../components/CrewMemberRow';
 import { useUser } from '../context/UserContext';
 import {
   subscribeToUsers,
@@ -25,34 +26,26 @@ import {
 } from '../services/userService';
 import { setUserCaps } from '../services/adminService';
 import { toE164 } from '../services/authService';
+import { dialPhone, openWhatsapp } from '../utils/contact';
 import {
   UserProfile,
   Capabilities,
   CAP_KEYS,
   CAP_LABELS_HE,
   NO_CAPS,
-  capsLabel,
 } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-
-function dialPhone(phone: string) {
-  Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('שגיאה', 'לא ניתן לחייג.'));
-}
-
-function openWhatsapp(phone: string) {
-  const digits = phone.replace(/\D/g, ''); // wa.me wants digits only
-  Linking.openURL(`https://wa.me/${digits}`).catch(() =>
-    Alert.alert('שגיאה', 'לא ניתן לפתוח את וואטסאפ.')
-  );
-}
+import type { RootStackParamList } from '../navigation/types';
 
 export function CrewScreen() {
   const { user: me, profile } = useUser();
+  const route = useRoute<RouteProp<RootStackParamList, 'Crew'>>();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<UserProfile | null>(null);
   const [adding, setAdding] = useState(false);
+  const consumedParam = useRef(false);
 
   useEffect(() => {
     const unsub = subscribeToUsers(
@@ -68,6 +61,23 @@ export function CrewScreen() {
   // My crew roster: the users whose uid is in my `crew` array.
   const crewIds = profile?.crew ?? [];
   const crew = users.filter((u) => crewIds.includes(u.uid));
+
+  // Deep-link from the Profile screen: open the add form, or a specific member.
+  useEffect(() => {
+    if (consumedParam.current) return;
+    const p = route.params;
+    if (!p) return;
+    if (p.add) {
+      consumedParam.current = true;
+      setAdding(true);
+    } else if (p.openUid) {
+      const u = users.find((x) => x.uid === p.openUid);
+      if (u) {
+        consumedParam.current = true;
+        setEditing(u);
+      }
+    }
+  }, [route.params, users]);
 
   async function addFound(u: UserProfile) {
     if (!me) return;
@@ -94,34 +104,7 @@ export function CrewScreen() {
           data={crew}
           keyExtractor={(u) => u.uid}
           renderItem={({ item }) => (
-            <View style={styles.row}>
-              {!!item.phone && (
-                <View style={styles.rowActions}>
-                  <TouchableOpacity
-                    style={[styles.iconBtn, styles.callIcon]}
-                    onPress={() => dialPhone(item.phone!)}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="call" size={15} color="#FFFFFF" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.iconBtn, styles.waIcon]}
-                    onPress={() => openWhatsapp(item.phone!)}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <TouchableOpacity style={styles.rowMain} onPress={() => setEditing(item)} activeOpacity={0.8}>
-                <View style={styles.rowInfo}>
-                  <Text style={styles.name}>{item.name || '(ללא שם)'}</Text>
-                  <Text style={styles.meta}>
-                    {capsLabel(item.caps)} · {item.teamId || 'ללא צוות'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            </View>
+            <CrewMemberRow member={item} onPress={() => setEditing(item)} />
           )}
           ListHeaderComponent={<Text style={styles.title}>הצוות שלי</Text>}
           ListEmptyComponent={
@@ -309,28 +292,6 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 14 },
   err: { fontSize: 13, color: Colors.danger, textAlign: 'right', marginBottom: 10 },
   preview: { fontSize: 13, color: Colors.primary, textAlign: 'right', writingDirection: 'ltr', marginBottom: 10 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 10,
-  },
-  rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center' },
-  rowActions: { flexDirection: 'row', alignItems: 'center', gap: 8, marginEnd: 12 },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  callIcon: { backgroundColor: Colors.primary },
-  waIcon: { backgroundColor: '#25D366' },
-  rowInfo: { flex: 1, alignItems: 'flex-end' },
-  name: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
-  meta: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
   label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
   capRow: {
