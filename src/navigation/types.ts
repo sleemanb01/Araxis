@@ -4,6 +4,7 @@ export type RootStackParamList = {
   ItemEditor:        { itemId?: string };
   Transfer:          undefined;
   Crew:              undefined;
+  NewServiceCall:    undefined;
 };
 
 export type AuthStackParamList = {

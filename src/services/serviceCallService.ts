@@ -73,8 +73,9 @@ export function subscribeToUpcomingCalls(
   );
 }
 
-export async function createServiceCall(payload: CreateServiceCallPayload): Promise<void> {
-  await addDoc(collection(db, CALLS), payload);
+export async function createServiceCall(payload: CreateServiceCallPayload): Promise<string> {
+  const ref = await addDoc(collection(db, CALLS), payload);
+  return ref.id;
 }
 
 export async function updateServiceCall(

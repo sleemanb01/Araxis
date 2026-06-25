@@ -5,6 +5,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ServiceCallCard } from '../components/ServiceCallCard';
 import { SectionHeader } from '../components/SectionHeader';
+import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { ServiceCall } from '../types/serviceCall';
@@ -68,6 +69,13 @@ export function DashboardScreen() {
               <Text style={styles.summaryValue}>₪{payoutTotal.toLocaleString('he-IL')}</Text>
               <Text style={styles.summarySub}>{mine.length} קריאות קרובות</Text>
             </View>
+            {role === 'admin' && (
+              <CustomButton
+                label="+ קריאה חדשה"
+                onPress={() => navigation.navigate('NewServiceCall')}
+                style={styles.newBtn}
+              />
+            )}
             <SectionHeader title="הקריאות שלי" count={mine.length} />
           </View>
         }
@@ -93,5 +101,6 @@ const styles = StyleSheet.create({
   summaryLabel: { fontSize: 13, color: '#DBEAFE', textAlign: 'right' },
   summaryValue: { fontSize: 30, fontWeight: '800', color: '#FFFFFF', textAlign: 'right', marginTop: 4 },
   summarySub: { fontSize: 13, color: '#DBEAFE', textAlign: 'right', marginTop: 2 },
+  newBtn: { marginTop: 14 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });

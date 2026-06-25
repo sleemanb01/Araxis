@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
+import { TextField } from '../components/TextField';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
-import { subscribeToFinancials, setCallStatus } from '../services/serviceCallService';
+import { subscribeToFinancials, setCallStatus, setFinancials } from '../services/serviceCallService';
 import { PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
 import {
   financialStatus,
@@ -36,12 +37,21 @@ export function ServiceCallDetailScreen() {
 
   const call = calls.find((c) => c.id === callId);
   const [fin, setFin] = useState<PrivateFinancials | null>(null);
+  const [price, setPrice] = useState('');
+  const [paid, setPaid] = useState('');
 
   useEffect(() => {
     if (role !== 'admin') return;
     const unsub = subscribeToFinancials(callId, setFin);
     return () => unsub();
   }, [callId, role]);
+
+  useEffect(() => {
+    if (fin) {
+      setPrice(String(fin.overallPrice));
+      setPaid(String(fin.paidAmount));
+    }
+  }, [fin]);
 
   if (!call) {
     return (
@@ -64,6 +74,15 @@ export function ServiceCallDetailScreen() {
   function advance() {
     if (!next) return;
     setCallStatus(callId, next).catch(() => Alert.alert('שגיאה', 'עדכון הסטטוס נכשל.'));
+  }
+
+  const priceN = Math.max(0, parseFloat(price) || 0);
+  const paidN = Math.max(0, parseFloat(paid) || 0);
+
+  function saveFinancials() {
+    setFinancials(callId, { overallPrice: priceN, paidAmount: paidN }).catch(() =>
+      Alert.alert('שגיאה', 'שמירת הכספים נכשלה.')
+    );
   }
 
   return (
@@ -106,28 +125,21 @@ export function ServiceCallDetailScreen() {
           </View>
         )}
 
-        {role === 'admin' && fin && (
+        {role === 'admin' && (
           <>
             <Text style={styles.section}>כספים (מנהל בלבד)</Text>
+            <TextField label="מחיר ללקוח (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+            <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
             <View style={styles.payRow}>
-              <Text style={styles.amount}>₪{fin.overallPrice.toLocaleString('he-IL')}</Text>
-              <Text style={styles.line}>מחיר ללקוח</Text>
-            </View>
-            <View style={styles.payRow}>
-              <Text style={styles.amount}>₪{fin.paidAmount.toLocaleString('he-IL')}</Text>
-              <Text style={styles.line}>שולם</Text>
-            </View>
-            <View style={styles.payRow}>
-              <Text style={styles.amount}>₪{balanceDue(fin.overallPrice, fin.paidAmount).toLocaleString('he-IL')}</Text>
+              <Text style={styles.amount}>₪{balanceDue(priceN, paidN).toLocaleString('he-IL')}</Text>
               <Text style={styles.line}>יתרה</Text>
             </View>
             <View style={styles.payRow}>
-              <Text style={styles.amountBold}>₪{profit(fin.overallPrice, call.payouts.totalTechPayout).toLocaleString('he-IL')}</Text>
+              <Text style={styles.amountBold}>₪{profit(priceN, call.payouts.totalTechPayout).toLocaleString('he-IL')}</Text>
               <Text style={styles.lineBold}>רווח</Text>
             </View>
-            <Text style={styles.finStatus}>
-              {FINANCIAL_STATUS_HE[financialStatus(fin.overallPrice, fin.paidAmount)]}
-            </Text>
+            <Text style={styles.finStatus}>{FINANCIAL_STATUS_HE[financialStatus(priceN, paidN)]}</Text>
+            <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
           </>
         )}
 
@@ -161,4 +173,5 @@ const styles = StyleSheet.create({
   amountBold: { fontSize: 16, fontWeight: '800', color: Colors.primary },
   finStatus: { fontSize: 14, fontWeight: '700', color: Colors.primary, textAlign: 'right', marginTop: 6 },
   btn: { marginTop: 28 },
+  btnFin: { marginTop: 10 },
 });
