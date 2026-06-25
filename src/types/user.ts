@@ -77,7 +77,6 @@ export interface UserProfile {
   uid: string;
   name: string;
   caps: Capabilities;
-  managerId: string | null;
   teamId: string;
   crew?: string[];           // uids of this user's crew members (their roster)
   services?: string[];       // service names this user provides (open catalog)

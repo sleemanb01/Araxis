@@ -33,7 +33,7 @@ if (!uid) {
     .firestore()
     .collection('users')
     .doc(uid)
-    .set({ uid, caps: ALL_CAPS, teamId, managerId: null, createdAt: new Date().toISOString() }, { merge: true });
+    .set({ uid, caps: ALL_CAPS, teamId, createdAt: new Date().toISOString() }, { merge: true });
   console.log(`✓ ${uid} now has all capabilities (team ${teamId}). Sign out/in to refresh the token.`);
   process.exit(0);
 })().catch((e) => {

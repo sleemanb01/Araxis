@@ -30,7 +30,6 @@ function toUser(snap: { id: string; data: () => any }): UserProfile {
     uid: snap.id,
     name: d.name ?? '',
     caps: toCaps(d.caps),
-    managerId: d.managerId ?? null,
     teamId: d.teamId ?? '',
     crew: Array.isArray(d.crew) ? d.crew : [],
     services: Array.isArray(d.services) ? d.services : [],
@@ -101,7 +100,6 @@ export async function createPendingProfile(
     name,
     caps: NO_CAPS, // no access until an admin provisions capabilities (+ claim)
     teamId: '',
-    managerId: null,
     ...(opts?.phone ? { phone: opts.phone } : {}),
     ...(opts?.services?.length ? { services: opts.services } : {}),
     ...(opts?.availability ? { availability: opts.availability } : {}),

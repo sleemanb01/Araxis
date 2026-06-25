@@ -48,7 +48,6 @@ if (!phone || !phone.startsWith('+')) {
         name,
         caps: NO_CAPS, // pending — admin provisions capabilities later
         teamId: '',
-        managerId: null,
         phone,
         createdAt: new Date().toISOString(),
       },
