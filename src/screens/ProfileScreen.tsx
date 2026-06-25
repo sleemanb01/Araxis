@@ -17,7 +17,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
-  const { profile, user, caps, signOut } = useUser();
+  const { profile, caps, signOut } = useUser();
   const [users, setUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
@@ -39,7 +39,6 @@ export function ProfileScreen() {
 
         <View style={styles.card}>
           <Row label="צוות" value={profile.teamId} />
-          <Row label="טלפון" value={user?.phoneNumber ?? '—'} />
         </View>
 
         {caps.manageCrew && (
