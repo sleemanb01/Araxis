@@ -30,7 +30,9 @@ interface SetUserRoleData {
  * The target user must refresh their ID token — getIdToken(true) on the client —
  * to pick up the new claim.
  */
-export const setUserRole = onCall(async (request: CallableRequest<SetUserRoleData>) => {
+export const setUserRole = onCall(
+  { region: 'me-west1' },
+  async (request: CallableRequest<SetUserRoleData>) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Sign in required.');
   }

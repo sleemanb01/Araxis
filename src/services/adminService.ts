@@ -7,7 +7,7 @@ import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import { UserRole } from '../types/user';
 
-const functions = getFunctions(getApp());
+const functions = getFunctions(getApp(), 'me-west1');
 
 export interface ProvisionInput {
   uid: string;
