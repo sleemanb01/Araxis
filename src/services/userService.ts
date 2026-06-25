@@ -9,10 +9,13 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
+  query,
+  where,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { UserProfile, UserRole } from '../types/user';
@@ -27,6 +30,7 @@ function toUser(snap: { id: string; data: () => any }): UserProfile {
     role: (d.role ?? 'junior_tech') as UserRole,
     managerId: d.managerId ?? null,
     teamId: d.teamId ?? '',
+    phone: d.phone ?? undefined,
     createdAt: d.createdAt ?? undefined,
   };
 }
@@ -71,15 +75,26 @@ export async function updateProfile(
  * here (rules only allow the placeholder below); an admin provisions the real
  * role via the setUserRole Cloud Function.
  */
-export async function createPendingProfile(uid: string, name: string): Promise<void> {
+export async function createPendingProfile(
+  uid: string,
+  name: string,
+  phone?: string
+): Promise<void> {
   await setDoc(doc(db, USERS, uid), {
     uid,
     name,
     role: 'junior_tech', // placeholder; real role + claim set by setUserRole
     teamId: '',
     managerId: null,
+    ...(phone ? { phone } : {}),
     createdAt: new Date().toISOString(),
   });
+}
+
+/** Find a crew member by phone (E.164). Admin-only lookup used for provisioning. */
+export async function findUserByPhone(phone: string): Promise<UserProfile | null> {
+  const snap = await getDocs(query(collection(db, USERS), where('phone', '==', phone)));
+  return snap.empty ? null : toUser(snap.docs[0]);
 }
 
 export async function deleteUserDoc(uid: string): Promise<void> {

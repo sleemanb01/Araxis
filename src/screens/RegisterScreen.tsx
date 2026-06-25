@@ -20,7 +20,7 @@ export function RegisterScreen() {
     setSaving(true);
     setError(null);
     try {
-      await createPendingProfile(user.uid, name.trim());
+      await createPendingProfile(user.uid, name.trim(), user.phoneNumber ?? undefined);
       // Profile subscription flips the app to the pending screen automatically.
     } catch {
       setError('הרישום נכשל. נסה שוב.');

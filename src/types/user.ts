@@ -11,6 +11,7 @@ export interface UserProfile {
   role: UserRole;
   managerId: string | null; // lead tech this user reports to (null for admin / lead)
   teamId: string;           // e.g. "team_alpha"
+  phone?: string;           // E.164, captured at self-registration (admin lookup)
   createdAt?: string;       // ISO date string
 }
 

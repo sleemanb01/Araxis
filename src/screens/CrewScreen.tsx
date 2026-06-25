@@ -11,8 +11,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
-import { subscribeToUsers } from '../services/userService';
+import { FAB } from '../components/FAB';
+import { subscribeToUsers, findUserByPhone } from '../services/userService';
 import { provisionUser } from '../services/adminService';
+import { toE164 } from '../services/authService';
 import { UserProfile, UserRole } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -29,6 +31,7 @@ export function CrewScreen() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<UserProfile | null>(null);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToUsers(
@@ -41,8 +44,17 @@ export function CrewScreen() {
     return () => unsub();
   }, []);
 
-  if (editing) {
-    return <CrewEditor user={editing} onDone={() => setEditing(null)} />;
+  if (editing) return <CrewEditor user={editing} onDone={() => setEditing(null)} />;
+  if (adding) {
+    return (
+      <AddCrewForm
+        onFound={(u) => {
+          setAdding(false);
+          setEditing(u);
+        }}
+        onCancel={() => setAdding(false)}
+      />
+    );
   }
 
   return (
@@ -69,6 +81,58 @@ export function CrewScreen() {
           contentContainerStyle={styles.list}
         />
       )}
+      <FAB onPress={() => setAdding(true)} />
+    </SafeAreaView>
+  );
+}
+
+function AddCrewForm({
+  onFound,
+  onCancel,
+}: {
+  onFound: (u: UserProfile) => void;
+  onCancel: () => void;
+}) {
+  const [phone, setPhone] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function search() {
+    if (phone.replace(/\D/g, '').length < 9) {
+      setError('מספר טלפון לא תקין');
+      return;
+    }
+    setSearching(true);
+    setError(null);
+    try {
+      const u = await findUserByPhone(toE164(phone.trim()));
+      if (u) onFound(u);
+      else setError('לא נמצא משתמש עם מספר זה. בקש ממנו להיכנס לאפליקציה ולהזין שם תחילה.');
+    } catch {
+      setError('החיפוש נכשל. נסה שוב.');
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
+      <View style={styles.editor}>
+        <Text style={styles.title}>הוספת חבר צוות</Text>
+        <Text style={styles.hint}>
+          הזן את מספר הטלפון של איש הצוות. אם הוא כבר נכנס לאפליקציה — נשלוף את פרטיו אוטומטית.
+        </Text>
+        <TextField
+          label="מספר טלפון"
+          value={phone}
+          onChange={setPhone}
+          placeholder="050-0000000"
+          keyboardType="phone-pad"
+        />
+        {error && <Text style={styles.err}>{error}</Text>}
+        <CustomButton label="חפש ושייך" onPress={search} loading={searching} style={styles.btn} />
+        <CustomButton label="ביטול" variant="ghost" onPress={onCancel} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -98,7 +162,8 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.editor}>
-        <Text style={styles.title}>{user.name || user.uid}</Text>
+        <Text style={styles.title}>{user.name || user.phone || user.uid}</Text>
+        {!!user.phone && <Text style={styles.hint}>{user.phone}</Text>}
         <Text style={styles.label}>תפקיד</Text>
         <View style={styles.roleRow}>
           {ROLES.map((r) => (
@@ -121,9 +186,11 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  list: { padding: Layout.screenPadding },
+  list: { padding: Layout.screenPadding, paddingBottom: 96 },
   editor: { padding: Layout.screenPadding },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 14 },
+  hint: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 14 },
+  err: { fontSize: 13, color: Colors.danger, textAlign: 'right', marginBottom: 10 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
