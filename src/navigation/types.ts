@@ -3,7 +3,7 @@ export type RootStackParamList = {
   ServiceCallDetail: { callId: string };
   ItemEditor:        { itemId?: string };
   Transfer:          undefined;
-  Crew:              { openUid?: string; add?: boolean } | undefined;
+  CrewDetail:        { crewId: string };
   NewServiceCall:    undefined;
 };
 

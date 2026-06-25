@@ -11,9 +11,11 @@ import { Colors } from '../constants/colors';
 export function CrewMemberRow({
   member,
   onPress,
+  subtitle,
 }: {
   member: UserProfile;
   onPress: () => void;
+  subtitle?: string; // defaults to the member's global caps label
 }) {
   return (
     <View style={styles.row}>
@@ -39,7 +41,7 @@ export function CrewMemberRow({
         <View style={styles.info}>
           <Text style={styles.name}>{member.name || '(ללא שם)'}</Text>
           <Text style={styles.meta}>
-            {capsLabel(member.caps)} · {member.teamId || 'ללא צוות'}
+            {subtitle ?? `${capsLabel(member.caps)} · ${member.teamId || 'ללא צוות'}`}
           </Text>
         </View>
       </TouchableOpacity>

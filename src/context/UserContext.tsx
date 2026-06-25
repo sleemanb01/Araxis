@@ -9,13 +9,16 @@ import { getIdTokenResult } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { subscribeToAuth, signOutUser } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
+import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
 import { UserProfile, Capabilities, NO_CAPS, toCaps } from '../types/user';
+import { Crew } from '../types/crew';
 
 interface UserContextValue {
   user: FirebaseAuthTypes.User | null;
   profile: UserProfile | null;
-  caps: Capabilities; // AUTHORITATIVE — from the custom claim
+  caps: Capabilities; // AUTHORITATIVE — UNION of caps across all the user's crews
+  crews: Crew[]; // crews the user belongs to (manager or member)
   provisioned: boolean; // claim carries caps (an admin has set this user up)
   initializing: boolean;
   profileLoaded: boolean;
@@ -34,6 +37,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [initializing, setInitializing] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [caps, setCaps] = useState<Capabilities>(NO_CAPS);
+  const [crews, setCrews] = useState<Crew[]>([]);
   const [provisioned, setProvisioned] = useState(false);
   const [claimLoaded, setClaimLoaded] = useState(false);
   const [confirmation, setConfirmation] =
@@ -65,6 +69,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       },
       () => setProfileLoaded(true)
     );
+    return unsub;
+  }, [user]);
+
+  // Crews the user belongs to (drives the crew screens).
+  useEffect(() => {
+    if (!user) {
+      setCrews([]);
+      return;
+    }
+    const unsub = subscribeToMyCrews(user.uid, setCrews, () => {});
     return unsub;
   }, [user]);
 
@@ -100,6 +114,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       user,
       profile,
       caps,
+      crews,
       provisioned,
       initializing,
       profileLoaded,
@@ -112,7 +127,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         await signOutUser();
       },
     }),
-    [user, profile, caps, provisioned, initializing, profileLoaded, claimLoaded, confirmation]
+    [user, profile, caps, crews, provisioned, initializing, profileLoaded, claimLoaded, confirmation]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
