@@ -15,8 +15,13 @@ import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { FAB } from '../components/FAB';
 import { useUser } from '../context/UserContext';
-import { subscribeToUsers, findUserByPhone } from '../services/userService';
-import { setUserCaps, removeUser } from '../services/adminService';
+import {
+  subscribeToUsers,
+  findUserByPhone,
+  addCrewMember,
+  removeCrewMember,
+} from '../services/userService';
+import { setUserCaps } from '../services/adminService';
 import { toE164 } from '../services/authService';
 import {
   UserProfile,
@@ -30,6 +35,7 @@ import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
 export function CrewScreen() {
+  const { user: me, profile } = useUser();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<UserProfile | null>(null);
@@ -46,17 +52,24 @@ export function CrewScreen() {
     return () => unsub();
   }, []);
 
+  // My crew roster: the users whose uid is in my `crew` array.
+  const crewIds = profile?.crew ?? [];
+  const crew = users.filter((u) => crewIds.includes(u.uid));
+
+  async function addFound(u: UserProfile) {
+    if (!me) return;
+    try {
+      await addCrewMember(me.uid, u.uid); // adds u.uid to my crew array
+      setAdding(false);
+      setEditing(u); // open editor to set their capabilities
+    } catch (e: any) {
+      Alert.alert('שגיאה', e?.message ?? 'הוספה לצוות נכשלה.');
+    }
+  }
+
   if (editing) return <CrewEditor user={editing} onDone={() => setEditing(null)} />;
   if (adding) {
-    return (
-      <AddCrewForm
-        onFound={(u) => {
-          setAdding(false);
-          setEditing(u);
-        }}
-        onCancel={() => setAdding(false)}
-      />
-    );
+    return <AddCrewForm onFound={addFound} onCancel={() => setAdding(false)} />;
   }
 
   return (
@@ -65,7 +78,7 @@ export function CrewScreen() {
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
       ) : (
         <FlatList
-          data={users}
+          data={crew}
           keyExtractor={(u) => u.uid}
           renderItem={({ item }) => (
             <TouchableOpacity style={styles.row} onPress={() => setEditing(item)} activeOpacity={0.8}>
@@ -78,8 +91,10 @@ export function CrewScreen() {
               </View>
             </TouchableOpacity>
           )}
-          ListHeaderComponent={<Text style={styles.title}>ניהול צוות</Text>}
-          ListEmptyComponent={<Text style={styles.empty}>אין משתמשים עדיין.</Text>}
+          ListHeaderComponent={<Text style={styles.title}>הצוות שלי</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>אין חברי צוות עדיין. הוסף עם הכפתור +.</Text>
+          }
           contentContainerStyle={styles.list}
         />
       )}
@@ -159,8 +174,8 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
 
   function confirmRemove() {
     Alert.alert(
-      'הסרת חבר צוות',
-      `להסיר את ${user.name || user.phone || user.uid} מהצוות? הגישה שלו תבוטל אך החשבון לא יימחק.`,
+      'הסרה מהצוות',
+      `להסיר את ${user.name || user.phone || user.uid} מהצוות שלך? הוא יוסר מהרשימה בלבד — המשתמש לא יימחק.`,
       [
         { text: 'ביטול', style: 'cancel' },
         { text: 'הסר', style: 'destructive', onPress: remove },
@@ -169,13 +184,14 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
   }
 
   async function remove() {
+    if (!me) return;
     setRemoving(true);
     try {
-      await removeUser(user.uid);
-      Alert.alert('הוסר', `${user.name || user.uid} הוסר מהצוות.`);
+      await removeCrewMember(me.uid, user.uid); // pull uid from my crew array only
+      Alert.alert('הוסר', `${user.name || user.uid} הוסר מהצוות שלך.`);
       onDone();
     } catch (e: any) {
-      Alert.alert('שגיאה', e?.message ?? 'ההסרה נכשלה (ודא שפונקציית הענן פרוסה).');
+      Alert.alert('שגיאה', e?.message ?? 'ההסרה נכשלה.');
       setRemoving(false);
     }
   }

@@ -16,6 +16,8 @@ import {
   onSnapshot,
   query,
   where,
+  arrayUnion,
+  arrayRemove,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { UserProfile, toCaps, NO_CAPS } from '../types/user';
@@ -30,9 +32,21 @@ function toUser(snap: { id: string; data: () => any }): UserProfile {
     caps: toCaps(d.caps),
     managerId: d.managerId ?? null,
     teamId: d.teamId ?? '',
+    crew: Array.isArray(d.crew) ? d.crew : [],
     phone: d.phone ?? undefined,
     createdAt: d.createdAt ?? undefined,
   };
+}
+
+/** Add a member (by uid) to a manager's crew roster. Member's own doc untouched. */
+export async function addCrewMember(managerUid: string, memberUid: string): Promise<void> {
+  await updateDoc(doc(db, USERS, managerUid), { crew: arrayUnion(memberUid) });
+}
+
+/** Remove a member (by uid) from a manager's crew roster. Does NOT delete the
+ *  member — only pulls their uid out of the manager's `crew` array. */
+export async function removeCrewMember(managerUid: string, memberUid: string): Promise<void> {
+  await updateDoc(doc(db, USERS, managerUid), { crew: arrayRemove(memberUid) });
 }
 
 /** Realtime subscription to one user's profile (null until provisioned). */

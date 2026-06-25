@@ -28,8 +28,14 @@ service cloud.firestore {
                     && request.resource.data.caps.viewFinancials == false
                     && request.resource.data.caps.viewTeamPayouts == false
                     && request.resource.data.caps.manageInventory == false;
+      // A user may edit only their own `name`; a crew manager may additionally
+      // edit only their own `crew` roster array (a list of member uids).
       allow update: if request.auth.uid == userId
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
+                    && (
+                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+                      || (can('manageCrew')
+                          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['crew']))
+                    );
       allow delete: if false;
     }
 

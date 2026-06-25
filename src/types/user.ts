@@ -72,6 +72,7 @@ export interface UserProfile {
   caps: Capabilities;
   managerId: string | null;
   teamId: string;
+  crew?: string[];    // uids of this user's crew members (their roster)
   phone?: string;     // E.164, captured at self-registration (admin lookup)
   createdAt?: string; // ISO date string
 }
