@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
+import { getIdTokenResult } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { subscribeToAuth, signOutUser } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
@@ -72,8 +73,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const force = !!profile && claimRole === null;
     setClaimLoaded(false);
-    user
-      .getIdTokenResult(force)
+    getIdTokenResult(user, force)
       .then((res) => {
         if (cancelled) return;
         setClaimRole((res.claims.role as UserRole) ?? null);
