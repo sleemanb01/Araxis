@@ -78,7 +78,6 @@ export interface UserProfile {
   name: string;
   caps: Capabilities;
   teamId: string;
-  crew?: string[];           // uids of this user's crew members (their roster)
   services?: string[];       // service names this user provides (open catalog)
   availability?: Availability;
   phone?: string;            // E.164, captured at self-registration (admin lookup)

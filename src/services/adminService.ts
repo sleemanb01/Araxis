@@ -1,26 +1,13 @@
 /**
- * Admin client calls to the Cloud Functions backend. setUserCaps runs
- * server-side (Admin SDK) and is rejected unless the caller holds the
- * `manageCrew` capability in their custom claim.
+ * Admin client calls to the Cloud Functions backend. Crew mutations run
+ * server-side (Admin SDK) so they can set custom claims; they enforce that the
+ * caller is the crew's manager and can only grant caps the manager holds.
  */
 import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import { Capabilities } from '../types/user';
 
 const functions = getFunctions(getApp(), 'me-west1');
-
-export interface SetCapsInput {
-  uid: string;
-  caps: Capabilities;
-  teamId: string;
-  name?: string;
-}
-
-/** Set a crew member's capabilities + team (writes their doc and custom claim). */
-export async function setUserCaps(input: SetCapsInput): Promise<void> {
-  const fn = httpsCallable(functions, 'setUserCaps');
-  await fn(input);
-}
 
 /** Create a crew; the caller becomes its manager. Returns the new crew id. */
 export async function createCrew(name: string): Promise<string> {
