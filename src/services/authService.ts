@@ -31,13 +31,10 @@ export async function sendOtp(
   phone: string
 ): Promise<FirebaseAuthTypes.ConfirmationResult> {
   const e164 = toE164(phone);
-  if (__DEV__) {
-    // Skip iOS app verification (APNs/reCAPTCHA) in development so test
-    // numbers registered in the Firebase Console work on-device without an
-    // APNs key. MUST stay dev-only — real numbers in production require
-    // proper APNs configuration.
-    auth.settings.appVerificationDisabledForTesting = true;
-  }
+  // Use real app verification (reCAPTCHA via the REVERSED_CLIENT_ID URL scheme,
+  // or APNs silent push). Do NOT set appVerificationDisabledForTesting — with a
+  // non-whitelisted number it makes the request omit the verification token and
+  // the server rejects it with "does not contain a client identifier".
   return signInWithPhoneNumber(auth, e164);
 }
 
