@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
+import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { adjustQuantity } from '../services/inventoryService';
 import { InventoryItem, isLowStock, qtyAt, WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
@@ -20,11 +21,13 @@ export function WarehouseScreen() {
   const { caps } = useUser();
   const canEdit = caps.manageInventory;
   const [query, setQuery] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
 
   const lowCount = useMemo(() => items.filter(isLowStock).length, [items]);
   const visible = useMemo(() => {
     const q = query.trim();
-    return q ? items.filter((i) => i.itemName.includes(q)) : items;
+    if (!q) return items;
+    return items.filter((i) => i.itemName.includes(q) || (i.barcode ?? '').includes(q));
   }, [items, query]);
 
   return (
@@ -70,18 +73,27 @@ export function WarehouseScreen() {
               <Ionicons name="search" size={17} color={Colors.textSecondary} />
               <TextInput
                 style={styles.search}
-                placeholder="חיפוש לפי שם…"
+                placeholder="חיפוש לפי שם או ברקוד…"
                 placeholderTextColor={Colors.textSecondary}
                 value={query}
                 onChangeText={setQuery}
                 textAlign="right"
               />
+              <TouchableOpacity onPress={() => setScannerOpen(true)} hitSlop={8}>
+                <Ionicons name="barcode-outline" size={20} color={Colors.primary} />
+              </TouchableOpacity>
             </View>
           </View>
         }
         ListEmptyComponent={<Text style={styles.empty}>אין פריטים להצגה.</Text>}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+      />
+
+      <BarcodeScannerModal
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={setQuery}
       />
     </SafeAreaView>
   );
