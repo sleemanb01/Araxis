@@ -2,7 +2,7 @@ export type RootStackParamList = {
   Tabs:              undefined;
   ServiceCallDetail: { callId: string };
   ItemEditor:        { itemId?: string };
-  Transfer:          undefined;
+  Transfer:          { crewId?: string } | undefined;
   CrewDetail:        { crewId: string };
   NewServiceCall:    undefined;
 };

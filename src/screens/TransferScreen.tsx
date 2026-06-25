@@ -2,19 +2,24 @@ import React, { useState } from 'react';
 import { View, Text, FlatList, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
-import { TextField } from '../components/TextField';
 import { useInventory } from '../context/InventoryContext';
+import { useUser } from '../context/UserContext';
 import { transfer } from '../services/inventoryService';
-import { InventoryItem, qtyAt, WAREHOUSE } from '../types/inventory';
+import { InventoryItem, qtyAt, WAREHOUSE, crewLocation } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
+import type { RootStackParamList } from '../navigation/types';
+
+type RouteP = RouteProp<RootStackParamList, 'Transfer'>;
 
 export function TransferScreen() {
   const navigation = useNavigation();
+  const route = useRoute<RouteP>();
   const { items } = useInventory();
-  const [dest, setDest] = useState('car_alpha');
+  const { crews } = useUser();
+  const [crewId, setCrewId] = useState<string>(route.params?.crewId ?? crews[0]?.id ?? '');
   const [moves, setMoves] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
 
@@ -27,17 +32,17 @@ export function TransferScreen() {
   }
 
   async function commit() {
-    const d = dest.trim();
-    if (!d) {
-      Alert.alert('שגיאה', 'יש לבחור יעד (רכב).');
+    if (!crewId) {
+      Alert.alert('שגיאה', 'יש לבחור צוות.');
       return;
     }
+    const dest = crewLocation(crewId);
     setSaving(true);
     try {
       await Promise.all(
         Object.entries(moves)
           .filter(([, n]) => n > 0)
-          .map(([id, n]) => transfer(id, n, WAREHOUSE, d))
+          .map(([id, n]) => transfer(id, n, WAREHOUSE, dest))
       );
       navigation.goBack();
     } catch {
@@ -73,19 +78,37 @@ export function TransferScreen() {
         }}
         ListHeaderComponent={
           <View>
-            <Text style={styles.title}>העברת ציוד לרכב</Text>
-            <TextField label="יעד (מזהה רכב)" value={dest} onChange={setDest} placeholder="car_alpha" />
+            <Text style={styles.title}>משיכת ציוד לצוות</Text>
+            {crews.length === 0 ? (
+              <Text style={styles.empty}>אינך חבר באף צוות.</Text>
+            ) : (
+              <View style={styles.chips}>
+                {crews.map((c) => {
+                  const on = c.id === crewId;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.chip, on && styles.chipOn]}
+                      onPress={() => setCrewId(c.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.chipText, on && styles.chipTextOn]}>{c.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
           </View>
         }
-        ListEmptyComponent={<Text style={styles.empty}>אין מלאי במחסן להעברה.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>אין מלאי במחסן למשיכה.</Text>}
         contentContainerStyle={styles.list}
       />
       <View style={styles.footer}>
         <CustomButton
-          label={`העבר ${totalUnits} פריטים`}
+          label={`משוך ${totalUnits} פריטים`}
           onPress={commit}
           loading={saving}
-          disabled={totalUnits === 0}
+          disabled={totalUnits === 0 || !crewId}
         />
       </View>
     </SafeAreaView>
@@ -96,6 +119,18 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   list: { padding: Layout.screenPadding },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end', marginBottom: 14 },
+  chip: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+  },
+  chipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  chipText: { fontSize: 14, color: Colors.textPrimary },
+  chipTextOn: { color: '#FFFFFF', fontWeight: '600' },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -12,8 +12,20 @@ export interface InventoryItem {
 
 export type CreateInventoryPayload = Omit<InventoryItem, 'id'>;
 
-/** The master-stock location key. */
+/** The master-stock location key (global warehouse). */
 export const WAREHOUSE = 'warehouse';
+
+/** Each crew's stock is a location keyed `crew_<crewId>`. */
+export const CREW_PREFIX = 'crew_';
+export function crewLocation(crewId: string): string {
+  return CREW_PREFIX + crewId;
+}
+export function isCrewLocation(key: string): boolean {
+  return key.startsWith(CREW_PREFIX);
+}
+export function crewIdFromLocation(key: string): string {
+  return key.slice(CREW_PREFIX.length);
+}
 
 /** Flag low stock when the total across all locations is at/below this. */
 export const LOW_STOCK_THRESHOLD = 3;

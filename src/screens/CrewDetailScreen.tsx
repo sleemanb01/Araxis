@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRoute, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CustomButton } from '../components/CustomButton';
 import { FAB } from '../components/FAB';
 import { AddByPhoneForm } from '../components/AddByPhoneForm';
 import { CrewMemberRow } from '../components/CrewMemberRow';
 import { useUser } from '../context/UserContext';
+import { useInventory } from '../context/InventoryContext';
 import { subscribeToUsers } from '../services/userService';
 import { setCrewMemberCaps, removeCrewFromMember } from '../services/adminService';
+import { qtyAt, crewLocation } from '../types/inventory';
 import {
   UserProfile,
   Capabilities,
@@ -26,7 +29,9 @@ type RouteP = RouteProp<RootStackParamList, 'CrewDetail'>;
 
 export function CrewDetailScreen() {
   const route = useRoute<RouteP>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user: me, caps: myCaps, crews } = useUser();
+  const { items } = useInventory();
   const crew = crews.find((c) => c.id === route.params.crewId) ?? null;
   const isManager = !!me && !!crew && crew.manager === me.uid;
 
@@ -50,6 +55,9 @@ export function CrewDetailScreen() {
   const members = crew.memberIds
     .map((uid) => users.find((u) => u.uid === uid))
     .filter((u): u is UserProfile => !!u);
+
+  const crewLoc = crewLocation(crew.id);
+  const crewStock = items.filter((i) => qtyAt(i, crewLoc) > 0);
 
   if (editing) {
     return <MemberCapsEditor crew={crew} member={editing} myCaps={myCaps} onDone={() => setEditing(null)} />;
@@ -88,6 +96,29 @@ export function CrewDetailScreen() {
           </View>
         }
         ListEmptyComponent={<Text style={styles.empty}>אין חברים בצוות עדיין.</Text>}
+        ListFooterComponent={
+          <View style={styles.stock}>
+            <Text style={styles.label}>מלאי הצוות</Text>
+            {crewStock.length === 0 ? (
+              <Text style={styles.stockEmpty}>אין ציוד בצוות. משוך מהמחסן.</Text>
+            ) : (
+              crewStock.map((i) => (
+                <View key={i.id} style={styles.stockRow}>
+                  <Text style={styles.stockQty}>{qtyAt(i, crewLoc)}</Text>
+                  <Text style={styles.stockName} numberOfLines={1}>{i.itemName}</Text>
+                </View>
+              ))
+            )}
+            {myCaps.manageInventory && (
+              <CustomButton
+                label="משיכה מהמחסן"
+                variant="secondary"
+                onPress={() => navigation.navigate('Transfer', { crewId: crew.id })}
+                style={styles.btn}
+              />
+            )}
+          </View>
+        }
         contentContainerStyle={styles.list}
       />
       {isManager && <FAB onPress={() => setAdding(true)} />}
@@ -215,4 +246,19 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginTop: 6, marginBottom: 6 },
   btn: { marginTop: 12, marginBottom: 8 },
   removeBtn: { marginTop: 24 },
+  stock: { marginTop: 18 },
+  stockEmpty: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  stockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 8,
+  },
+  stockName: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right', marginStart: 12 },
+  stockQty: { fontSize: 16, fontWeight: '700', color: Colors.primary, minWidth: 26, textAlign: 'center' },
 });
+

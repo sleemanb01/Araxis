@@ -9,6 +9,8 @@ import { useUser } from '../context/UserContext';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { adjustQuantity } from '../services/inventoryService';
 import { InventoryItem, isLowStock, qtyAt, WAREHOUSE } from '../types/inventory';
+import { locationLabel } from '../utils/locationLabel';
+import { Crew } from '../types/crew';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -18,7 +20,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function WarehouseScreen() {
   const navigation = useNavigation<Nav>();
   const { items } = useInventory();
-  const { caps } = useUser();
+  const { caps, crews } = useUser();
   const canEdit = caps.manageInventory;
   const [query, setQuery] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -39,6 +41,7 @@ export function WarehouseScreen() {
           <InventoryRow
             item={item}
             canEdit={canEdit}
+            crews={crews}
             onEdit={() => navigation.navigate('ItemEditor', { itemId: item.id })}
           />
         )}
@@ -63,8 +66,8 @@ export function WarehouseScreen() {
                   <Text style={styles.addText}>פריט חדש</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.loadBtn} onPress={() => navigation.navigate('Transfer')} activeOpacity={0.85}>
-                  <Ionicons name="car-outline" size={20} color={Colors.primary} />
-                  <Text style={styles.loadText}>טען לרכב</Text>
+                  <Ionicons name="people-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.loadText}>משיכה לצוות</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -102,16 +105,18 @@ export function WarehouseScreen() {
 function InventoryRow({
   item,
   canEdit,
+  crews,
   onEdit,
 }: {
   item: InventoryItem;
   canEdit: boolean;
+  crews: Crew[];
   onEdit: () => void;
 }) {
   const low = isLowStock(item);
   const breakdown = Object.entries(item.locations)
     .filter(([, n]) => n > 0)
-    .map(([loc, n]) => `${loc} ${n}`)
+    .map(([loc, n]) => `${locationLabel(loc, crews)} ${n}`)
     .join(' · ');
 
   return (
