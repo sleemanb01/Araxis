@@ -13,12 +13,17 @@ service cloud.firestore {
     function can(name) { return provisioned() && request.auth.token.caps[name] == true; }
 
     // ---- Users ----
-    // Provisioned crew can read profiles (to resolve names); a user always reads
-    // their own. Capabilities/team are written ONLY by the Cloud Function (Admin
-    // SDK bypasses rules); a user may self-register a no-capability profile and
-    // later edit only their own `name`.
+    // A user reads their own profile; a crew manager reads anyone (to add by
+    // phone); otherwise you may read only your CREW MATES — users who share a
+    // crew with you (`crewIds` intersect). Capabilities/crews are written ONLY by
+    // the Cloud Functions; a user may self-edit name/services/availability.
     match /users/{userId} {
-      allow read: if provisioned() || request.auth.uid == userId;
+      allow read: if request.auth.uid == userId
+                  || can('manageCrew')
+                  || (provisioned()
+                      && request.auth.token.crewIds is list
+                      && resource.data.crewIds is list
+                      && request.auth.token.crewIds.hasAny(resource.data.crewIds));
       allow create: if request.auth.uid == userId
                     && request.resource.data.uid == userId
                     && request.resource.data.teamId == ''
@@ -72,6 +77,21 @@ service cloud.firestore {
     match /crews/{crewId} {
       allow read: if signedIn() && request.auth.uid in resource.data.memberIds;
       allow write: if false;
+    }
+
+    // ---- Withdrawals (warehouse -> crew audit log) ----
+    // Read/write limited to crews you belong to; the withdrawer must be you.
+    // The matching warehouse stock change is gated by manageInventory on the
+    // inventory doc (same batch), so only inventory managers can log a withdrawal.
+    match /withdrawals/{wId} {
+      allow read: if provisioned()
+                  && request.auth.token.crewIds is list
+                  && request.auth.token.crewIds.hasAny([resource.data.crewId]);
+      allow create: if provisioned()
+                    && request.auth.uid == request.resource.data.withdrawerId
+                    && request.auth.token.crewIds is list
+                    && request.auth.token.crewIds.hasAny([request.resource.data.crewId]);
+      allow update, delete: if false;
     }
   }
 }

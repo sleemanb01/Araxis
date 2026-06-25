@@ -93,6 +93,19 @@ export async function createPendingProfile(
   });
 }
 
+/** Resolve a set of users by uid (chunked `in` queries). Used to show only a
+ *  crew's own members, rather than reading the whole users collection. */
+export async function getUsersByIds(ids: string[]): Promise<UserProfile[]> {
+  const out: UserProfile[] = [];
+  for (let i = 0; i < ids.length; i += 10) {
+    const chunk = ids.slice(i, i + 10);
+    if (!chunk.length) continue;
+    const snap = await getDocs(query(collection(db, USERS), where('uid', 'in', chunk)));
+    snap.forEach((d) => out.push(toUser(d)));
+  }
+  return out;
+}
+
 /** Find a crew member by phone (E.164). Admin-only lookup used for provisioning. */
 export async function findUserByPhone(phone: string): Promise<UserProfile | null> {
   const snap = await getDocs(query(collection(db, USERS), where('phone', '==', phone)));

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,9 +9,11 @@ import { AddByPhoneForm } from '../components/AddByPhoneForm';
 import { CrewMemberRow } from '../components/CrewMemberRow';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
-import { subscribeToUsers } from '../services/userService';
+import { getUsersByIds } from '../services/userService';
+import { subscribeToCrewWithdrawals } from '../services/withdrawalService';
 import { setCrewMemberCaps, removeCrewFromMember } from '../services/adminService';
 import { qtyAt, crewLocation } from '../types/inventory';
+import { Withdrawal } from '../types/withdrawal';
 import {
   UserProfile,
   Capabilities,
@@ -36,13 +38,29 @@ export function CrewDetailScreen() {
   const isManager = !!me && !!crew && crew.manager === me.uid;
 
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [editing, setEditing] = useState<UserProfile | null>(null);
   const [adding, setAdding] = useState(false);
 
+  // Read only this crew's members (req 1: a member sees only crew mates).
+  const memberKey = (crew?.memberIds ?? []).join(',');
   useEffect(() => {
-    const unsub = subscribeToUsers(setUsers, () => {});
-    return () => unsub();
-  }, []);
+    const ids = crew?.memberIds ?? [];
+    if (!ids.length) {
+      setUsers([]);
+      return;
+    }
+    getUsersByIds(ids).then(setUsers).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memberKey]);
+
+  // This crew's withdrawal history (for the total + history screen).
+  useEffect(() => {
+    const id = crew?.id;
+    if (!id) return;
+    const unsub = subscribeToCrewWithdrawals(id, setWithdrawals, () => {});
+    return unsub;
+  }, [crew?.id]);
 
   if (!crew) {
     return (
@@ -93,6 +111,14 @@ export function CrewDetailScreen() {
             <Text style={styles.sub}>
               {members.length} חברי צוות{isManager ? ' · אתה המנהל' : ''}
             </Text>
+            <TouchableOpacity
+              style={styles.statRow}
+              onPress={() => navigation.navigate('CrewWithdrawals', { crewId: crew.id })}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.chev}>‹</Text>
+              <Text style={styles.statText}>סה״כ משיכות: {withdrawals.length}</Text>
+            </TouchableOpacity>
           </View>
         }
         ListEmptyComponent={<Text style={styles.empty}>אין חברים בצוות עדיין.</Text>}
@@ -228,6 +254,18 @@ const styles = StyleSheet.create({
   header: { marginBottom: 8 },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 4 },
   sub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 12 },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  statText: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  chev: { fontSize: 24, color: Colors.textSecondary },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
   editor: { padding: Layout.screenPadding },
   label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginTop: 8, marginBottom: 8 },

@@ -6,8 +6,8 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
-import { transfer } from '../services/inventoryService';
-import { InventoryItem, qtyAt, WAREHOUSE, crewLocation } from '../types/inventory';
+import { withdrawToCrew } from '../services/inventoryService';
+import { InventoryItem, qtyAt, WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -18,7 +18,7 @@ export function TransferScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteP>();
   const { items } = useInventory();
-  const { crews } = useUser();
+  const { crews, user } = useUser();
   const [crewId, setCrewId] = useState<string>(route.params?.crewId ?? crews[0]?.id ?? '');
   const [moves, setMoves] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
@@ -32,21 +32,23 @@ export function TransferScreen() {
   }
 
   async function commit() {
-    if (!crewId) {
+    if (!crewId || !user) {
       Alert.alert('שגיאה', 'יש לבחור צוות.');
       return;
     }
-    const dest = crewLocation(crewId);
     setSaving(true);
     try {
       await Promise.all(
         Object.entries(moves)
           .filter(([, n]) => n > 0)
-          .map(([id, n]) => transfer(id, n, WAREHOUSE, dest))
+          .map(([id, n]) => {
+            const item = items.find((i) => i.id === id);
+            return item ? withdrawToCrew(item, n, crewId, user.uid) : Promise.resolve();
+          })
       );
       navigation.goBack();
     } catch {
-      Alert.alert('שגיאה', 'ההעברה נכשלה. נסה שוב.');
+      Alert.alert('שגיאה', 'המשיכה נכשלה. נסה שוב.');
       setSaving(false);
     }
   }

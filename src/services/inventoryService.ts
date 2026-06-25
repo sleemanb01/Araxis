@@ -16,10 +16,11 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { InventoryItem, CreateInventoryPayload } from '../types/inventory';
+import { InventoryItem, CreateInventoryPayload, WAREHOUSE, crewLocation } from '../types/inventory';
 
 const INVENTORY = 'inventory';
 const CALLS = 'serviceCalls';
+const WITHDRAWALS = 'withdrawals';
 
 function toItem(snap: { id: string; data: () => any }): InventoryItem {
   const d = snap.data();
@@ -84,6 +85,33 @@ export async function assignHardwareToCall(
     [`locations.${fromLocation}`]: increment(-qty),
   });
   batch.update(doc(db, CALLS, ticketId), { hardwareUsed: arrayUnion(itemId) });
+  await batch.commit();
+}
+
+/**
+ * Withdraw `qty` of an item from the global warehouse into a crew's stock, and
+ * log the withdrawal — all in ONE atomic batch (stock move + audit record).
+ */
+export async function withdrawToCrew(
+  item: InventoryItem,
+  qty: number,
+  crewId: string,
+  withdrawerId: string
+): Promise<void> {
+  if (qty <= 0) return;
+  const batch = writeBatch(db);
+  batch.update(doc(db, INVENTORY, item.id), {
+    [`locations.${WAREHOUSE}`]: increment(-qty),
+    [`locations.${crewLocation(crewId)}`]: increment(qty),
+  });
+  batch.set(doc(collection(db, WITHDRAWALS)), {
+    crewId,
+    itemId: item.id,
+    itemName: item.itemName,
+    withdrawerId,
+    amount: qty,
+    createdAt: new Date().toISOString(),
+  });
   await batch.commit();
 }
 

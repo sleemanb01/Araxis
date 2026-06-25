@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
-import { subscribeToUsers } from '../services/userService';
+import { getUsersByIds } from '../services/userService';
 import { createServiceCall, setFinancials } from '../services/serviceCallService';
+import { useUser } from '../context/UserContext';
 import { UserProfile } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -28,11 +29,19 @@ export function NewServiceCallScreen() {
   const [price, setPrice] = useState('');
   const [paid, setPaid] = useState('');
   const [saving, setSaving] = useState(false);
+  const { crews } = useUser();
 
+  // Assignable team = your crew mates (req 1: you only see your crew mates).
+  const crewMateIds = useMemo(() => [...new Set(crews.flatMap((c) => c.memberIds))], [crews]);
+  const mateKey = crewMateIds.join(',');
   useEffect(() => {
-    const unsub = subscribeToUsers(setCrew, () => {});
-    return () => unsub();
-  }, []);
+    if (!crewMateIds.length) {
+      setCrew([]);
+      return;
+    }
+    getUsersByIds(crewMateIds).then(setCrew).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mateKey]);
 
   const members = useMemo(
     () => (leadTech ? [leadTech, ...assistants] : assistants),
