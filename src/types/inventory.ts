@@ -6,6 +6,7 @@
 export interface InventoryItem {
   id: string;
   itemName: string;
+  barcode?: string;                   // scanned/typed barcode (EAN/UPC/QR/etc.)
   locations: Record<string, number>; // location key -> quantity on hand
 }
 

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
+import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { useInventory } from '../context/InventoryContext';
 import { createInventoryItem, updateInventoryItem } from '../services/inventoryService';
 import { qtyAt, WAREHOUSE } from '../types/inventory';
@@ -22,6 +24,8 @@ export function ItemEditorScreen() {
     : undefined;
 
   const [name, setName] = useState(existing?.itemName ?? '');
+  const [barcode, setBarcode] = useState(existing?.barcode ?? '');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [warehouseQty, setWarehouseQty] = useState(
     String(existing ? qtyAt(existing, WAREHOUSE) : 0)
   );
@@ -33,15 +37,21 @@ export function ItemEditorScreen() {
       return;
     }
     const qty = Math.max(0, parseInt(warehouseQty, 10) || 0);
+    const code = barcode.trim();
     setSaving(true);
     try {
       if (existing) {
         await updateInventoryItem(existing.id, {
           itemName: name.trim(),
+          barcode: code, // '' clears it
           locations: { ...existing.locations, [WAREHOUSE]: qty },
         });
       } else {
-        await createInventoryItem({ itemName: name.trim(), locations: { [WAREHOUSE]: qty } });
+        await createInventoryItem({
+          itemName: name.trim(),
+          locations: { [WAREHOUSE]: qty },
+          ...(code ? { barcode: code } : {}), // omit empty on create
+        });
       }
       navigation.goBack();
     } catch {
@@ -55,10 +65,26 @@ export function ItemEditorScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>{existing ? 'עריכת פריט' : 'פריט חדש'}</Text>
         <TextField label="שם הפריט" value={name} onChange={setName} placeholder="לדוגמה: מצלמת Dahua PTZ 4MP" />
+
+        <TextField label="ברקוד" value={barcode} onChange={setBarcode} placeholder="סרוק או הזן ידנית" />
+        <CustomButton
+          label="סרוק ברקוד"
+          variant="secondary"
+          onPress={() => setScannerOpen(true)}
+          icon={<Ionicons name="barcode-outline" size={18} color={Colors.primary} />}
+          style={styles.scanBtn}
+        />
+
         <TextField label="כמות במחסן" value={warehouseQty} onChange={setWarehouseQty} placeholder="0" keyboardType="numeric" />
         {existing && <Text style={styles.note}>מלאי במיקומים אחרים מתעדכן דרך מסך ההעברה.</Text>}
         <CustomButton label="שמור" onPress={save} loading={saving} style={styles.btn} />
       </ScrollView>
+
+      <BarcodeScannerModal
+        visible={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanned={setBarcode}
+      />
     </SafeAreaView>
   );
 }
@@ -68,5 +94,6 @@ const styles = StyleSheet.create({
   scroll: { padding: Layout.screenPadding },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 16 },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  scanBtn: { marginTop: -6, marginBottom: 18 },
   btn: { marginTop: 12 },
 });

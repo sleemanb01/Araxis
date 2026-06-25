@@ -70,6 +70,14 @@ module.exports = () => ({
         },
       ],
       '@react-native-firebase/app-check',
+      [
+        'expo-camera',
+        {
+          cameraPermission: 'הרשאת המצלמה משמשת לסריקת ברקודים של פריטי מלאי.',
+          microphonePermission: false,
+          recordAudioAndroid: false,
+        },
+      ],
     ],
     extra: {
       businessName: BUSINESS_NAME,
