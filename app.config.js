@@ -22,7 +22,7 @@ module.exports = () => ({
     splash: {
       image: './assets/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: '#000000',
     },
     ios: {
       supportsTablet: false,
@@ -41,7 +41,7 @@ module.exports = () => ({
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: '#000000',
       },
       package: ANDROID_PACKAGE,
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
