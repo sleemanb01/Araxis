@@ -99,8 +99,13 @@ function AddCrewForm({
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Live E.164 preview so the manager can type a local number (0501234567)
+  // and see exactly what we'll look up (+972501234567).
+  const hasEnoughDigits = phone.replace(/\D/g, '').length >= 9;
+  const normalized = hasEnoughDigits ? toE164(phone.trim()) : null;
+
   async function search() {
-    if (phone.replace(/\D/g, '').length < 9) {
+    if (!hasEnoughDigits) {
       setError('מספר טלפון לא תקין');
       return;
     }
@@ -131,6 +136,7 @@ function AddCrewForm({
           placeholder="050-0000000"
           keyboardType="phone-pad"
         />
+        {normalized && <Text style={styles.preview}>יחפש לפי: {normalized}</Text>}
         {error && <Text style={styles.err}>{error}</Text>}
         <CustomButton label="חפש ושייך" onPress={search} loading={searching} style={styles.btn} />
         <CustomButton label="ביטול" variant="ghost" onPress={onCancel} />
@@ -199,6 +205,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 14 },
   hint: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 14 },
   err: { fontSize: 13, color: Colors.danger, textAlign: 'right', marginBottom: 10 },
+  preview: { fontSize: 13, color: Colors.primary, textAlign: 'right', writingDirection: 'ltr', marginBottom: 10 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
