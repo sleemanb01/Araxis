@@ -110,7 +110,9 @@ function AddCrewForm({
   onFound: (u: UserProfile) => void;
   onCancel: () => void;
 }) {
-  const [phone, setPhone] = useState('');
+  // Pre-seed the Israeli mobile prefix so the manager only types the rest
+  // (and doesn't need the hard-to-reach "+" on the phone keypad).
+  const [phone, setPhone] = useState('+972 5');
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -148,7 +150,7 @@ function AddCrewForm({
           label="מספר טלפון"
           value={phone}
           onChange={setPhone}
-          placeholder="050-0000000"
+          placeholder="+972 50 1234567"
           keyboardType="phone-pad"
         />
         {normalized && <Text style={styles.preview}>יחפש לפי: {normalized}</Text>}
