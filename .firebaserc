@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "araxis-28873"
+    "default": "araxis-v2",
+    "v2": "araxis-v2",
+    "v1": "araxis-28873"
   }
 }
