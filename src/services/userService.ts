@@ -20,7 +20,7 @@ import {
   arrayRemove,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { UserProfile, toCaps, NO_CAPS } from '../types/user';
+import { UserProfile, Availability, toCaps, NO_CAPS } from '../types/user';
 
 const USERS = 'users';
 
@@ -33,6 +33,8 @@ function toUser(snap: { id: string; data: () => any }): UserProfile {
     managerId: d.managerId ?? null,
     teamId: d.teamId ?? '',
     crew: Array.isArray(d.crew) ? d.crew : [],
+    services: Array.isArray(d.services) ? d.services : [],
+    availability: d.availability ?? undefined,
     phone: d.phone ?? undefined,
     createdAt: d.createdAt ?? undefined,
   };
@@ -92,7 +94,7 @@ export async function updateProfile(
 export async function createPendingProfile(
   uid: string,
   name: string,
-  phone?: string
+  opts?: { phone?: string; services?: string[]; availability?: Availability }
 ): Promise<void> {
   await setDoc(doc(db, USERS, uid), {
     uid,
@@ -100,7 +102,9 @@ export async function createPendingProfile(
     caps: NO_CAPS, // no access until an admin provisions capabilities (+ claim)
     teamId: '',
     managerId: null,
-    ...(phone ? { phone } : {}),
+    ...(opts?.phone ? { phone: opts.phone } : {}),
+    ...(opts?.services?.length ? { services: opts.services } : {}),
+    ...(opts?.availability ? { availability: opts.availability } : {}),
     createdAt: new Date().toISOString(),
   });
 }

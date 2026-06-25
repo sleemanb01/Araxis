@@ -28,11 +28,12 @@ service cloud.firestore {
                     && request.resource.data.caps.viewFinancials == false
                     && request.resource.data.caps.viewTeamPayouts == false
                     && request.resource.data.caps.manageInventory == false;
-      // A user may edit only their own `name`; a crew manager may additionally
-      // edit only their own `crew` roster array (a list of member uids).
+      // A user may edit their own `name`, `services` and `availability`; a crew
+      // manager may additionally edit only their own `crew` roster array.
       allow update: if request.auth.uid == userId
                     && (
-                      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['name', 'services', 'availability'])
                       || (can('manageCrew')
                           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['crew']))
                     );
@@ -60,6 +61,13 @@ service cloud.firestore {
     match /inventory/{itemId} {
       allow read: if provisioned();
       allow write: if can('manageInventory');
+    }
+
+    // ---- Service catalog ----
+    // Open list of service types. Any signed-in user can read it and add a new
+    // one (e.g. during sign-up, before they're provisioned). No edits/deletes.
+    match /services/{serviceId} {
+      allow read, create: if signedIn();
     }
   }
 }

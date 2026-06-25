@@ -66,13 +66,22 @@ export function capsLabel(c: Capabilities | null | undefined): string {
   return 'טכנאי';
 }
 
+/** Working availability: which days, and the daily time window. */
+export interface Availability {
+  days: number[]; // 0=Sunday … 6=Saturday
+  from: string;   // 'HH:MM'
+  to: string;     // 'HH:MM'
+}
+
 export interface UserProfile {
   uid: string;
   name: string;
   caps: Capabilities;
   managerId: string | null;
   teamId: string;
-  crew?: string[];    // uids of this user's crew members (their roster)
-  phone?: string;     // E.164, captured at self-registration (admin lookup)
-  createdAt?: string; // ISO date string
+  crew?: string[];           // uids of this user's crew members (their roster)
+  services?: string[];       // service names this user provides (open catalog)
+  availability?: Availability;
+  phone?: string;            // E.164, captured at self-registration (admin lookup)
+  createdAt?: string;        // ISO date string
 }
