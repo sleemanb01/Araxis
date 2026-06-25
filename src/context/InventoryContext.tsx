@@ -17,12 +17,12 @@ interface InventoryValue {
 const InventoryContext = createContext<InventoryValue | undefined>(undefined);
 
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
-  const { role } = useUser();
+  const { provisioned } = useUser();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!role) {
+    if (!provisioned) {
       setItems([]);
       setLoading(false);
       return;
@@ -36,7 +36,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       () => setLoading(false)
     );
     return () => unsubscribe();
-  }, [role]);
+  }, [provisioned]);
 
   const value = useMemo<InventoryValue>(() => ({ items, loading }), [items, loading]);
 

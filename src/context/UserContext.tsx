@@ -10,12 +10,13 @@ import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { subscribeToAuth, signOutUser } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
 import { initAppCheck } from '../services/appCheck';
-import { UserProfile, UserRole } from '../types/user';
+import { UserProfile, Capabilities, NO_CAPS, toCaps } from '../types/user';
 
 interface UserContextValue {
   user: FirebaseAuthTypes.User | null;
-  profile: UserProfile | null; // Firestore doc — name/team/role-display
-  role: UserRole | null; // AUTHORITATIVE role from the custom claim
+  profile: UserProfile | null;
+  caps: Capabilities; // AUTHORITATIVE — from the custom claim
+  provisioned: boolean; // claim carries caps (an admin has set this user up)
   initializing: boolean;
   profileLoaded: boolean;
   claimLoaded: boolean;
@@ -32,7 +33,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const [claimRole, setClaimRole] = useState<UserRole | null>(null);
+  const [caps, setCaps] = useState<Capabilities>(NO_CAPS);
+  const [provisioned, setProvisioned] = useState(false);
   const [claimLoaded, setClaimLoaded] = useState(false);
   const [confirmation, setConfirmation] =
     useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
@@ -50,7 +52,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setProfile(null);
       setProfileLoaded(false);
-      setClaimRole(null);
+      setCaps(NO_CAPS);
+      setProvisioned(false);
       setClaimLoaded(false);
       return;
     }
@@ -65,35 +68,39 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [user]);
 
-  // Authoritative role lives in the ID-token custom claim. Force-refresh while a
-  // profile exists but no claim is present yet, so a user picks up their claim
-  // right after an admin provisions them (no re-login needed).
+  // Capabilities live in the ID-token custom claim. Force-refresh while a
+  // profile exists but the claim has no caps yet, so a freshly provisioned user
+  // picks them up without re-logging in.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    const force = !!profile && claimRole === null;
+    const force = !!profile && !provisioned;
     setClaimLoaded(false);
     getIdTokenResult(user, force)
       .then((res) => {
         if (cancelled) return;
-        setClaimRole((res.claims.role as UserRole) ?? null);
+        const rawCaps = (res.claims as any).caps;
+        setProvisioned(rawCaps != null);
+        setCaps(toCaps(rawCaps));
         setClaimLoaded(true);
       })
       .catch(() => {
         if (cancelled) return;
-        setClaimRole(null);
+        setCaps(NO_CAPS);
+        setProvisioned(false);
         setClaimLoaded(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [user, profile, claimRole]);
+  }, [user, profile, provisioned]);
 
   const value = useMemo<UserContextValue>(
     () => ({
       user,
       profile,
-      role: claimRole,
+      caps,
+      provisioned,
       initializing,
       profileLoaded,
       claimLoaded,
@@ -105,7 +112,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         await signOutUser();
       },
     }),
-    [user, profile, claimRole, initializing, profileLoaded, claimLoaded, confirmation]
+    [user, profile, caps, provisioned, initializing, profileLoaded, claimLoaded, confirmation]
   );
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;

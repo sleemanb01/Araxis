@@ -18,7 +18,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { UserProfile, UserRole } from '../types/user';
+import { UserProfile, toCaps, NO_CAPS } from '../types/user';
 
 const USERS = 'users';
 
@@ -27,7 +27,7 @@ function toUser(snap: { id: string; data: () => any }): UserProfile {
   return {
     uid: snap.id,
     name: d.name ?? '',
-    role: (d.role ?? 'junior_tech') as UserRole,
+    caps: toCaps(d.caps),
     managerId: d.managerId ?? null,
     teamId: d.teamId ?? '',
     phone: d.phone ?? undefined,
@@ -83,7 +83,7 @@ export async function createPendingProfile(
   await setDoc(doc(db, USERS, uid), {
     uid,
     name,
-    role: 'junior_tech', // placeholder; real role + claim set by setUserRole
+    caps: NO_CAPS, // no access until an admin provisions capabilities (+ claim)
     teamId: '',
     managerId: null,
     ...(phone ? { phone } : {}),

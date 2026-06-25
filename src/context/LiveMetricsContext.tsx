@@ -17,12 +17,12 @@ interface LiveMetricsValue {
 const LiveMetricsContext = createContext<LiveMetricsValue | undefined>(undefined);
 
 export function LiveMetricsProvider({ children }: { children: React.ReactNode }) {
-  const { role } = useUser();
+  const { provisioned } = useUser();
   const [calls, setCalls] = useState<ServiceCall[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!role) {
+    if (!provisioned) {
       setCalls([]);
       setLoading(false);
       return;
@@ -36,7 +36,7 @@ export function LiveMetricsProvider({ children }: { children: React.ReactNode })
       () => setLoading(false)
     );
     return () => unsubscribe(); // cleanup prevents listener leaks
-  }, [role]);
+  }, [provisioned]);
 
   const value = useMemo<LiveMetricsValue>(() => ({ calls, loading }), [calls, loading]);
 

@@ -25,13 +25,13 @@ function Loading() {
 }
 
 function Root() {
-  const { user, initializing, profileLoaded, needsRegistration, claimLoaded, role } = useUser();
+  const { user, initializing, profileLoaded, needsRegistration, claimLoaded, provisioned } = useUser();
   if (initializing) return <Loading />;
   if (!user) return <AuthNavigator />;
   if (!profileLoaded) return <Loading />;
   if (needsRegistration) return <RegisterScreen />; // signed in, no profile yet
   if (!claimLoaded) return <Loading />;
-  if (!role) return <PendingScreen />; // registered, awaiting admin provisioning
+  if (!provisioned) return <PendingScreen />; // registered, awaiting admin provisioning
   return <RootNavigator />;
 }
 

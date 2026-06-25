@@ -5,22 +5,16 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
-import { UserRole } from '../types/user';
+import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const ROLE_HE: Record<UserRole, string> = {
-  admin: 'מנהל',
-  lead_tech: 'טכנאי ראשי',
-  junior_tech: 'טכנאי',
-};
-
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
-  const { profile, user, role, signOut } = useUser();
+  const { profile, user, caps, signOut } = useUser();
   if (!profile) return null;
 
   return (
@@ -30,14 +24,14 @@ export function ProfileScreen() {
           <Text style={styles.avatarText}>{profile.name.charAt(0)}</Text>
         </View>
         <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.role}>{ROLE_HE[profile.role]}</Text>
+        <Text style={styles.role}>{capsLabel(caps)}</Text>
 
         <View style={styles.card}>
           <Row label="צוות" value={profile.teamId} />
           <Row label="טלפון" value={user?.phoneNumber ?? '—'} />
         </View>
 
-        {role === 'admin' && (
+        {caps.manageCrew && (
           <CustomButton
             label="ניהול צוות"
             variant="secondary"

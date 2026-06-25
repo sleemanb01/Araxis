@@ -30,7 +30,7 @@ const NEXT_STATUS: Record<ServiceCallStatus, ServiceCallStatus | null> = {
 export function ServiceCallDetailScreen() {
   const route = useRoute<RouteP>();
   const { callId } = route.params;
-  const { profile, role } = useUser();
+  const { profile, caps } = useUser();
   const { calls } = useLiveMetrics();
   const { items } = useInventory();
   const uid = profile?.uid ?? '';
@@ -41,10 +41,10 @@ export function ServiceCallDetailScreen() {
   const [paid, setPaid] = useState('');
 
   useEffect(() => {
-    if (role !== 'admin') return;
+    if (!caps.viewFinancials) return;
     const unsub = subscribeToFinancials(callId, setFin);
     return () => unsub();
-  }, [callId, role]);
+  }, [callId, caps.viewFinancials]);
 
   useEffect(() => {
     if (fin) {
@@ -61,15 +61,15 @@ export function ServiceCallDetailScreen() {
     );
   }
 
-  const isJunior = role === 'junior_tech';
-  const canAdvance = role === 'admin' || call.teamAssignment.leadTech === uid;
+  const showTeamPay = caps.viewTeamPayouts;
+  const canAdvance = caps.createCalls || call.teamAssignment.leadTech === uid;
   const next = NEXT_STATUS[call.status];
   const hardwareNames = call.hardwareUsed.map(
     (id) => items.find((i) => i.id === id)?.itemName ?? id
   );
-  const splitsToShow: [string, number][] = isJunior
-    ? [[uid, call.payouts.splits[uid] ?? 0]]
-    : Object.entries(call.payouts.splits);
+  const splitsToShow: [string, number][] = showTeamPay
+    ? Object.entries(call.payouts.splits)
+    : [[uid, call.payouts.splits[uid] ?? 0]];
 
   function advance() {
     if (!next) return;
@@ -111,23 +111,23 @@ export function ServiceCallDetailScreen() {
           <Text style={styles.muted}>אין ציוד רשום</Text>
         )}
 
-        <Text style={styles.section}>{isJunior ? 'התשלום שלי' : 'חלוקת תשלום'}</Text>
+        <Text style={styles.section}>{showTeamPay ? 'חלוקת תשלום' : 'התשלום שלי'}</Text>
         {splitsToShow.map(([id, amt]) => (
           <View key={id} style={styles.payRow}>
             <Text style={styles.amount}>₪{amt.toLocaleString('he-IL')}</Text>
             <Text style={styles.line}>{id === uid ? 'אני' : id}</Text>
           </View>
         ))}
-        {!isJunior && (
+        {showTeamPay && (
           <View style={styles.payRow}>
             <Text style={styles.amountBold}>₪{call.payouts.totalTechPayout.toLocaleString('he-IL')}</Text>
             <Text style={styles.lineBold}>סה״כ תשלום צוות</Text>
           </View>
         )}
 
-        {role === 'admin' && (
+        {caps.viewFinancials && (
           <>
-            <Text style={styles.section}>כספים (מנהל בלבד)</Text>
+            <Text style={styles.section}>כספים</Text>
             <TextField label="מחיר ללקוח (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
             <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
             <View style={styles.payRow}>

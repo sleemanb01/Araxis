@@ -1,24 +1,23 @@
 /**
- * Admin-only client calls to the Cloud Functions backend.
- * setUserRole runs server-side (Admin SDK) and is rejected unless the caller
- * already holds the admin custom claim.
+ * Admin client calls to the Cloud Functions backend. setUserCaps runs
+ * server-side (Admin SDK) and is rejected unless the caller holds the
+ * `manageCrew` capability in their custom claim.
  */
 import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
-import { UserRole } from '../types/user';
+import { Capabilities } from '../types/user';
 
 const functions = getFunctions(getApp(), 'me-west1');
 
-export interface ProvisionInput {
+export interface SetCapsInput {
   uid: string;
-  role: UserRole;
+  caps: Capabilities;
   teamId: string;
   name?: string;
-  managerId?: string | null;
 }
 
-/** Provision or update a crew member's role + team (sets their custom claim). */
-export async function provisionUser(input: ProvisionInput): Promise<void> {
-  const fn = httpsCallable(functions, 'setUserRole');
+/** Set a crew member's capabilities + team (writes their doc and custom claim). */
+export async function setUserCaps(input: SetCapsInput): Promise<void> {
+  const fn = httpsCallable(functions, 'setUserCaps');
   await fn(input);
 }

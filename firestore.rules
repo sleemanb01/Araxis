@@ -1,76 +1,59 @@
 rules_version = '2';
 
-// Araxis v2 — internal field-service ops. Role-based access enforced via Firebase
-// custom claims (request.auth.token.role), set only by the setUserRole Cloud
+// Araxis v2 — capability-based access control. Each user's capabilities live in
+// their Firebase custom claim (`caps`), set only by the setUserCaps Cloud
 // Function (Admin SDK). Deny by default.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---- Helpers ----
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function role() {
-      return request.auth.token.role;
-    }
-    function isAdmin() {
-      return isSignedIn() && role() == 'admin';
-    }
-    function isTech() {
-      return isSignedIn() && role() in ['admin', 'lead_tech', 'junior_tech'];
-    }
-
-    // ---- Admin: full access to everything ----
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
+    function signedIn() { return request.auth != null; }
+    function capsMap() { return signedIn() ? request.auth.token.caps : null; }
+    function provisioned() { return capsMap() != null; }            // an admin set this user up
+    function can(name) { return provisioned() && request.auth.token.caps[name] == true; }
 
     // ---- Users ----
-    // Any crew member can read profiles (to see teammates). Role/team/identity
-    // are written ONLY by the Cloud Function (Admin SDK bypasses rules), so a
-    // tech can't escalate; a user may update only their own `name`.
+    // Provisioned crew can read profiles (to resolve names); a user always reads
+    // their own. Capabilities/team are written ONLY by the Cloud Function (Admin
+    // SDK bypasses rules); a user may self-register a no-capability profile and
+    // later edit only their own `name`.
     match /users/{userId} {
-      // A signed-in tech reads crew profiles; a user can always read their own.
-      allow read: if isTech() || request.auth.uid == userId;
-      // Self-register a pending profile on first run (placeholder role, no team).
-      // The real role + team + claim are set only by the setUserRole Cloud
-      // Function (Admin SDK), so a user cannot self-escalate.
+      allow read: if provisioned() || request.auth.uid == userId;
       allow create: if request.auth.uid == userId
                     && request.resource.data.uid == userId
-                    && request.resource.data.role == 'junior_tech'
-                    && request.resource.data.teamId == '';
+                    && request.resource.data.teamId == ''
+                    && request.resource.data.caps.manageCrew == false
+                    && request.resource.data.caps.createCalls == false
+                    && request.resource.data.caps.viewAllCalls == false
+                    && request.resource.data.caps.viewFinancials == false
+                    && request.resource.data.caps.viewTeamPayouts == false
+                    && request.resource.data.caps.manageInventory == false;
       allow update: if request.auth.uid == userId
                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']);
       allow delete: if false;
     }
 
     // ---- Service calls ----
-    // A tech reads a call only if they are on its crew. The lead tech on a call
-    // may update it (status, hardwareUsed). Creates/deletes are admin-only.
     match /serviceCalls/{ticketId} {
-      allow read: if isTech()
-                  && (resource.data.teamAssignment.leadTech == request.auth.uid
-                      || request.auth.uid in resource.data.teamAssignment.assistants);
-      allow update: if isTech()
-                    && resource.data.teamAssignment.leadTech == request.auth.uid;
-      allow create, delete: if false;
+      allow read: if can('viewAllCalls')
+                  || (provisioned()
+                      && (resource.data.teamAssignment.leadTech == request.auth.uid
+                          || request.auth.uid in resource.data.teamAssignment.assistants));
+      allow create: if can('createCalls');
+      allow update: if can('createCalls')
+                    || (provisioned() && resource.data.teamAssignment.leadTech == request.auth.uid);
+      allow delete: if can('createCalls');
 
-      // Financials — ADMIN ONLY (the invisible wall). Already covered by the
-      // admin catch-all above; this locks it explicitly for any future change.
+      // Financials — gated by the viewFinancials capability (the wall).
       match /privateData/{docId} {
-        allow read, write: if isAdmin();
+        allow read, write: if can('viewFinancials');
       }
     }
 
-    // ---- Inventory master ledger ----
-    // Any tech reads; writes (stock adjustments, hardware assignment, vehicle
-    // loading) by admins and lead techs.
+    // ---- Inventory ----
     match /inventory/{itemId} {
-      allow read: if isTech();
-      allow write: if isSignedIn() && role() in ['admin', 'lead_tech'];
+      allow read: if provisioned();
+      allow write: if can('manageInventory');
     }
-
-    // Anything not matched above is denied by default.
   }
 }

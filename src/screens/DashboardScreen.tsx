@@ -17,37 +17,37 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
-  const { profile, role } = useUser();
+  const { profile, caps } = useUser();
   const { calls, loading } = useLiveMetrics();
   const uid = profile?.uid ?? '';
-  const isJunior = role === 'junior_tech';
+  const showTeamPay = caps.viewTeamPayouts;
 
-  // Role-scoped visibility. (Rules enforce this too; this filters the client copy.)
-  const mine = useMemo(() => {
-    if (role === 'admin') return calls;
-    if (role === 'lead_tech') return calls.filter((c) => c.teamAssignment.leadTech === uid);
-    return calls.filter((c) => c.teamAssignment.assistants.includes(uid));
-  }, [calls, role, uid]);
+  // Capability-scoped visibility. (Rules enforce this too; this filters the client copy.)
+  const mine = useMemo(
+    () =>
+      caps.viewAllCalls
+        ? calls
+        : calls.filter(
+            (c) => c.teamAssignment.leadTech === uid || c.teamAssignment.assistants.includes(uid)
+          ),
+    [calls, caps.viewAllCalls, uid]
+  );
 
   const payoutTotal = useMemo(
     () =>
       mine.reduce(
-        (sum, c) => sum + (isJunior ? c.payouts.splits[uid] ?? 0 : c.payouts.totalTechPayout),
+        (sum, c) => sum + (showTeamPay ? c.payouts.totalTechPayout : c.payouts.splits[uid] ?? 0),
         0
       ),
-    [mine, isJunior, uid]
+    [mine, showTeamPay, uid]
   );
 
-  const summaryLabel = isJunior
-    ? 'התשלומים שלי'
-    : role === 'lead_tech'
-    ? 'תשלומי הצוות שלי'
-    : 'סך תשלומי הצוותים';
+  const summaryLabel = showTeamPay ? 'תשלומי הצוות' : 'התשלומים שלי';
 
   const subtitleFor = (c: ServiceCall) =>
-    isJunior
-      ? `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`
-      : `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`;
+    showTeamPay
+      ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
+      : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -69,7 +69,7 @@ export function DashboardScreen() {
               <Text style={styles.summaryValue}>₪{payoutTotal.toLocaleString('he-IL')}</Text>
               <Text style={styles.summarySub}>{mine.length} קריאות קרובות</Text>
             </View>
-            {role === 'admin' && (
+            {caps.createCalls && (
               <CustomButton
                 label="+ קריאה חדשה"
                 onPress={() => navigation.navigate('NewServiceCall')}

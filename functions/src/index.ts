@@ -1,10 +1,10 @@
 /**
- * Araxis Cloud Functions — role management via Firebase custom claims.
+ * Araxis Cloud Functions — capability-based access control.
  *
- * Firestore security rules gate on `request.auth.token.role`. Only this backend
- * (Admin SDK, which bypasses rules) may set a user's role, so a tech cannot
- * escalate their own privileges. The first admin per business is bootstrapped
- * out-of-band with scripts/set-admin.js.
+ * Each user's capabilities live in their Firebase custom claim (`caps`), set
+ * only by this backend (Admin SDK, which bypasses rules) so a user can't grant
+ * themselves access. Firestore rules read `request.auth.token.caps`.
+ * The first admin per project is bootstrapped with scripts/set-admin.js.
  */
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
@@ -13,53 +13,69 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 initializeApp();
 
-type Role = 'admin' | 'lead_tech' | 'junior_tech';
-const ROLES: Role[] = ['admin', 'lead_tech', 'junior_tech'];
+const CAP_KEYS = [
+  'manageCrew',
+  'createCalls',
+  'viewAllCalls',
+  'viewFinancials',
+  'viewTeamPayouts',
+  'manageInventory',
+] as const;
+type Capabilities = Record<(typeof CAP_KEYS)[number], boolean>;
 
-interface SetUserRoleData {
+interface SetCapsData {
   uid: string;
-  role: Role;
+  caps: Partial<Capabilities>;
   teamId: string;
   name?: string;
-  managerId?: string | null;
+}
+
+function normalizeCaps(raw: any): Capabilities {
+  const out = {} as Capabilities;
+  for (const k of CAP_KEYS) out[k] = raw?.[k] === true;
+  return out;
 }
 
 /**
- * Admin-only: provision or update a crew member. Sets the role + teamId custom
- * claims (read by Firestore rules) and mirrors them into users/{uid}.
- * The target user must refresh their ID token — getIdToken(true) on the client —
- * to pick up the new claim.
+ * Set a crew member's capabilities + team. Caller must hold `manageCrew`.
+ * Sets the target's custom claim (read by rules) and mirrors to users/{uid}.
+ * The target refreshes their ID token (getIdTokenResult(user, true)) to pick it up.
  */
-export const setUserRole = onCall(
+export const setUserCaps = onCall(
   { region: 'me-west1' },
-  async (request: CallableRequest<SetUserRoleData>) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign in required.');
+  async (request: CallableRequest<SetCapsData>) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required.');
+    }
+    const callerCaps = (request.auth.token as any).caps;
+    if (!callerCaps || callerCaps.manageCrew !== true) {
+      throw new HttpsError('permission-denied', 'Requires crew-management permission.');
+    }
+
+    const { uid, caps, teamId, name } = request.data ?? ({} as SetCapsData);
+    if (!uid || !teamId) {
+      throw new HttpsError('invalid-argument', 'uid and teamId are required.');
+    }
+
+    const next = normalizeCaps(caps);
+
+    // Prevent self-lockout: you cannot remove your own crew-management access.
+    if (uid === request.auth.uid && next.manageCrew !== true) {
+      throw new HttpsError(
+        'failed-precondition',
+        'You cannot remove your own crew-management capability.'
+      );
+    }
+
+    await getAuth().setCustomUserClaims(uid, { caps: next, teamId });
+    await getFirestore()
+      .collection('users')
+      .doc(uid)
+      .set(
+        { uid, caps: next, teamId, ...(name !== undefined ? { name } : {}) },
+        { merge: true }
+      );
+
+    return { ok: true };
   }
-  if (request.auth.token.role !== 'admin') {
-    throw new HttpsError('permission-denied', 'Admins only.');
-  }
-
-  const { uid, role, teamId, name, managerId } = request.data ?? ({} as SetUserRoleData);
-  if (!uid || !ROLES.includes(role) || !teamId) {
-    throw new HttpsError('invalid-argument', 'uid, a valid role, and teamId are required.');
-  }
-
-  await getAuth().setCustomUserClaims(uid, { role, teamId });
-
-  await getFirestore()
-    .collection('users')
-    .doc(uid)
-    .set(
-      {
-        uid,
-        role,
-        teamId,
-        managerId: managerId ?? null,
-        ...(name !== undefined ? { name } : {}),
-      },
-      { merge: true }
-    );
-
-  return { ok: true };
-});
+);

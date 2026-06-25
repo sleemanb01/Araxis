@@ -17,8 +17,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export function WarehouseScreen() {
   const navigation = useNavigation<Nav>();
   const { items } = useInventory();
-  const { role } = useUser();
-  const canEdit = role === 'admin' || role === 'lead_tech';
+  const { caps } = useUser();
+  const canEdit = caps.manageInventory;
   const [query, setQuery] = useState('');
 
   const lowCount = useMemo(() => items.filter(isLowStock).length, [items]);
