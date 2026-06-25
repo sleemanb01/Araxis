@@ -10,6 +10,10 @@ const IOS_BUNDLE_ID   = process.env.IOS_BUNDLE_ID   ?? 'com.araxis.ops';
 const ANDROID_PACKAGE = process.env.ANDROID_PACKAGE ?? 'com.araxis.ops';
 const THEME_COLOR     = process.env.THEME_COLOR     ?? '#2563EB';
 const EAS_PROJECT_ID  = process.env.EAS_PROJECT_ID  ?? '3bf93c35-fac2-48d2-b256-509233b71429';
+// Firebase phone-auth reCAPTCHA fallback needs the iOS OAuth reversed client id
+// as a URL scheme. Per-business override via IOS_REVERSED_CLIENT_ID.
+const IOS_REVERSED_CLIENT_ID = process.env.IOS_REVERSED_CLIENT_ID
+  ?? 'com.googleusercontent.apps.551304434332-ft92apu5jvir0ha175141rkpqhmc7s5g';
 
 module.exports = () => ({
   expo: {
@@ -36,6 +40,7 @@ module.exports = () => ({
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         UIBackgroundModes: ['remote-notification'],
+        CFBundleURLTypes: [{ CFBundleURLSchemes: [IOS_REVERSED_CLIENT_ID] }],
       },
     },
     android: {
