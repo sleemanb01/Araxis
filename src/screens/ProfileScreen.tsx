@@ -34,9 +34,6 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile.name.charAt(0)}</Text>
-        </View>
         <Text style={styles.name}>{profile.name}</Text>
         <Text style={styles.role}>{capsLabel(caps)}</Text>
 
@@ -94,16 +91,6 @@ function Row({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 32 },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  avatarText: { fontSize: 36, fontWeight: '800', color: '#FFFFFF' },
   name: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   role: { fontSize: 15, color: Colors.textSecondary, marginTop: 2 },
   card: {
