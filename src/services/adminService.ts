@@ -21,3 +21,9 @@ export async function setUserCaps(input: SetCapsInput): Promise<void> {
   const fn = httpsCallable(functions, 'setUserCaps');
   await fn(input);
 }
+
+/** Remove a crew member: revokes their claim, deletes their doc and Auth account. */
+export async function removeUser(uid: string): Promise<void> {
+  const fn = httpsCallable(functions, 'removeUser');
+  await fn({ uid });
+}

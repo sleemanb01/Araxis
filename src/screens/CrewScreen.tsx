@@ -16,7 +16,7 @@ import { TextField } from '../components/TextField';
 import { FAB } from '../components/FAB';
 import { useUser } from '../context/UserContext';
 import { subscribeToUsers, findUserByPhone } from '../services/userService';
-import { setUserCaps } from '../services/adminService';
+import { setUserCaps, removeUser } from '../services/adminService';
 import { toE164 } from '../services/authService';
 import {
   UserProfile,
@@ -151,9 +151,33 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
   const [caps, setCaps] = useState<Capabilities>(user.caps ?? NO_CAPS);
   const [teamId, setTeamId] = useState(user.teamId || 'team_main');
   const [saving, setSaving] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   function toggle(k: keyof Capabilities) {
     setCaps((c) => ({ ...c, [k]: !c[k] }));
+  }
+
+  function confirmRemove() {
+    Alert.alert(
+      'הסרת חבר צוות',
+      `להסיר את ${user.name || user.phone || user.uid}? הגישה שלו תבוטל והוא יימחק לצמיתות.`,
+      [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'הסר', style: 'destructive', onPress: remove },
+      ]
+    );
+  }
+
+  async function remove() {
+    setRemoving(true);
+    try {
+      await removeUser(user.uid);
+      Alert.alert('הוסר', `${user.name || user.uid} הוסר מהצוות.`);
+      onDone();
+    } catch (e: any) {
+      Alert.alert('שגיאה', e?.message ?? 'ההסרה נכשלה (ודא שפונקציית הענן פרוסה).');
+      setRemoving(false);
+    }
   }
 
   async function save() {
@@ -193,6 +217,15 @@ function CrewEditor({ user, onDone }: { user: UserProfile; onDone: () => void })
         <TextField label="צוות" value={teamId} onChange={setTeamId} placeholder="team_main" />
         <CustomButton label="שמור" onPress={save} loading={saving} style={styles.btn} />
         <CustomButton label="ביטול" variant="ghost" onPress={onDone} />
+        {!isSelf && (
+          <CustomButton
+            label="הסר מהצוות"
+            variant="danger"
+            onPress={confirmRemove}
+            loading={removing}
+            style={styles.removeBtn}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -233,4 +266,5 @@ const styles = StyleSheet.create({
   },
   capLabel: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right', marginStart: 12 },
   btn: { marginTop: 12, marginBottom: 8 },
+  removeBtn: { marginTop: 24 },
 });

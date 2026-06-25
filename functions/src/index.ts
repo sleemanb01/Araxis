@@ -79,3 +79,42 @@ export const setUserCaps = onCall(
     return { ok: true };
   }
 );
+
+/**
+ * Remove a crew member entirely. Caller must hold `manageCrew` and cannot remove
+ * themselves. Revokes their capability claim, deletes their users/{uid} doc, and
+ * deletes their Auth account (so they lose access immediately).
+ */
+export const removeUser = onCall(
+  { region: 'me-west1' },
+  async (request: CallableRequest<{ uid: string }>) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign in required.');
+    }
+    const callerCaps = (request.auth.token as any).caps;
+    if (!callerCaps || callerCaps.manageCrew !== true) {
+      throw new HttpsError('permission-denied', 'Requires crew-management permission.');
+    }
+
+    const { uid } = request.data ?? ({} as { uid: string });
+    if (!uid) {
+      throw new HttpsError('invalid-argument', 'uid is required.');
+    }
+    if (uid === request.auth.uid) {
+      throw new HttpsError('failed-precondition', 'You cannot remove yourself.');
+    }
+
+    // Revoke access (claim) first, then drop the profile doc.
+    await getAuth().setCustomUserClaims(uid, null);
+    await getFirestore().collection('users').doc(uid).delete();
+
+    // Delete the Auth account too; non-fatal if it's already gone (doc-only).
+    try {
+      await getAuth().deleteUser(uid);
+    } catch {
+      // no Auth record for this uid — ignore
+    }
+
+    return { ok: true };
+  }
+);
