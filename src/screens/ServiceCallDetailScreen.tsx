@@ -279,6 +279,9 @@ export function ServiceCallDetailScreen() {
                   size={22}
                   color={on ? Colors.primary : Colors.textSecondary}
                 />
+                {caps.viewFinancials && it?.price != null && (
+                  <Text style={styles.itemPrice}>₪{it.price.toLocaleString('he-IL')}</Text>
+                )}
                 <Text style={[styles.checkText, on && styles.checkTextDone]}>
                   {it?.itemName ?? id}
                 </Text>
@@ -398,6 +401,7 @@ const styles = StyleSheet.create({
   },
   checkText: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
   checkTextDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
+  itemPrice: { fontSize: 14, fontWeight: '700', color: Colors.primary },
   financeRow: { flexDirection: 'row', gap: 8 },
   financeCol: { flex: 1 },
   finStatus: { fontSize: 14, fontWeight: '700', color: Colors.primary, textAlign: 'right', marginTop: 2 },
