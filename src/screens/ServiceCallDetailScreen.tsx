@@ -11,11 +11,11 @@ import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { subscribeToFinancials, setCallStatus, setFinancials, updateServiceCall } from '../services/serviceCallService';
-import { createInventoryItem } from '../services/inventoryService';
+import { createInventoryItem, adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
 import { PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
 import { Crew } from '../types/crew';
-import { WAREHOUSE } from '../types/inventory';
+import { WAREHOUSE, crewLocation } from '../types/inventory';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -133,10 +133,19 @@ export function ServiceCallDetailScreen() {
     ]);
   }
 
+  // Consume from the crew's stock when an item is used on the job (crew →
+  // customer); return it on uncheck. Stock writes need manageInventory.
+  function moveStock(itemId: string, delta: number) {
+    if (!caps.manageInventory || !call!.crewId) return;
+    adjustQuantity(itemId, crewLocation(call!.crewId), delta).catch(() => {});
+  }
+
   function toggleChecked(id: string) {
     const set = new Set(call!.checkedItems ?? []);
-    set.has(id) ? set.delete(id) : set.add(id);
+    const willCheck = !set.has(id);
+    willCheck ? set.add(id) : set.delete(id);
     updateServiceCall(callId, { checkedItems: Array.from(set) }).catch(() => {});
+    moveStock(id, willCheck ? -1 : 1);
   }
 
   function findExistingItem() {
@@ -159,10 +168,12 @@ export function ServiceCallDetailScreen() {
   async function addItemToCall(itemId: string) {
     const reqCur = call!.requiredItems ?? [];
     const chkCur = call!.checkedItems ?? [];
+    const wasChecked = chkCur.includes(itemId);
     await updateServiceCall(callId, {
       requiredItems: reqCur.includes(itemId) ? reqCur : [...reqCur, itemId],
-      checkedItems: chkCur.includes(itemId) ? chkCur : [...chkCur, itemId],
+      checkedItems: wasChecked ? chkCur : [...chkCur, itemId],
     });
+    if (!wasChecked) moveStock(itemId, -1); // newly checked → consume from crew stock
   }
   async function addManualItem() {
     const existing = findExistingItem();
