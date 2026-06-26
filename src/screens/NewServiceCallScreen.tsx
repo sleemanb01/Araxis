@@ -77,15 +77,14 @@ export function NewServiceCallScreen() {
   const selectedCrew = crews.find((c) => c.id === crewId) ?? null;
   const memberIds = selectedCrew?.memberIds ?? [];
 
-  // Weekdays (0=Sun..6=Sat) the chosen crew is available (intersection of its
-  // members' availability); before a crew is picked, the union across crew mates.
+  // Weekdays (0=Sun..6=Sat) the calendar marks as available: the chosen crew's
+  // MANAGER availability; before a crew is picked, the union across crew mates.
   const availableWeekdays = useMemo(() => {
     const daysOf = (p: UserProfile) =>
       p.availability?.days?.length ? p.availability.days : [0, 1, 2, 3, 4, 5, 6];
     if (selectedCrew) {
-      const sel = crew.filter((p) => memberIds.includes(p.uid));
-      if (sel.length) return [0, 1, 2, 3, 4, 5, 6].filter((d) => sel.every((p) => daysOf(p).includes(d)));
-      return [0, 1, 2, 3, 4, 5, 6];
+      const manager = crew.find((p) => p.uid === selectedCrew.manager);
+      return manager ? daysOf(manager) : [0, 1, 2, 3, 4, 5, 6];
     }
     const s = new Set<number>();
     crew.forEach((p) => daysOf(p).forEach((d) => s.add(d)));
