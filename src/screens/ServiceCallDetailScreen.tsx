@@ -155,10 +155,14 @@ export function ServiceCallDetailScreen() {
     setMName('');
     setMBarcode('');
   }
+  // Adding an item ensures it's in the checklist AND checks it off (you've got it).
   async function addItemToCall(itemId: string) {
-    const cur = call!.requiredItems ?? [];
-    if (cur.includes(itemId)) return;
-    await updateServiceCall(callId, { requiredItems: [...cur, itemId] });
+    const reqCur = call!.requiredItems ?? [];
+    const chkCur = call!.checkedItems ?? [];
+    await updateServiceCall(callId, {
+      requiredItems: reqCur.includes(itemId) ? reqCur : [...reqCur, itemId],
+      checkedItems: chkCur.includes(itemId) ? chkCur : [...chkCur, itemId],
+    });
   }
   async function addManualItem() {
     const existing = findExistingItem();
