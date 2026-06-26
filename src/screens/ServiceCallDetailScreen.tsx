@@ -30,7 +30,7 @@ const NEXT_STATUS: Record<ServiceCallStatus, ServiceCallStatus | null> = {
 
 export function ServiceCallDetailScreen() {
   const route = useRoute<RouteP>();
-  const { callId } = route.params;
+  const { callId, readOnly } = route.params;
   const { profile, caps, crews, user } = useUser();
   const { calls } = useLiveMetrics();
   const { items } = useInventory();
@@ -79,7 +79,7 @@ export function ServiceCallDetailScreen() {
     );
   }
 
-  const canEdit = caps.createCalls || call.teamAssignment.leadTech === uid;
+  const canEdit = !readOnly && (caps.createCalls || call.teamAssignment.leadTech === uid);
   const next = NEXT_STATUS[call.status];
 
   const assignedCrew =
@@ -292,27 +292,43 @@ export function ServiceCallDetailScreen() {
         {showFinance && (
           <>
             <Text style={styles.section}>כספים</Text>
-            <View style={styles.financeRow}>
-              {caps.viewTeamPayouts && (
-                <View style={styles.financeCol}>
-                  <TextField label="תשלום צוות ₪" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
-                </View>
-              )}
-              {caps.viewFinancials && (
-                <>
+            {readOnly ? (
+              <>
+                {caps.viewTeamPayouts && (
+                  <Text style={styles.line}>תשלום צוות: ₪{payoutN.toLocaleString('he-IL')}</Text>
+                )}
+                {caps.viewFinancials && (
+                  <>
+                    <Text style={styles.line}>מחיר ללקוח: ₪{priceN.toLocaleString('he-IL')}</Text>
+                    <Text style={styles.line}>שולם: ₪{paidN.toLocaleString('he-IL')}</Text>
+                  </>
+                )}
+              </>
+            ) : (
+              <View style={styles.financeRow}>
+                {caps.viewTeamPayouts && (
                   <View style={styles.financeCol}>
-                    <TextField label="מחיר ללקוח ₪" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+                    <TextField label="תשלום צוות ₪" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
                   </View>
-                  <View style={styles.financeCol}>
-                    <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
-                  </View>
-                </>
-              )}
-            </View>
+                )}
+                {caps.viewFinancials && (
+                  <>
+                    <View style={styles.financeCol}>
+                      <TextField label="מחיר ללקוח ₪" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+                    </View>
+                    <View style={styles.financeCol}>
+                      <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+                    </View>
+                  </>
+                )}
+              </View>
+            )}
             {caps.viewFinancials && (
               <Text style={styles.line}>עלות ציוד: ₪{equipmentCost.toLocaleString('he-IL')}</Text>
             )}
-            <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
+            {!readOnly && (
+              <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
+            )}
           </>
         )}
 

@@ -45,7 +45,7 @@ export function CrewJobsScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.row}
-            onPress={() => navigation.navigate('ServiceCallDetail', { callId: item.id })}
+            onPress={() => navigation.navigate('ServiceCallDetail', { callId: item.id, readOnly: true })}
             activeOpacity={0.8}
           >
             <Text style={styles.chev}>‹</Text>
