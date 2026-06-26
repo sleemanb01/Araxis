@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, SectionList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -9,6 +9,7 @@ import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { ServiceCall } from '../types/serviceCall';
+import { dayKey } from '../utils/finance';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -34,13 +35,32 @@ export function DashboardScreen() {
   );
 
   const [filter, setFilter] = useState<'today' | 'all'>('today');
-  const dayEnd = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString();
-  }, []);
-  const visible = filter === 'today' ? mine.filter((c) => c.scheduledDate < dayEnd) : mine;
+  const sections = useMemo(() => {
+    const todayKey = dayKey(new Date());
+    const byDate = [...mine].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+    if (filter === 'today') {
+      const data = byDate.filter((c) => dayKey(new Date(c.scheduledDate)) === todayKey);
+      return data.length ? [{ title: '', data }] : [];
+    }
+    // All jobs, grouped into one list per calendar day.
+    const map = new Map<string, ServiceCall[]>();
+    byDate.forEach((c) => {
+      const k = dayKey(new Date(c.scheduledDate));
+      const arr = map.get(k);
+      if (arr) arr.push(c);
+      else map.set(k, [c]);
+    });
+    return Array.from(map.values()).map((data) => ({
+      title: new Date(data[0].scheduledDate).toLocaleDateString('he-IL', {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }),
+      data,
+    }));
+  }, [mine, filter]);
+  const total = sections.reduce((n, s) => n + s.data.length, 0);
 
   const subtitleFor = (c: ServiceCall) =>
     showTeamPay
@@ -49,8 +69,8 @@ export function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <FlatList
-        data={visible}
+      <SectionList
+        sections={sections}
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => (
           <ServiceCallCard
@@ -59,6 +79,10 @@ export function DashboardScreen() {
             onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id })}
           />
         )}
+        renderSectionHeader={({ section }) =>
+          section.title ? <Text style={styles.dateHeader}>{section.title}</Text> : null
+        }
+        stickySectionHeadersEnabled={false}
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
@@ -69,7 +93,7 @@ export function DashboardScreen() {
                 style={styles.newBtn}
               />
             )}
-            <SectionHeader title="הקריאות שלי" count={visible.length} />
+            <SectionHeader title="הקריאות שלי" count={total} />
             <View style={styles.segment}>
               <TouchableOpacity
                 style={[styles.segBtn, filter === 'today' && styles.segBtnOn]}
@@ -120,5 +144,6 @@ const styles = StyleSheet.create({
   segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: '#FFFFFF' },
+  dateHeader: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary, textAlign: 'right', marginTop: 16, marginBottom: 8 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });
