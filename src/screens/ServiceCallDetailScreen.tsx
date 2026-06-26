@@ -77,7 +77,6 @@ export function ServiceCallDetailScreen() {
 
   const canEdit = caps.createCalls || call.teamAssignment.leadTech === uid;
   const next = NEXT_STATUS[call.status];
-  const hardwareNames = call.hardwareUsed.map((id) => items.find((i) => i.id === id)?.itemName ?? id);
 
   const assignedCrew =
     crews.find((c) => c.id === call.crewId) ??
@@ -262,22 +261,13 @@ export function ServiceCallDetailScreen() {
                   color={on ? Colors.primary : Colors.textSecondary}
                 />
                 <Text style={[styles.checkText, on && styles.checkTextDone]}>
-                  {it?.itemName ?? id}{it?.lacks ? ' — חסר' : ''}
+                  {it?.itemName ?? id}
                 </Text>
               </TouchableOpacity>
             );
           })
         ) : (
           <Text style={styles.muted}>אין פריטים</Text>
-        )}
-
-        <Text style={styles.section}>ציוד שנוצל</Text>
-        {hardwareNames.length ? (
-          hardwareNames.map((n, i) => (
-            <Text key={i} style={styles.line}>• {n}</Text>
-          ))
-        ) : (
-          <Text style={styles.muted}>אין ציוד רשום</Text>
         )}
 
         {showFinance && (
@@ -369,7 +359,18 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' },
   chip: { borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7 },
   chipText: { fontSize: 13, color: Colors.textPrimary },
-  checkRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    marginBottom: 8,
+  },
   checkText: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
   checkTextDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   financeRow: { flexDirection: 'row', gap: 8 },
