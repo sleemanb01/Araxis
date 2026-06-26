@@ -1,21 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
-import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
+import { AddItemModal } from '../components/AddItemModal';
 import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { subscribeToFinancials, setCallStatus, setFinancials, updateServiceCall } from '../services/serviceCallService';
-import { createInventoryItem, adjustQuantity } from '../services/inventoryService';
+import { adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
 import { PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
 import { Crew } from '../types/crew';
-import { WAREHOUSE, crewLocation } from '../types/inventory';
+import { crewLocation } from '../types/inventory';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -42,11 +42,7 @@ export function ServiceCallDetailScreen() {
   const [price, setPrice] = useState('');
   const [paid, setPaid] = useState('');
   const [payout, setPayout] = useState('');
-  // add-item modal
-  const [manualOpen, setManualOpen] = useState(false);
-  const [mName, setMName] = useState('');
-  const [mBarcode, setMBarcode] = useState('');
-  const [scanForModal, setScanForModal] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
     if (!caps.viewFinancials) return;
@@ -148,22 +144,6 @@ export function ServiceCallDetailScreen() {
     moveStock(id, willCheck ? -1 : 1);
   }
 
-  function findExistingItem() {
-    const bc = mBarcode.trim();
-    const nm = mName.trim();
-    return items.find((i) => (!!bc && i.barcode === bc) || (!!nm && i.itemName === nm)) ?? null;
-  }
-  function onModalScan(code: string) {
-    setScanForModal(false);
-    setMBarcode(code);
-    const ex = items.find((i) => i.barcode === code);
-    if (ex) setMName(ex.itemName);
-  }
-  function closeManual() {
-    setManualOpen(false);
-    setMName('');
-    setMBarcode('');
-  }
   // Adding an item ensures it's in the checklist AND checks it off (you've got it).
   async function addItemToCall(itemId: string) {
     const reqCur = call!.requiredItems ?? [];
@@ -175,27 +155,6 @@ export function ServiceCallDetailScreen() {
     });
     if (!wasChecked) moveStock(itemId, -1); // newly checked → consume from crew stock
   }
-  async function addManualItem() {
-    const existing = findExistingItem();
-    try {
-      if (existing) await addItemToCall(existing.id);
-      else {
-        if (!mName.trim()) return;
-        const id = await createInventoryItem({
-          itemName: mName.trim(),
-          ...(mBarcode.trim() ? { barcode: mBarcode.trim() } : {}),
-          lacks: true,
-          locations: { [WAREHOUSE]: 0 },
-        });
-        await addItemToCall(id);
-      }
-      closeManual();
-    } catch {
-      Alert.alert('שגיאה', 'הוספת הפריט נכשלה.');
-    }
-  }
-
-  const existingItem = findExistingItem();
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -277,7 +236,7 @@ export function ServiceCallDetailScreen() {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionInline}>פריטים נדרשים</Text>
           {canEdit && (
-            <TouchableOpacity style={styles.addBtn} onPress={() => setManualOpen(true)} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.addBtn} onPress={() => setAddOpen(true)} activeOpacity={0.85}>
               <Ionicons name="add" size={20} color="#FFFFFF" />
             </TouchableOpacity>
           )}
@@ -348,34 +307,11 @@ export function ServiceCallDetailScreen() {
         )}
       </ScrollView>
 
-      <BarcodeScannerModal visible={scanForModal} onClose={() => setScanForModal(false)} onScanned={onModalScan} />
-
-      <Modal visible={manualOpen} transparent animationType="fade" onRequestClose={closeManual}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>הוספת פריט</Text>
-            <TextField label="שם הפריט" value={mName} onChange={setMName} placeholder="לדוגמה: מצלמה" />
-            <View style={styles.barcodeRow}>
-              <View style={styles.barcodeField}>
-                <TextField label="ברקוד" value={mBarcode} onChange={setMBarcode} placeholder="סרוק או הזן" />
-              </View>
-              <TouchableOpacity style={styles.scanBtn} onPress={() => setScanForModal(true)} activeOpacity={0.85}>
-                <Ionicons name="barcode-outline" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            {existingItem && (
-              <Text style={styles.modalSub}>פריט קיים: {existingItem.itemName} — יתווסף הקיים.</Text>
-            )}
-            <CustomButton
-              label="הוסף פריט"
-              onPress={addManualItem}
-              disabled={!existingItem && !mName.trim()}
-              style={styles.btnFin}
-            />
-            <CustomButton label="ביטול" variant="ghost" onPress={closeManual} />
-          </View>
-        </View>
-      </Modal>
+      <AddItemModal
+        visible={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdded={(id) => addItemToCall(id).catch(() => {})}
+      />
     </SafeAreaView>
   );
 }

@@ -7,14 +7,12 @@ import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { Calendar } from '../components/Calendar';
-import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
+import { AddItemModal } from '../components/AddItemModal';
 import { getUsersByIds } from '../services/userService';
 import { createServiceCall, setFinancials } from '../services/serviceCallService';
-import { createInventoryItem } from '../services/inventoryService';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
 import { UserProfile } from '../types/user';
-import { WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
@@ -46,9 +44,6 @@ export function NewServiceCallScreen() {
   const [requiredItems, setRequiredItems] = useState<string[]>([]);
   const [calOpen, setCalOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [mName, setMName] = useState('');
-  const [mBarcode, setMBarcode] = useState('');
-  const [scanForModal, setScanForModal] = useState(false);
 
   // Next two weeks for the horizontal date strip; the full calendar covers the rest.
   const strip = useMemo(() => {
@@ -123,53 +118,6 @@ export function NewServiceCallScreen() {
     setRequiredItems((prev) => prev.filter((x) => x !== id));
   }
 
-  function openManual() {
-    setMName('');
-    setMBarcode('');
-    setManualOpen(true);
-  }
-  function closeManual() {
-    setManualOpen(false);
-    setMName('');
-    setMBarcode('');
-  }
-
-  // Match an existing warehouse item by barcode or exact name (auto-pull).
-  function findExistingItem() {
-    const bc = mBarcode.trim();
-    const nm = mName.trim();
-    return items.find((i) => (!!bc && i.barcode === bc) || (!!nm && i.itemName === nm)) ?? null;
-  }
-
-  // Barcode scanned inside the add modal: fill the field and pull an existing name.
-  function onModalScan(code: string) {
-    setScanForModal(false);
-    setMBarcode(code);
-    const ex = items.find((i) => i.barcode === code);
-    if (ex) setMName(ex.itemName);
-  }
-
-  async function addManualItem() {
-    const existing = findExistingItem();
-    if (existing) {
-      addRequired(existing.id);
-      closeManual();
-      return;
-    }
-    if (!mName.trim()) return;
-    try {
-      const id = await createInventoryItem({
-        itemName: mName.trim(),
-        ...(mBarcode.trim() ? { barcode: mBarcode.trim() } : {}),
-        lacks: true,
-        locations: { [WAREHOUSE]: 0 },
-      });
-      addRequired(id);
-      closeManual();
-    } catch {
-      Alert.alert('שגיאה', 'הוספת הפריט נכשלה.');
-    }
-  }
 
   async function submit() {
     if (!clientName.trim()) {
@@ -214,8 +162,6 @@ export function NewServiceCallScreen() {
       setSaving(false);
     }
   }
-
-  const existingItem = findExistingItem();
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -289,7 +235,7 @@ export function NewServiceCallScreen() {
           style={styles.reqScroll}
           contentContainerStyle={styles.reqRow}
         >
-          <TouchableOpacity style={styles.reqAdd} onPress={openManual} activeOpacity={0.85}>
+          <TouchableOpacity style={styles.reqAdd} onPress={() => setManualOpen(true)} activeOpacity={0.85}>
             <Ionicons name="add" size={26} color="#FFFFFF" />
           </TouchableOpacity>
           {requiredItems.map((id) => {
@@ -334,8 +280,6 @@ export function NewServiceCallScreen() {
         <CustomButton label="צור קריאה" onPress={submit} loading={saving} style={styles.btn} />
       </ScrollView>
 
-      <BarcodeScannerModal visible={scanForModal} onClose={() => setScanForModal(false)} onScanned={onModalScan} />
-
       <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalCard}>
@@ -352,32 +296,7 @@ export function NewServiceCallScreen() {
         </View>
       </Modal>
 
-      <Modal visible={manualOpen} transparent animationType="fade" onRequestClose={closeManual}>
-        <View style={styles.modalBg}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>הוספת פריט</Text>
-            <TextField label="שם הפריט" value={mName} onChange={setMName} placeholder="לדוגמה: מצלמה" />
-            <View style={styles.barcodeRow}>
-              <View style={styles.barcodeField}>
-                <TextField label="ברקוד" value={mBarcode} onChange={setMBarcode} placeholder="סרוק או הזן" />
-              </View>
-              <TouchableOpacity style={styles.scanBtn} onPress={() => setScanForModal(true)} activeOpacity={0.85}>
-                <Ionicons name="barcode-outline" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            {existingItem && (
-              <Text style={styles.modalSub}>פריט קיים: {existingItem.itemName} — יתווסף הקיים.</Text>
-            )}
-            <CustomButton
-              label="הוסף פריט"
-              onPress={addManualItem}
-              disabled={!existingItem && !mName.trim()}
-              style={styles.btn}
-            />
-            <CustomButton label="ביטול" variant="ghost" onPress={closeManual} />
-          </View>
-        </View>
-      </Modal>
+      <AddItemModal visible={manualOpen} onClose={() => setManualOpen(false)} onAdded={addRequired} />
     </SafeAreaView>
   );
 }
