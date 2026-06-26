@@ -81,6 +81,25 @@ export function subscribeToUpcomingCalls(
   );
 }
 
+/** Realtime subscription to a single call by id (works for past/history calls too). */
+export function subscribeToCall(
+  callId: string,
+  onChange: (call: ServiceCall | null) => void,
+  onError?: (e: Error) => void
+): () => void {
+  return onSnapshot(
+    doc(db, CALLS, callId),
+    (snap) => {
+      const d = snap.data();
+      onChange(d ? toCall(snap) : null);
+    },
+    (err) => {
+      console.warn('[serviceCall] listener error:', err);
+      onError?.(err as Error);
+    }
+  );
+}
+
 /** One-shot fetch of all service calls (for the financial dashboard). */
 export async function getAllCalls(): Promise<ServiceCall[]> {
   const snap = await getDocs(collection(db, CALLS));

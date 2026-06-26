@@ -10,10 +10,10 @@ import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
-import { subscribeToFinancials, setCallStatus, setFinancials, updateServiceCall } from '../services/serviceCallService';
+import { subscribeToCall, subscribeToFinancials, setCallStatus, setFinancials, updateServiceCall } from '../services/serviceCallService';
 import { adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
-import { PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
+import { ServiceCall, PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
 import { Crew } from '../types/crew';
 import { crewLocation } from '../types/inventory';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
@@ -36,13 +36,22 @@ export function ServiceCallDetailScreen() {
   const { items } = useInventory();
   const uid = profile?.uid ?? '';
 
-  const call = calls.find((c) => c.id === callId);
+  // The live list is time-bounded (today onward); a job opened from history may
+  // not be there, so also subscribe to the call doc directly.
+  const liveCall = calls.find((c) => c.id === callId);
+  const [fetchedCall, setFetchedCall] = useState<ServiceCall | null>(null);
+  const call = liveCall ?? fetchedCall;
 
   const [fin, setFin] = useState<PrivateFinancials | null>(null);
   const [price, setPrice] = useState('');
   const [paid, setPaid] = useState('');
   const [payout, setPayout] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeToCall(callId, setFetchedCall);
+    return () => unsub();
+  }, [callId]);
 
   useEffect(() => {
     if (!caps.viewFinancials) return;
