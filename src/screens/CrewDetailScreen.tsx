@@ -13,8 +13,10 @@ import { useInventory } from '../context/InventoryContext';
 import { returnToWarehouse } from '../services/inventoryService';
 import { getUsersByIds } from '../services/userService';
 import { subscribeToCrewWithdrawals } from '../services/withdrawalService';
+import { getAllCalls } from '../services/serviceCallService';
 import { setCrewMemberCaps, removeCrewFromMember } from '../services/adminService';
 import { InventoryItem, qtyAt, crewLocation } from '../types/inventory';
+import { ServiceCall } from '../types/serviceCall';
 import { Withdrawal } from '../types/withdrawal';
 import {
   UserProfile,
@@ -41,6 +43,7 @@ export function CrewDetailScreen() {
 
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [jobs, setJobs] = useState<ServiceCall[]>([]);
   const [editing, setEditing] = useState<UserProfile | null>(null);
   const [adding, setAdding] = useState(false);
   const [returnItem, setReturnItem] = useState<InventoryItem | null>(null);
@@ -66,6 +69,26 @@ export function CrewDetailScreen() {
     const unsub = subscribeToCrewWithdrawals(id, setWithdrawals, () => {});
     return unsub;
   }, [crew?.id]);
+
+  // This crew's completed jobs (history).
+  useEffect(() => {
+    const id = crew?.id;
+    if (!id || !myCaps.viewAllCalls) return;
+    let cancelled = false;
+    getAllCalls()
+      .then((all) => {
+        if (cancelled) return;
+        setJobs(
+          all
+            .filter((c) => c.crewId === id && c.status === 'completed')
+            .sort((a, b) => +new Date(b.scheduledDate) - +new Date(a.scheduledDate))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [crew?.id, myCaps.viewAllCalls]);
 
   if (!crew) {
     return (
@@ -186,6 +209,30 @@ export function CrewDetailScreen() {
                 onPress={() => navigation.navigate('Transfer', { crewId: crew.id })}
                 style={styles.btn}
               />
+            )}
+
+            {myCaps.viewAllCalls && (
+              <View style={styles.jobsSection}>
+                <Text style={styles.label}>עבודות שבוצעו</Text>
+                {jobs.length === 0 ? (
+                  <Text style={styles.stockEmpty}>אין עבודות שהושלמו עדיין.</Text>
+                ) : (
+                  jobs.map((j) => (
+                    <TouchableOpacity
+                      key={j.id}
+                      style={styles.jobRow}
+                      onPress={() => navigation.navigate('ServiceCallDetail', { callId: j.id })}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.chev}>‹</Text>
+                      <View style={styles.jobInfo}>
+                        <Text style={styles.jobName} numberOfLines={1}>{j.clientName}</Text>
+                        <Text style={styles.jobDate}>{new Date(j.scheduledDate).toLocaleDateString('he-IL')}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </View>
             )}
           </View>
         }
@@ -362,6 +409,19 @@ const styles = StyleSheet.create({
   removeBtn: { marginTop: 24 },
   stock: { marginTop: 18 },
   stockEmpty: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  jobsSection: { marginTop: 18 },
+  jobRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    marginBottom: 8,
+  },
+  jobInfo: { flex: 1, alignItems: 'flex-end' },
+  jobName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  jobDate: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
   stockRow: {
     flexDirection: 'row',
     alignItems: 'center',
