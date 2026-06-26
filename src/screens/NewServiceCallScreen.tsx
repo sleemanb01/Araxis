@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
+import { Calendar } from '../components/Calendar';
 import { getUsersByIds } from '../services/userService';
 import { createServiceCall, setFinancials } from '../services/serviceCallService';
 import { useUser } from '../context/UserContext';
@@ -11,18 +12,15 @@ import { UserProfile } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
-function addDays(n: number): string {
-  const d = new Date();
-  d.setHours(9, 0, 0, 0);
-  d.setDate(d.getDate() + n);
-  return d.toISOString();
-}
-
 export function NewServiceCallScreen() {
   const navigation = useNavigation();
   const [crew, setCrew] = useState<UserProfile[]>([]);
   const [clientName, setClientName] = useState('');
-  const [dayOffset, setDayOffset] = useState(0);
+  const [date, setDate] = useState(() => {
+    const d = new Date();
+    d.setHours(9, 0, 0, 0);
+    return d;
+  });
   const [leadTech, setLeadTech] = useState('');
   const [assistants, setAssistants] = useState<string[]>([]);
   const [payout, setPayout] = useState('');
@@ -48,6 +46,21 @@ export function NewServiceCallScreen() {
     [leadTech, assistants]
   );
 
+  // Weekdays (0=Sun..6=Sat) the team is available: intersection of the selected
+  // team's availability, or the union across all crew mates if none picked yet.
+  const availableWeekdays = useMemo(() => {
+    const daysOf = (p: UserProfile) =>
+      p.availability?.days?.length ? p.availability.days : [0, 1, 2, 3, 4, 5, 6];
+    const team = leadTech ? [leadTech, ...assistants] : assistants;
+    const sel = crew.filter((c) => team.includes(c.uid));
+    if (sel.length) {
+      return [0, 1, 2, 3, 4, 5, 6].filter((d) => sel.every((p) => daysOf(p).includes(d)));
+    }
+    const s = new Set<number>();
+    crew.forEach((p) => daysOf(p).forEach((d) => s.add(d)));
+    return Array.from(s);
+  }, [crew, leadTech, assistants]);
+
   function toggleAssistant(uid: string) {
     if (uid === leadTech) return;
     setAssistants((a) => (a.includes(uid) ? a.filter((x) => x !== uid) : [...a, uid]));
@@ -68,7 +81,7 @@ export function NewServiceCallScreen() {
       const id = await createServiceCall({
         clientName: clientName.trim(),
         status: 'pending',
-        scheduledDate: addDays(dayOffset),
+        scheduledDate: date.toISOString(),
         hardwareUsed: [],
         teamAssignment: { leadTech, assistants },
         payouts: { totalTechPayout: total, splits },
@@ -94,15 +107,8 @@ export function NewServiceCallScreen() {
         <TextField label="שם הלקוח / אתר" value={clientName} onChange={setClientName} placeholder="לדוגמה: אתר מרכזי" />
 
         <Text style={styles.label}>מועד</Text>
-        <View style={styles.dateRow}>
-          <TouchableOpacity style={styles.stepBtn} onPress={() => setDayOffset((d) => Math.max(0, d - 1))}>
-            <Text style={styles.stepTxt}>−</Text>
-          </TouchableOpacity>
-          <Text style={styles.dateText}>{new Date(addDays(dayOffset)).toLocaleDateString('he-IL')}</Text>
-          <TouchableOpacity style={styles.stepBtn} onPress={() => setDayOffset((d) => d + 1)}>
-            <Text style={styles.stepTxt}>+</Text>
-          </TouchableOpacity>
-        </View>
+        <Calendar selected={date} onSelect={setDate} availableWeekdays={availableWeekdays} />
+        <Text style={styles.note}>● ימים זמינים לצוות מסומנים בנקודה ירוקה</Text>
 
         <Text style={styles.label}>ראש צוות</Text>
         <View style={styles.chips}>
