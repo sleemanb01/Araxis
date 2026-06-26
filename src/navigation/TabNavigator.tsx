@@ -11,13 +11,13 @@ import { TabParamList } from './types';
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const TAB_ICONS: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
-  Dashboard: 'stats-chart-outline',
+  Dashboard: 'briefcase-outline',
   Warehouse: 'cube-outline',
   Profile:   'person-outline',
 };
 
 const TAB_LABELS: Record<keyof TabParamList, string> = {
-  Dashboard: 'לוח בקרה',
+  Dashboard: 'עבודות',
   Warehouse: 'מחסן',
   Profile:   'פרופיל',
 };
