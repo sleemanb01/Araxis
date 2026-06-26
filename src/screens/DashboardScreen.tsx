@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -33,6 +33,15 @@ export function DashboardScreen() {
     [calls, caps.viewAllCalls, uid]
   );
 
+  const [filter, setFilter] = useState<'today' | 'all'>('today');
+  const dayEnd = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString();
+  }, []);
+  const visible = filter === 'today' ? mine.filter((c) => c.scheduledDate < dayEnd) : mine;
+
   const subtitleFor = (c: ServiceCall) =>
     showTeamPay
       ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
@@ -41,7 +50,7 @@ export function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <FlatList
-        data={mine}
+        data={visible}
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => (
           <ServiceCallCard
@@ -60,7 +69,23 @@ export function DashboardScreen() {
                 style={styles.newBtn}
               />
             )}
-            <SectionHeader title="הקריאות שלי" count={mine.length} />
+            <View style={styles.segment}>
+              <TouchableOpacity
+                style={[styles.segBtn, filter === 'today' && styles.segBtnOn]}
+                onPress={() => setFilter('today')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.segText, filter === 'today' && styles.segTextOn]}>היום</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segBtn, filter === 'all' && styles.segBtnOn]}
+                onPress={() => setFilter('all')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.segText, filter === 'all' && styles.segTextOn]}>הכל</Text>
+              </TouchableOpacity>
+            </View>
+            <SectionHeader title="הקריאות שלי" count={visible.length} />
           </View>
         }
         ListEmptyComponent={
@@ -82,5 +107,18 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', paddingTop: 10 },
   newBtn: { marginTop: 14 },
+  segment: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 2 },
+  segBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+  },
+  segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  segTextOn: { color: '#FFFFFF' },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });
