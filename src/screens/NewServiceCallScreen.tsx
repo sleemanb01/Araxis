@@ -14,20 +14,19 @@ import { Layout } from '../constants/layout';
 
 export function NewServiceCallScreen() {
   const navigation = useNavigation();
-  const [crew, setCrew] = useState<UserProfile[]>([]);
+  const { crews } = useUser();
+  const [crew, setCrew] = useState<UserProfile[]>([]); // crew-mate profiles (for availability)
   const [clientName, setClientName] = useState('');
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setHours(9, 0, 0, 0);
     return d;
   });
-  const [leadTech, setLeadTech] = useState('');
-  const [assistants, setAssistants] = useState<string[]>([]);
+  const [crewId, setCrewId] = useState(''); // optional crew assigned to the job
   const [payout, setPayout] = useState('');
   const [price, setPrice] = useState('');
   const [paid, setPaid] = useState('');
   const [saving, setSaving] = useState(false);
-  const { crews } = useUser();
 
   // Assignable team = your crew mates (req 1: you only see your crew mates).
   const crewMateIds = useMemo(() => [...new Set(crews.flatMap((c) => c.memberIds))], [crews]);
@@ -41,40 +40,39 @@ export function NewServiceCallScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mateKey]);
 
-  const members = useMemo(
-    () => (leadTech ? [leadTech, ...assistants] : assistants),
-    [leadTech, assistants]
-  );
+  const selectedCrew = crews.find((c) => c.id === crewId) ?? null;
+  const memberIds = selectedCrew?.memberIds ?? [];
 
-  // Weekdays (0=Sun..6=Sat) the team is available: intersection of the selected
-  // team's availability, or the union across all crew mates if none picked yet.
+  // Weekdays (0=Sun..6=Sat) the chosen crew is available (intersection of its
+  // members' availability); before a crew is picked, the union across crew mates.
   const availableWeekdays = useMemo(() => {
     const daysOf = (p: UserProfile) =>
       p.availability?.days?.length ? p.availability.days : [0, 1, 2, 3, 4, 5, 6];
-    const team = leadTech ? [leadTech, ...assistants] : assistants;
-    const sel = crew.filter((c) => team.includes(c.uid));
-    if (sel.length) {
-      return [0, 1, 2, 3, 4, 5, 6].filter((d) => sel.every((p) => daysOf(p).includes(d)));
+    if (selectedCrew) {
+      const sel = crew.filter((p) => memberIds.includes(p.uid));
+      if (sel.length) return [0, 1, 2, 3, 4, 5, 6].filter((d) => sel.every((p) => daysOf(p).includes(d)));
+      return [0, 1, 2, 3, 4, 5, 6];
     }
     const s = new Set<number>();
     crew.forEach((p) => daysOf(p).forEach((d) => s.add(d)));
     return Array.from(s);
-  }, [crew, leadTech, assistants]);
-
-  function toggleAssistant(uid: string) {
-    if (uid === leadTech) return;
-    setAssistants((a) => (a.includes(uid) ? a.filter((x) => x !== uid) : [...a, uid]));
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crew, crewId]);
 
   async function submit() {
-    if (!clientName.trim() || !leadTech) {
-      Alert.alert('שגיאה', 'יש להזין שם לקוח ולבחור ראש צוות.');
+    if (!clientName.trim()) {
+      Alert.alert('שגיאה', 'יש להזין שם לקוח.');
       return;
     }
     const total = Math.max(0, parseFloat(payout) || 0);
-    const per = members.length ? Math.round(total / members.length) : 0;
+    let teamAssignment = { leadTech: '', assistants: [] as string[] };
     const splits: Record<string, number> = {};
-    members.forEach((uid) => (splits[uid] = per));
+    if (selectedCrew) {
+      const lead = selectedCrew.manager;
+      teamAssignment = { leadTech: lead, assistants: memberIds.filter((u) => u !== lead) };
+      const per = memberIds.length ? Math.round(total / memberIds.length) : 0;
+      memberIds.forEach((u) => (splits[u] = per));
+    }
 
     setSaving(true);
     try {
@@ -83,7 +81,7 @@ export function NewServiceCallScreen() {
         status: 'pending',
         scheduledDate: date.toISOString(),
         hardwareUsed: [],
-        teamAssignment: { leadTech, assistants },
+        teamAssignment,
         payouts: { totalTechPayout: total, splits },
       });
       const priceN = Math.max(0, parseFloat(price) || 0);
@@ -110,36 +108,23 @@ export function NewServiceCallScreen() {
         <Calendar selected={date} onSelect={setDate} availableWeekdays={availableWeekdays} />
         <Text style={styles.note}>● ימים זמינים לצוות מסומנים בנקודה ירוקה</Text>
 
-        <Text style={styles.label}>ראש צוות</Text>
+        <Text style={styles.label}>צוות (אופציונלי)</Text>
         <View style={styles.chips}>
-          {crew.map((c) => (
+          {crews.map((c) => (
             <TouchableOpacity
-              key={c.uid}
-              style={[styles.chip, leadTech === c.uid && styles.chipActive]}
-              onPress={() => setLeadTech(c.uid)}
+              key={c.id}
+              style={[styles.chip, crewId === c.id && styles.chipActive]}
+              onPress={() => setCrewId((id) => (id === c.id ? '' : c.id))}
             >
-              <Text style={[styles.chipText, leadTech === c.uid && styles.chipTextActive]}>{c.name || c.uid}</Text>
+              <Text style={[styles.chipText, crewId === c.id && styles.chipTextActive]}>{c.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <Text style={styles.label}>מסייעים</Text>
-        <View style={styles.chips}>
-          {crew
-            .filter((c) => c.uid !== leadTech)
-            .map((c) => (
-              <TouchableOpacity
-                key={c.uid}
-                style={[styles.chip, assistants.includes(c.uid) && styles.chipActive]}
-                onPress={() => toggleAssistant(c.uid)}
-              >
-                <Text style={[styles.chipText, assistants.includes(c.uid) && styles.chipTextActive]}>{c.name || c.uid}</Text>
-              </TouchableOpacity>
-            ))}
-        </View>
-
         <TextField label="תשלום לצוות (₪)" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
-        <Text style={styles.note}>יחולק שווה בשווה בין {members.length} חברי הצוות.</Text>
+        {selectedCrew && (
+          <Text style={styles.note}>יחולק שווה בשווה בין {memberIds.length} חברי {selectedCrew.name}.</Text>
+        )}
 
         <TextField label="מחיר ללקוח (₪) — מנהל בלבד" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
         <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
