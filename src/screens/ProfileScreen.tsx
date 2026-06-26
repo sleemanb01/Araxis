@@ -39,6 +39,7 @@ export function ProfileScreen() {
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [settingTarget, setSettingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
 
   useEffect(() => {
     if (!caps.viewFinancials) return;
@@ -76,8 +77,7 @@ export function ProfileScreen() {
   const monthProfit = monthly[curKey] ?? 0;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
-  const monthIdx = now.getMonth();
-  const year = Array.from({ length: 12 }, (_, m) => monthly[`${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`] ?? 0);
+  const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
   const maxAbs = Math.max(1, ...year.map((v) => Math.abs(v)));
 
   // Daily target is the monthly target spread evenly across the month.
@@ -171,13 +171,28 @@ export function ProfileScreen() {
             </View>
 
             <View style={styles.chart}>
-              <Text style={styles.chartTitle}>התקדמות שנתית {now.getFullYear()}</Text>
+              <View style={styles.chartHeader}>
+                <TouchableOpacity onPress={() => setViewYear((y) => y - 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.yearNav}>‹</Text>
+                </TouchableOpacity>
+                <Text style={styles.chartTitle}>{viewYear}</Text>
+                <TouchableOpacity
+                  onPress={() => setViewYear((y) => Math.min(y + 1, now.getFullYear()))}
+                  disabled={viewYear >= now.getFullYear()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={[styles.yearNav, viewYear >= now.getFullYear() && styles.yearNavOff]}>›</Text>
+                </TouchableOpacity>
+              </View>
               <View style={styles.bars}>
                 {year.map((val, m) => {
                   const h = Math.max(2, Math.round((Math.abs(val) / maxAbs) * 64));
+                  const tgt = targets[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0;
+                  const pct = tgt > 0 ? (val / tgt) * 100 : -1; // -1 = no target set
+                  const color = pct < 0 ? '#CBD5E1' : pct >= 100 ? '#1E9E5A' : pct >= 50 ? '#D97706' : Colors.danger;
                   return (
                     <View key={m} style={styles.barCol}>
-                      <View style={[styles.bar, { height: h }, val < 0 && styles.barNeg, m === monthIdx && styles.barCur]} />
+                      <View style={[styles.bar, { height: h, backgroundColor: color }]} />
                       <Text style={styles.barLabel}>{m + 1}</Text>
                     </View>
                   );
@@ -269,12 +284,13 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 12,
   },
-  chartTitle: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 10 },
+  chartHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  chartTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', flex: 1, writingDirection: 'ltr' },
+  yearNav: { fontSize: 26, color: Colors.primary, fontWeight: '700', paddingHorizontal: 12 },
+  yearNavOff: { color: Colors.border },
   bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 80 },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
   bar: { width: 11, borderRadius: 3, backgroundColor: Colors.primary },
-  barNeg: { backgroundColor: Colors.danger },
-  barCur: { backgroundColor: '#1E9E5A' },
   barLabel: { fontSize: 9, color: Colors.textSecondary, marginTop: 4 },
   crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 18 },
   crewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
