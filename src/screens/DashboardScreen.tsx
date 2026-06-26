@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, SectionList, ActivityIndicator, TouchableOpacit
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { ServiceCallCard } from '../components/ServiceCallCard';
 import { SectionHeader } from '../components/SectionHeader';
 import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
@@ -73,11 +72,19 @@ export function DashboardScreen() {
         sections={sections}
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => (
-          <ServiceCallCard
-            call={item}
-            subtitle={subtitleFor(item)}
-            onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id })}
-          />
+          <TouchableOpacity
+            style={styles.jobRow}
+            onPress={() => navigation.navigate('ServiceCallDetail', { callId: item.id })}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.chev}>‹</Text>
+            <View style={styles.jobInfo}>
+              <Text style={styles.jobName} numberOfLines={1}>{item.clientName}</Text>
+              <Text style={styles.jobMeta} numberOfLines={1}>
+                {new Date(item.scheduledDate).toLocaleDateString('he-IL')} · {subtitleFor(item)}
+              </Text>
+            </View>
+          </TouchableOpacity>
         )}
         renderSectionHeader={({ section }) =>
           section.title ? <Text style={styles.dateHeader}>{section.title}</Text> : null
@@ -145,5 +152,17 @@ const styles = StyleSheet.create({
   segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: '#FFFFFF' },
   dateHeader: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary, textAlign: 'right', marginTop: 16, marginBottom: 8 },
+  jobRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    padding: 13,
+    marginBottom: 10,
+  },
+  chev: { fontSize: 24, color: Colors.textSecondary },
+  jobInfo: { flex: 1, marginStart: 12, alignItems: 'flex-end' },
+  jobName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  jobMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });
