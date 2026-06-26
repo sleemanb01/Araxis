@@ -78,13 +78,12 @@ export function ProfileScreen() {
 
         {caps.viewFinancials && (
           <TouchableOpacity
-            style={styles.revBtn}
+            style={[styles.revBtn, revenue != null && revenue < 0 && styles.revBtnNeg]}
             onPress={() => navigation.navigate('FinancialDashboard')}
             activeOpacity={0.85}
           >
-            <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
-            <Text style={styles.revValue}>{revenue == null ? '…' : ils(revenue)}</Text>
             <Text style={styles.revLabel}>רווח</Text>
+            <Text style={styles.revValue}>{revenue == null ? '…' : ils(revenue)}</Text>
           </TouchableOpacity>
         )}
 
@@ -174,21 +173,22 @@ const styles = StyleSheet.create({
   rowValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
   revBtn: {
     alignSelf: 'center',
-    width: 128,
-    height: 128,
-    borderRadius: 64,
+    width: 168,
+    height: 168,
+    borderRadius: 84,
     backgroundColor: '#1E9E5A',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 22,
+    marginTop: 20,
     shadowColor: '#1E9E5A',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 5,
+    shadowRadius: 14,
+    elevation: 6,
   },
-  revValue: { color: '#FFFFFF', fontSize: 21, fontWeight: '800', marginTop: 5, writingDirection: 'ltr' },
-  revLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 2 },
+  revBtnNeg: { backgroundColor: Colors.danger, shadowColor: Colors.danger },
+  revLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 16, fontWeight: '600' },
+  revValue: { color: '#FFFFFF', fontSize: 30, fontWeight: '800', marginTop: 8, writingDirection: 'ltr' },
   crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 24 },
   crewHeader: {
     flexDirection: 'row',
