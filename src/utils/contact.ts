@@ -12,3 +12,11 @@ export function openWhatsapp(phone: string) {
     Alert.alert('שגיאה', 'לא ניתן לפתוח את וואטסאפ.')
   );
 }
+
+/** Open turn-by-turn navigation to an address (Google/Apple Maps). */
+export function openMaps(address: string) {
+  const q = encodeURIComponent(address);
+  Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${q}`).catch(() =>
+    Alert.alert('שגיאה', 'לא ניתן לפתוח ניווט.')
+  );
+}

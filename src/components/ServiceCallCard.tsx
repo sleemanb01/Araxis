@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { ServiceCall } from '../types/serviceCall';
+import { dialPhone, openWhatsapp, openMaps } from '../utils/contact';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 
 interface Props {
@@ -26,6 +28,25 @@ export function ServiceCallCard({ call, subtitle, onPress }: Props) {
         </View>
         <Text style={styles.date}>{date}</Text>
         {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        {(!!call.contactPhone || !!call.address) && (
+          <View style={styles.actions}>
+            {!!call.contactPhone && (
+              <TouchableOpacity style={[styles.actBtn, styles.callBtn]} onPress={() => dialPhone(call.contactPhone!)} hitSlop={4}>
+                <Ionicons name="call" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            {!!call.contactPhone && (
+              <TouchableOpacity style={[styles.actBtn, styles.waBtn]} onPress={() => openWhatsapp(call.contactPhone!)} hitSlop={4}>
+                <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+            {!!call.address && (
+              <TouchableOpacity style={[styles.actBtn, styles.navBtn]} onPress={() => openMaps(call.address!)} hitSlop={4}>
+                <Ionicons name="navigate" size={15} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -52,4 +73,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
   date: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right' },
   subtitle: { fontSize: 14, fontWeight: '600', color: Colors.primary, textAlign: 'right' },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 8, justifyContent: 'flex-end' },
+  actBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  callBtn: { backgroundColor: Colors.primary },
+  waBtn: { backgroundColor: '#25D366' },
+  navBtn: { backgroundColor: '#0F766E' },
 });
