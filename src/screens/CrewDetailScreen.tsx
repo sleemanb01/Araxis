@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CustomButton } from '../components/CustomButton';
@@ -9,6 +10,7 @@ import { AddByPhoneForm } from '../components/AddByPhoneForm';
 import { CrewMemberRow } from '../components/CrewMemberRow';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
+import { returnToWarehouse } from '../services/inventoryService';
 import { getUsersByIds } from '../services/userService';
 import { subscribeToCrewWithdrawals } from '../services/withdrawalService';
 import { setCrewMemberCaps, removeCrewFromMember } from '../services/adminService';
@@ -130,7 +132,19 @@ export function CrewDetailScreen() {
             ) : (
               crewStock.map((i) => (
                 <View key={i.id} style={styles.stockRow}>
-                  <Text style={styles.stockQty}>{qtyAt(i, crewLoc)}</Text>
+                  <View style={styles.stockLeft}>
+                    {myCaps.manageInventory && (
+                      <TouchableOpacity
+                        style={styles.returnBtn}
+                        onPress={() => returnToWarehouse(i.id, 1, crew.id)}
+                        hitSlop={6}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="arrow-undo-outline" size={18} color={Colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                    <Text style={styles.stockQty}>{qtyAt(i, crewLoc)}</Text>
+                  </View>
                   <Text style={styles.stockName} numberOfLines={1}>{i.itemName}</Text>
                 </View>
               ))
@@ -297,6 +311,16 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   stockName: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right', marginStart: 12 },
+  stockLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   stockQty: { fontSize: 16, fontWeight: '700', color: Colors.primary, minWidth: 26, textAlign: 'center' },
+  returnBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 

@@ -115,6 +115,15 @@ export async function withdrawToCrew(
   await batch.commit();
 }
 
+/** Return `qty` of an item from a crew's stock back to the global warehouse. */
+export async function returnToWarehouse(
+  itemId: string,
+  qty: number,
+  crewId: string
+): Promise<void> {
+  await transfer(itemId, qty, crewLocation(crewId), WAREHOUSE);
+}
+
 export async function createInventoryItem(payload: CreateInventoryPayload): Promise<void> {
   await addDoc(collection(db, INVENTORY), payload);
 }
