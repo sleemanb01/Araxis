@@ -127,12 +127,9 @@ function InventoryRow({
       <TouchableOpacity style={styles.rowInfo} onPress={onEdit} activeOpacity={0.7}>
         <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
         <View style={styles.rowMeta}>
-          {showPrice && typeof item.price === 'number' && (
-            <Text style={styles.price}>₪{item.price.toLocaleString('he-IL')}</Text>
-          )}
           {showPrice && typeof item.customerPrice === 'number' && (
             <Text style={styles.customerPrice}>
-              רווח ₪{(item.customerPrice - (item.price ?? 0)).toLocaleString('he-IL')}
+              ₪{(item.customerPrice - (item.price ?? 0)).toLocaleString('he-IL')}
             </Text>
           )}
           {item.lacks && (
@@ -248,7 +245,6 @@ const styles = StyleSheet.create({
   lacksTag: { backgroundColor: Colors.danger, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   lacksText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   split: { fontSize: 12, color: Colors.textSecondary },
-  price: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   customerPrice: { fontSize: 12, fontWeight: '700', color: '#1E9E5A' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   stepBtn: {

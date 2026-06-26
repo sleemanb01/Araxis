@@ -111,7 +111,7 @@ export function ItemEditorScreen() {
           <>
             <TextField label="מחיר עלות ליחידה (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
             <TextField label="מחיר ללקוח (₪)" value={customerPrice} onChange={setCustomerPrice} placeholder="0" keyboardType="numeric" />
-            <Text style={styles.customerHint}>רווח ליחידה: ₪{unitProfit.toLocaleString('he-IL')}</Text>
+            <Text style={styles.customerHint}>₪{unitProfit.toLocaleString('he-IL')}</Text>
           </>
         )}
 
