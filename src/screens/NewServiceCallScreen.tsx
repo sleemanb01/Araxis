@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
@@ -18,7 +20,8 @@ export function NewServiceCallScreen() {
   const [crew, setCrew] = useState<UserProfile[]>([]); // crew-mate profiles (for availability)
   const [clientName, setClientName] = useState('');
   const [address, setAddress] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
+  const [locating, setLocating] = useState(false);
+  const [contactPhone, setContactPhone] = useState('+972 5');
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setHours(9, 0, 0, 0);
@@ -60,6 +63,31 @@ export function NewServiceCallScreen() {
     return Array.from(s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [crew, crewId]);
+
+  async function useCurrentLocation() {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('הרשאה', 'נדרשת הרשאת מיקום כדי למלא את הכתובת.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({});
+      const coords = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
+      const places = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+      const p = places[0];
+      const line = [p?.street ?? p?.name, p?.streetNumber].filter(Boolean).join(' ');
+      const addr = [line, p?.city].filter(Boolean).join(', ');
+      setAddress(addr || coords);
+    } catch {
+      Alert.alert('שגיאה', 'לא ניתן לקבל מיקום נוכחי.');
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function submit() {
     if (!clientName.trim()) {
@@ -107,8 +135,24 @@ export function NewServiceCallScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>קריאת שירות חדשה</Text>
         <TextField label="שם הלקוח / אתר" value={clientName} onChange={setClientName} placeholder="לדוגמה: אתר מרכזי" />
-        <TextField label="כתובת" value={address} onChange={setAddress} placeholder="רחוב, עיר" />
-        <TextField label="טלפון ליצירת קשר" value={contactPhone} onChange={setContactPhone} placeholder="050-0000000" keyboardType="phone-pad" />
+        <View style={styles.addressRow}>
+          <View style={styles.addressField}>
+            <TextField label="כתובת" value={address} onChange={setAddress} placeholder="רחוב, עיר" />
+          </View>
+          <TouchableOpacity
+            style={styles.locBtn}
+            onPress={useCurrentLocation}
+            disabled={locating}
+            activeOpacity={0.85}
+          >
+            {locating ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="location" size={20} color="#FFFFFF" />
+            )}
+          </TouchableOpacity>
+        </View>
+        <TextField label="טלפון ליצירת קשר" value={contactPhone} onChange={setContactPhone} placeholder="+972 50 1234567" keyboardType="phone-pad" />
 
         <Text style={styles.label}>מועד</Text>
         <Calendar selected={date} onSelect={setDate} availableWeekdays={availableWeekdays} />
@@ -154,6 +198,17 @@ const styles = StyleSheet.create({
   scroll: { padding: Layout.screenPadding },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 16 },
   label: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  addressRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  addressField: { flex: 1 },
+  locBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, marginBottom: 16 },
   stepBtn: {
     width: 40,

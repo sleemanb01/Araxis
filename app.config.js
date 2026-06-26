@@ -78,6 +78,12 @@ module.exports = () => ({
           recordAudioAndroid: false,
         },
       ],
+      [
+        'expo-location',
+        {
+          locationWhenInUsePermission: 'המיקום משמש למילוי כתובת קריאת השירות.',
+        },
+      ],
     ],
     extra: {
       businessName: BUSINESS_NAME,
