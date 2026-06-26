@@ -364,13 +364,11 @@ export function NewServiceCallScreen() {
                 <Ionicons name="barcode-outline" size={20} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
-            {existingItem ? (
+            {existingItem && (
               <Text style={styles.modalSub}>פריט קיים: {existingItem.itemName} — יתווסף הקיים.</Text>
-            ) : (
-              <Text style={styles.modalSub}>● פריט חדש יתווסף למחסן עם סימון "חסר".</Text>
             )}
             <CustomButton
-              label={existingItem ? 'הוסף פריט קיים' : 'הוסף פריט חדש'}
+              label="הוסף פריט"
               onPress={addManualItem}
               disabled={!existingItem && !mName.trim()}
               style={styles.btn}
