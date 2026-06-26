@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, Switch, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, Switch, Alert, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
@@ -14,7 +14,7 @@ import { returnToWarehouse } from '../services/inventoryService';
 import { getUsersByIds } from '../services/userService';
 import { subscribeToCrewWithdrawals } from '../services/withdrawalService';
 import { setCrewMemberCaps, removeCrewFromMember } from '../services/adminService';
-import { qtyAt, crewLocation } from '../types/inventory';
+import { InventoryItem, qtyAt, crewLocation } from '../types/inventory';
 import { Withdrawal } from '../types/withdrawal';
 import {
   UserProfile,
@@ -43,6 +43,9 @@ export function CrewDetailScreen() {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [editing, setEditing] = useState<UserProfile | null>(null);
   const [adding, setAdding] = useState(false);
+  const [returnItem, setReturnItem] = useState<InventoryItem | null>(null);
+  const [returnQty, setReturnQty] = useState(1);
+  const [returning, setReturning] = useState(false);
 
   // Read only this crew's members (req 1: a member sees only crew mates).
   const memberKey = (crew?.memberIds ?? []).join(',');
@@ -78,6 +81,32 @@ export function CrewDetailScreen() {
 
   const crewLoc = crewLocation(crew.id);
   const crewStock = items.filter((i) => qtyAt(i, crewLoc) > 0);
+
+  // Live max for the return picker (the item's current qty in this crew's stock).
+  const returnMax = returnItem ? qtyAt(items.find((i) => i.id === returnItem.id) ?? returnItem, crewLoc) : 0;
+
+  function openReturn(item: InventoryItem) {
+    setReturnItem(item);
+    setReturnQty(qtyAt(item, crewLoc)); // default: return all
+  }
+
+  async function doReturn() {
+    if (!returnItem || !crew) return;
+    const qty = Math.min(returnQty, returnMax);
+    if (qty <= 0) {
+      setReturnItem(null);
+      return;
+    }
+    setReturning(true);
+    try {
+      await returnToWarehouse(returnItem.id, qty, crew.id);
+      setReturning(false);
+      setReturnItem(null);
+    } catch {
+      setReturning(false);
+      Alert.alert('שגיאה', 'ההחזרה נכשלה.');
+    }
+  }
 
   if (editing) {
     return <MemberCapsEditor crew={crew} member={editing} myCaps={myCaps} onDone={() => setEditing(null)} />;
@@ -136,7 +165,7 @@ export function CrewDetailScreen() {
                     {myCaps.manageInventory && (
                       <TouchableOpacity
                         style={styles.returnBtn}
-                        onPress={() => returnToWarehouse(i.id, 1, crew.id)}
+                        onPress={() => openReturn(i)}
                         hitSlop={6}
                         activeOpacity={0.7}
                       >
@@ -162,6 +191,38 @@ export function CrewDetailScreen() {
         contentContainerStyle={styles.list}
       />
       {isManager && <FAB onPress={() => setAdding(true)} />}
+
+      <Modal visible={!!returnItem} transparent animationType="fade" onRequestClose={() => setReturnItem(null)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>החזרה למחסן</Text>
+            <Text style={styles.modalItem} numberOfLines={1}>{returnItem?.itemName}</Text>
+            <View style={styles.qtyRow}>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={() => setReturnQty((q) => Math.min(returnMax, q + 1))}
+              >
+                <Ionicons name="add" size={20} color={Colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.qtyVal}>{Math.min(returnQty, returnMax)}</Text>
+              <TouchableOpacity
+                style={styles.qtyBtn}
+                onPress={() => setReturnQty((q) => Math.max(1, q - 1))}
+              >
+                <Ionicons name="remove" size={20} color={Colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalHint}>מתוך {returnMax} במלאי הצוות</Text>
+            <CustomButton
+              label={`החזר ${Math.min(returnQty, returnMax)}`}
+              onPress={doReturn}
+              loading={returning}
+              style={styles.btn}
+            />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setReturnItem(null)} />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -322,5 +383,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  modalItem: { fontSize: 14, color: Colors.textSecondary, textAlign: 'right', marginTop: 4, marginBottom: 16 },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 22 },
+  qtyBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyVal: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, minWidth: 44, textAlign: 'center' },
+  modalHint: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center', marginTop: 10, marginBottom: 6 },
 });
+
 
