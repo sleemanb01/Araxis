@@ -47,7 +47,7 @@ export function DayJobsScreen() {
           <ServiceCallCard
             call={item}
             subtitle={subtitleFor(item)}
-            onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id })}
+            onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id, readOnly: true })}
           />
         )}
         ListHeaderComponent={
