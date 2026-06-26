@@ -179,6 +179,16 @@ export function CrewDetailScreen() {
               <Text style={styles.chev}>‹</Text>
               <Text style={styles.statText}>סה״כ משיכות: {withdrawCount}</Text>
             </TouchableOpacity>
+            {myCaps.viewAllCalls && (
+              <TouchableOpacity
+                style={styles.statRow}
+                onPress={() => navigation.navigate('CrewJobs', { crewId: crew.id })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.chev}>‹</Text>
+                <Text style={styles.statText}>עבודות שבוצעו: {jobs.length}</Text>
+              </TouchableOpacity>
+            )}
             <Text style={styles.label}>מלאי הצוות</Text>
             {crewStock.length === 0 ? (
               <Text style={styles.stockEmpty}>אין ציוד בצוות. משוך מהמחסן.</Text>
@@ -209,30 +219,6 @@ export function CrewDetailScreen() {
                 onPress={() => navigation.navigate('Transfer', { crewId: crew.id })}
                 style={styles.btn}
               />
-            )}
-
-            {myCaps.viewAllCalls && (
-              <View style={styles.jobsSection}>
-                <Text style={styles.label}>עבודות שבוצעו</Text>
-                {jobs.length === 0 ? (
-                  <Text style={styles.stockEmpty}>אין עבודות שהושלמו עדיין.</Text>
-                ) : (
-                  jobs.map((j) => (
-                    <TouchableOpacity
-                      key={j.id}
-                      style={styles.jobRow}
-                      onPress={() => navigation.navigate('ServiceCallDetail', { callId: j.id })}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.chev}>‹</Text>
-                      <View style={styles.jobInfo}>
-                        <Text style={styles.jobName} numberOfLines={1}>{j.clientName}</Text>
-                        <Text style={styles.jobDate}>{new Date(j.scheduledDate).toLocaleDateString('he-IL')}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </View>
             )}
           </View>
         }
@@ -409,19 +395,6 @@ const styles = StyleSheet.create({
   removeBtn: { marginTop: 24 },
   stock: { marginTop: 18 },
   stockEmpty: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
-  jobsSection: { marginTop: 18 },
-  jobRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    marginBottom: 8,
-  },
-  jobInfo: { flex: 1, alignItems: 'flex-end' },
-  jobName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
-  jobDate: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
   stockRow: {
     flexDirection: 'row',
     alignItems: 'center',
