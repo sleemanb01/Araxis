@@ -115,6 +115,21 @@ export function ServiceCallDetailScreen() {
     }).catch(() => Alert.alert('שגיאה', 'הקצאת הצוות נכשלה.'));
   }
 
+  // The crew's manager (lead) or a call manager can pull the crew off the job.
+  function withdrawCrew() {
+    Alert.alert('הסרת צוות', 'להסיר את הצוות מהקריאה?', [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'הסר',
+        style: 'destructive',
+        onPress: () =>
+          updateServiceCall(callId, { crewId: '', teamAssignment: { leadTech: '', assistants: [] } }).catch(() =>
+            Alert.alert('שגיאה', 'ההסרה נכשלה.')
+          ),
+      },
+    ]);
+  }
+
   function toggleChecked(id: string) {
     const set = new Set(call!.checkedItems ?? []);
     set.has(id) ? set.delete(id) : set.add(id);
@@ -218,9 +233,16 @@ export function ServiceCallDetailScreen() {
 
         <Text style={styles.section}>צוות</Text>
         {hasCrew ? (
-          <Text style={styles.line}>
-            {assignedCrew?.name ?? 'צוות מוקצה'} · {call.teamAssignment.assistants.length + 1} חברים
-          </Text>
+          <View style={styles.crewRow}>
+            {canEdit && (
+              <TouchableOpacity onPress={withdrawCrew} hitSlop={6}>
+                <Text style={styles.withdraw}>הסר</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={[styles.line, styles.flex1]}>
+              {assignedCrew?.name ?? 'צוות מוקצה'} · {call.teamAssignment.assistants.length + 1} חברים
+            </Text>
+          </View>
         ) : canEdit ? (
           <View style={styles.chips}>
             {crews.map((c) => (
@@ -352,6 +374,9 @@ const styles = StyleSheet.create({
   addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   line: { fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
   muted: { fontSize: 14, color: Colors.textSecondary, textAlign: 'right' },
+  crewRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  flex1: { flex: 1 },
+  withdraw: { fontSize: 14, color: Colors.danger, fontWeight: '600' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'flex-end' },
   chip: { borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7 },
   chipText: { fontSize: 13, color: Colors.textPrimary },
