@@ -33,17 +33,6 @@ export function DashboardScreen() {
     [calls, caps.viewAllCalls, uid]
   );
 
-  const payoutTotal = useMemo(
-    () =>
-      mine.reduce(
-        (sum, c) => sum + (showTeamPay ? c.payouts.totalTechPayout : c.payouts.splits[uid] ?? 0),
-        0
-      ),
-    [mine, showTeamPay, uid]
-  );
-
-  const summaryLabel = showTeamPay ? 'תשלומי הצוות' : 'התשלומים שלי';
-
   const subtitleFor = (c: ServiceCall) =>
     showTeamPay
       ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
@@ -64,11 +53,6 @@ export function DashboardScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
-            <View style={styles.summary}>
-              <Text style={styles.summaryLabel}>{summaryLabel}</Text>
-              <Text style={styles.summaryValue}>₪{payoutTotal.toLocaleString('he-IL')}</Text>
-              <Text style={styles.summarySub}>{mine.length} קריאות קרובות</Text>
-            </View>
             {caps.createCalls && (
               <CustomButton
                 label="+ קריאה חדשה"
@@ -97,10 +81,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', paddingTop: 10 },
-  summary: { backgroundColor: Colors.primary, borderRadius: 16, padding: 18, marginTop: 14, marginBottom: 6 },
-  summaryLabel: { fontSize: 13, color: '#DBEAFE', textAlign: 'right' },
-  summaryValue: { fontSize: 30, fontWeight: '800', color: '#FFFFFF', textAlign: 'right', marginTop: 4 },
-  summarySub: { fontSize: 13, color: '#DBEAFE', textAlign: 'right', marginTop: 2 },
   newBtn: { marginTop: 14 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });
