@@ -11,7 +11,7 @@ import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
-import { aggregateTotals, monthlyProfit, monthKey } from '../utils/finance';
+import { monthlyProfit, monthKey } from '../utils/finance';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
@@ -65,11 +65,11 @@ export function ProfileScreen() {
     return unsub;
   }, [caps.viewFinancials]);
 
-  const profit = useMemo(() => aggregateTotals(calls, fins, items).profit, [calls, fins, items]);
   const monthly = useMemo(() => monthlyProfit(calls, fins, items), [calls, fins, items]);
 
   const now = new Date();
   const curKey = monthKey(now);
+  const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
   const monthProfit = monthly[curKey] ?? 0;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
@@ -103,6 +103,7 @@ export function ProfileScreen() {
     const amount = Math.max(0, parseFloat(targetInput) || 0);
     try {
       await setMonthTarget(curKey, amount);
+      setTargets((prev) => ({ ...prev, [curKey]: amount })); // reflect immediately
       setSettingTarget(false);
     } catch {
       Alert.alert('שגיאה', 'שמירת היעד נכשלה.');
@@ -122,16 +123,16 @@ export function ProfileScreen() {
           <>
             <View style={styles.circlesRow}>
               <TouchableOpacity
-                style={[styles.circle, profit < 0 ? styles.cRed : styles.cGreen]}
+                style={[styles.circle, monthProfit < 0 ? styles.cRed : styles.cGreen]}
                 onPress={() => navigation.navigate('FinancialDashboard')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.cLabel}>רווח</Text>
-                <Text style={styles.cValue}>{ils(profit)}</Text>
+                <Text style={styles.cLabel}>{monthLabel}</Text>
+                <Text style={styles.cValue}>{ils(monthProfit)}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.circle, targetTone]} onPress={openSetTarget} activeOpacity={0.85}>
-                <Text style={styles.cLabel}>יעד החודש</Text>
+                <Text style={styles.cLabel}>יעד {monthLabel}</Text>
                 {target > 0 ? (
                   <>
                     <Text style={styles.cValue}>{percent}%</Text>
