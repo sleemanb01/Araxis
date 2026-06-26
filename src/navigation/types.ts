@@ -1,17 +1,14 @@
 export type RootStackParamList = {
-  Tabs: undefined;
-  JobCoordination: { jobId: string };
-  JobExecution:    { jobId: string };
-  NewJob:          undefined;
-  NewRequest:      undefined;
-  Warehouse:       undefined;
-  Scan:            undefined;
-  ItemEditor:      { barcode: string };
-  Transfer:        undefined;
-  FullCalendar:    { picker?: boolean; selected?: string } | undefined;
-  AddReview:       { providerId: string; providerName: string };
-  EditProfile:     undefined;
-  EditLink:        { platform: import('../utils/social').SocialPlatform };
+  Tabs:              undefined;
+  ServiceCallDetail: { callId: string; readOnly?: boolean };
+  ItemEditor:        { itemId?: string };
+  Transfer:          { crewId?: string } | undefined;
+  CrewDetail:        { crewId: string };
+  CrewWithdrawals:   { crewId: string };
+  CrewJobs:          { crewId: string };
+  DayJobs:           { day: string };
+  FinancialDashboard: undefined;
+  NewServiceCall:    undefined;
 };
 
 export type AuthStackParamList = {
@@ -19,17 +16,8 @@ export type AuthStackParamList = {
   Otp:        { phone: string };
 };
 
-export type RegisterStackParamList = {
-  RoleSelect:       undefined;
-  CustomerRegister: undefined;
-  ProviderRegister: undefined;
-};
-
 export type TabParamList = {
-  JobPool:    undefined;
-  MyJobs:     undefined;
-  Warehouse:  undefined;
-  Dashboard:  undefined;
-  MyRequests: undefined;
-  Profile:    undefined;
+  Dashboard: undefined;
+  Warehouse: undefined;
+  Profile:   undefined;
 };

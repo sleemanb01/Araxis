@@ -19,25 +19,32 @@ import {
 
 const auth = getAuth();
 
-/** Normalize an Israeli local number (05X-XXXXXXX) to E.164 (+9725XXXXXXXX). */
+/**
+ * Normalize a phone number to E.164 (Israel, +972). Accepts the common ways a
+ * user might type it — most don't know the +972 prefix:
+ *   0501234567      -> +972501234567   (local, leading 0)
+ *   972501234567    -> +972501234567   (country code, no +)
+ *   00972501234567  -> +972501234567   (intl. dialing prefix)
+ *   +972501234567   -> +972501234567   (already E.164)
+ *   501234567       -> +972501234567   (bare subscriber number)
+ */
 export function toE164(input: string): string {
-  const digits = input.replace(/[^\d+]/g, '');
-  if (digits.startsWith('+')) return digits;
-  if (digits.startsWith('0')) return '+972' + digits.slice(1);
-  return '+972' + digits;
+  let digits = input.replace(/[^\d+]/g, '');
+  if (digits.startsWith('+')) return digits; // already E.164
+  if (digits.startsWith('00')) digits = digits.slice(2); // intl. prefix -> country code
+  if (digits.startsWith('972')) return '+' + digits; // country code without +
+  if (digits.startsWith('0')) return '+972' + digits.slice(1); // local leading 0
+  return '+972' + digits; // bare subscriber number
 }
 
 export async function sendOtp(
   phone: string
 ): Promise<FirebaseAuthTypes.ConfirmationResult> {
   const e164 = toE164(phone);
-  if (__DEV__) {
-    // Skip iOS app verification (APNs/reCAPTCHA) in development so test
-    // numbers registered in the Firebase Console work on-device without an
-    // APNs key. MUST stay dev-only — real numbers in production require
-    // proper APNs configuration.
-    auth.settings.appVerificationDisabledForTesting = true;
-  }
+  // Use real app verification (reCAPTCHA via the REVERSED_CLIENT_ID URL scheme,
+  // or APNs silent push). Do NOT set appVerificationDisabledForTesting — with a
+  // non-whitelisted number it makes the request omit the verification token and
+  // the server rejects it with "does not contain a client identifier".
   return signInWithPhoneNumber(auth, e164);
 }
 

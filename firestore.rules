@@ -1,97 +1,110 @@
 rules_version = '2';
 
-// Mima Firestore security rules.
-// Principle: deny by default; only authenticated technicians can read/write,
-// and writes are validated. Tighten further with custom claims (roles) later.
+// Araxis v2 — capability-based access control. Each user's capabilities live in
+// their Firebase custom claim (`caps`), set only by the setUserCaps Cloud
+// Function (Admin SDK). Deny by default.
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---- Helpers ----
-    function isSignedIn() {
-      return request.auth != null;
-    }
+    function signedIn() { return request.auth != null; }
+    function capsMap() { return signedIn() ? request.auth.token.caps : null; }
+    function provisioned() { return capsMap() != null; }            // an admin set this user up
+    function can(name) { return provisioned() && request.auth.token.caps[name] == true; }
 
-    function isVerifiedPhone() {
-      // Phone-auth users always have a phone_number token field.
-      return isSignedIn() && request.auth.token.phone_number != null;
-    }
-
-    function isOwner(uid) {
-      return isSignedIn() && request.auth.uid == uid;
-    }
-
-    // ---- Users: owner can read/write their own profile; profiles are
-    //      readable by any signed-in user (to view providers). ----
+    // ---- Users ----
+    // A user reads their own profile; a crew manager reads anyone (to add by
+    // phone); otherwise you may read only your CREW MATES — users who share a
+    // crew with you (`crewIds` intersect). Capabilities/crews are written ONLY by
+    // the Cloud Functions; a user may self-edit name/services/availability.
     match /users/{userId} {
-      allow read:  if isSignedIn();
-      allow write: if isOwner(userId);
+      allow read: if request.auth.uid == userId
+                  || can('manageCrew')
+                  || (provisioned()
+                      && request.auth.token.crewIds is list
+                      && resource.data.crewIds is list
+                      && request.auth.token.crewIds.hasAny(resource.data.crewIds));
+      allow create: if request.auth.uid == userId
+                    && request.resource.data.uid == userId
+                    && request.resource.data.teamId == ''
+                    && request.resource.data.caps.manageCrew == false
+                    && request.resource.data.caps.createCalls == false
+                    && request.resource.data.caps.viewAllCalls == false
+                    && request.resource.data.caps.viewFinancials == false
+                    && request.resource.data.caps.viewTeamPayouts == false
+                    && request.resource.data.caps.manageInventory == false;
+      // A user may edit only their own profile prefs (name/services/availability/
+      // navApp). Caps/crews are written solely by the Cloud Functions (Admin SDK).
+      allow update: if request.auth.uid == userId
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['name', 'services', 'availability', 'navApp']);
+      allow delete: if false;
+    }
 
-      // Reviews of a provider: any verified user can read; a verified user
-      // can create a review authored as themselves; no edits/deletes.
-      match /reviews/{reviewId} {
-        allow read:   if isVerifiedPhone();
-        allow create: if isVerifiedPhone()
-                      && request.resource.data.customerId == request.auth.uid
-                      && request.resource.data.rating is number
-                      && request.resource.data.rating >= 1
-                      && request.resource.data.rating <= 5;
-        allow update, delete: if false;
+    // ---- Service calls ----
+    match /serviceCalls/{ticketId} {
+      allow read: if can('viewAllCalls')
+                  || (provisioned()
+                      && (resource.data.teamAssignment.leadTech == request.auth.uid
+                          || request.auth.uid in resource.data.teamAssignment.assistants));
+      allow create: if can('createCalls');
+      allow update: if can('createCalls')
+                    || (provisioned() && resource.data.teamAssignment.leadTech == request.auth.uid);
+      allow delete: if can('createCalls');
+
+      // Financials — gated by the viewFinancials capability (the wall).
+      match /privateData/{docId} {
+        allow read, write: if can('viewFinancials');
       }
     }
 
-    // ---- Jobs ----
-    // Any verified technician may read jobs (the shared pool).
-    // Create/update allowed for verified technicians; deletes denied from client.
-    match /jobs/{jobId} {
-      allow read:   if isVerifiedPhone();
-      allow create: if isVerifiedPhone()
-                    && request.resource.data.keys().hasAll(
-                         ['customerName', 'address', 'phone', 'status']
-                       );
-      allow update: if isVerifiedPhone();
-      allow delete: if false;
-    }
-
-    // ---- Inventory: verified techs can read and update stock counts ----
+    // ---- Inventory ----
     match /inventory/{itemId} {
-      allow read:   if isVerifiedPhone();
-      allow update: if isVerifiedPhone();
-      allow create: if isVerifiedPhone();
-      allow delete: if false; // deletes via admin only
+      allow read: if provisioned();
+      // Inventory managers manage stock; a call creator may add a new (missing)
+      // item — flagged `lacks` — while building a job.
+      allow create: if can('manageInventory') || can('createCalls');
+      allow update, delete: if can('manageInventory');
     }
 
-    // ---- Customers: the techs' shared customer book ----
-    // Verified techs read/update; creates are stamped with the author's uid;
-    // deletes allowed (it's their own book — e.g. fixing a duplicate).
-    match /customers/{customerId} {
-      allow read:   if isVerifiedPhone();
-      allow create: if isVerifiedPhone()
-                    && request.resource.data.keys().hasAll(
-                         ['name', 'phone', 'createdBy']
-                       )
-                    && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isVerifiedPhone();
-      allow delete: if isVerifiedPhone();
+    // ---- Monthly targets ---- (financial managers only)
+    match /targets/{docId} {
+      allow read, write: if can('viewFinancials');
     }
 
-    // ---- Appointments (calendar) ----
-    // Verified techs read/update; creates are stamped with the author's uid;
-    // no client hard-delete — cancel via the `status` field instead.
-    match /appointments/{apptId} {
-      allow read:   if isVerifiedPhone();
-      allow create: if isVerifiedPhone()
-                    && request.resource.data.keys().hasAll(
-                         ['startAt', 'status', 'createdBy']
-                       )
-                    && request.resource.data.createdBy == request.auth.uid;
-      allow update: if isVerifiedPhone();
-      allow delete: if false;
+    // ---- Retention archive (kept monthly profit totals) ---- (financial managers only)
+    match /archives/{docId} {
+      allow read, write: if can('viewFinancials');
     }
 
-    // ---- Catch-all: deny everything else ----
-    match /{document=**} {
-      allow read, write: if false;
+    // ---- Service catalog ----
+    // Open list of service types. Any signed-in user can read it and add a new
+    // one (e.g. during sign-up, before they're provisioned). No edits/deletes.
+    match /services/{serviceId} {
+      allow read, create: if signedIn();
+    }
+
+    // ---- Crews ----
+    // A user reads crews they belong to. Crews are mutated only by the Cloud
+    // Functions (Admin SDK), which also keep each member's caps claim in sync.
+    match /crews/{crewId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.memberIds;
+      allow write: if false;
+    }
+
+    // ---- Withdrawals (warehouse -> crew audit log) ----
+    // Read/write limited to crews you belong to; the withdrawer must be you.
+    // The matching warehouse stock change is gated by manageInventory on the
+    // inventory doc (same batch), so only inventory managers can log a withdrawal.
+    match /withdrawals/{wId} {
+      allow read: if provisioned()
+                  && request.auth.token.crewIds is list
+                  && request.auth.token.crewIds.hasAny([resource.data.crewId]);
+      allow create: if provisioned()
+                    && request.auth.uid == request.resource.data.withdrawerId
+                    && request.auth.token.crewIds is list
+                    && request.auth.token.crewIds.hasAny([request.resource.data.crewId]);
+      allow update, delete: if false;
     }
   }
 }

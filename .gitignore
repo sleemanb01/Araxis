@@ -17,5 +17,10 @@ GoogleService-Info.plist
 google-play-service-account.json
 *play-service-account*.json
 
+# Cloud Functions build artifacts + Admin SDK service-account keys (secret)
+functions/node_modules/
+functions/lib/
+**/service-account*.json
+
 # App Store assets (large binaries — keep out of git)
 screenshots/
