@@ -219,7 +219,12 @@ export function NewServiceCallScreen() {
         </View>
 
         <Text style={styles.label}>פריטים נדרשים (אופציונלי)</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reqRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.reqScroll}
+          contentContainerStyle={styles.reqRow}
+        >
           <TouchableOpacity style={styles.reqAdd} onPress={() => setScanOpen(true)} activeOpacity={0.85}>
             <Ionicons name="barcode-outline" size={22} color="#FFFFFF" />
             <Ionicons name="add" size={14} color="#FFFFFF" />
@@ -319,7 +324,8 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#FFFFFF', fontWeight: '600' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 14 },
   btn: { marginTop: 16 },
-  reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, marginBottom: 14 },
+  reqScroll: { height: 52, marginBottom: 14 },
+  reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reqAdd: {
     width: 52,
     height: 44,
