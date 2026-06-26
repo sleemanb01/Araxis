@@ -77,6 +77,11 @@ export function ProfileScreen() {
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`] ?? 0);
   const maxAbs = Math.max(1, ...year.map((v) => Math.abs(v)));
 
+  // Pace vs the pro-rated daily target (monthly target ÷ days in month × days elapsed).
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const expectedToDate = target > 0 ? (target / daysInMonth) * now.getDate() : 0;
+  const paceRatio = expectedToDate > 0 ? monthProfit / expectedToDate : monthProfit >= 0 ? 1 : 0;
+
   if (!profile) return null;
 
   async function doCreate() {
@@ -112,6 +117,7 @@ export function ProfileScreen() {
 
   const targetTone =
     target <= 0 ? styles.cNeutral : percent >= 100 ? styles.cGreen : percent >= 50 ? styles.cOrange : styles.cRed;
+  const profitTone = paceRatio >= 1 ? styles.cGreen : paceRatio >= 0.5 ? styles.cOrange : styles.cRed;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
