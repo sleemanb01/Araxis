@@ -31,6 +31,7 @@ function toUser(snap: { id: string; data: () => any }): UserProfile {
     teamId: d.teamId ?? '',
     services: Array.isArray(d.services) ? d.services : [],
     availability: d.availability ?? undefined,
+    navApp: d.navApp === 'waze' || d.navApp === 'google' ? d.navApp : undefined,
     phone: d.phone ?? undefined,
     createdAt: d.createdAt ?? undefined,
   };

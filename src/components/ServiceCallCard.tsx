@@ -2,7 +2,9 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceCall } from '../types/serviceCall';
-import { dialPhone, openWhatsapp, openMaps } from '../utils/contact';
+import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
+import { useUser } from '../context/UserContext';
+import { updateProfile } from '../services/userService';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 
 interface Props {
@@ -13,6 +15,7 @@ interface Props {
 
 /** A service-call row with a status-colored edge bar. */
 export function ServiceCallCard({ call, subtitle, onPress }: Props) {
+  const { profile, user } = useUser();
   const color = CallStatusColors[call.status];
   const date = new Date(call.scheduledDate).toLocaleDateString('he-IL');
 
@@ -41,7 +44,15 @@ export function ServiceCallCard({ call, subtitle, onPress }: Props) {
               </TouchableOpacity>
             )}
             {!!call.address && (
-              <TouchableOpacity style={[styles.actBtn, styles.navBtn]} onPress={() => openMaps(call.address!)} hitSlop={4}>
+              <TouchableOpacity
+                style={[styles.actBtn, styles.navBtn]}
+                onPress={() =>
+                  openNavigation(call.address!, profile?.navApp, (app) => {
+                    if (user) updateProfile(user.uid, { navApp: app }).catch(() => {});
+                  })
+                }
+                hitSlop={4}
+              >
                 <Ionicons name="navigate" size={15} color="#FFFFFF" />
               </TouchableOpacity>
             )}

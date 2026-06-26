@@ -33,11 +33,11 @@ service cloud.firestore {
                     && request.resource.data.caps.viewFinancials == false
                     && request.resource.data.caps.viewTeamPayouts == false
                     && request.resource.data.caps.manageInventory == false;
-      // A user may edit only their own `name`, `services` and `availability`.
-      // Caps/crews are written solely by the Cloud Functions (Admin SDK).
+      // A user may edit only their own profile prefs (name/services/availability/
+      // navApp). Caps/crews are written solely by the Cloud Functions (Admin SDK).
       allow update: if request.auth.uid == userId
                     && request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['name', 'services', 'availability']);
+                         .hasOnly(['name', 'services', 'availability', 'navApp']);
       allow delete: if false;
     }
 

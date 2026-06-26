@@ -80,6 +80,7 @@ export interface UserProfile {
   teamId: string;
   services?: string[];       // service names this user provides (open catalog)
   availability?: Availability;
+  navApp?: 'waze' | 'google'; // preferred navigation app (remembered)
   phone?: string;            // E.164, captured at self-registration (admin lookup)
   createdAt?: string;        // ISO date string
 }
