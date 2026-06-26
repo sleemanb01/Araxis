@@ -7,6 +7,7 @@ export interface InventoryItem {
   id: string;
   itemName: string;
   barcode?: string;                   // scanned/typed barcode (EAN/UPC/QR/etc.)
+  price?: number;                     // unit price (manager-only, viewFinancials)
   lacks?: boolean;                    // flagged as missing/needed (added from a job)
   locations: Record<string, number>; // location key -> quantity on hand
 }

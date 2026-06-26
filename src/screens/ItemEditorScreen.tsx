@@ -7,6 +7,7 @@ import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { useInventory } from '../context/InventoryContext';
+import { useUser } from '../context/UserContext';
 import { createInventoryItem, updateInventoryItem } from '../services/inventoryService';
 import { qtyAt, WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
@@ -19,12 +20,14 @@ export function ItemEditorScreen() {
   const navigation = useNavigation();
   const route = useRoute<RouteP>();
   const { items } = useInventory();
+  const { caps } = useUser();
   const existing = route.params?.itemId
     ? items.find((i) => i.id === route.params!.itemId)
     : undefined;
 
   const [name, setName] = useState(existing?.itemName ?? '');
   const [barcode, setBarcode] = useState(existing?.barcode ?? '');
+  const [price, setPrice] = useState(existing?.price != null ? String(existing.price) : '');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [warehouseQty, setWarehouseQty] = useState(
     String(existing ? qtyAt(existing, WAREHOUSE) : 0)
@@ -38,6 +41,7 @@ export function ItemEditorScreen() {
     }
     const qty = Math.max(0, parseInt(warehouseQty, 10) || 0);
     const code = barcode.trim();
+    const priceN = Math.max(0, parseFloat(price) || 0);
     setSaving(true);
     try {
       if (existing) {
@@ -46,12 +50,14 @@ export function ItemEditorScreen() {
           barcode: code, // '' clears it
           locations: { ...existing.locations, [WAREHOUSE]: qty },
           ...(existing.lacks && qty > 0 ? { lacks: false } : {}), // restocked → clear "lacks"
+          ...(caps.viewFinancials ? { price: priceN } : {}),
         });
       } else {
         await createInventoryItem({
           itemName: name.trim(),
           locations: { [WAREHOUSE]: qty },
           ...(code ? { barcode: code } : {}), // omit empty on create
+          ...(caps.viewFinancials ? { price: priceN } : {}),
         });
       }
       navigation.goBack();
@@ -75,6 +81,10 @@ export function ItemEditorScreen() {
           icon={<Ionicons name="barcode-outline" size={18} color={Colors.primary} />}
           style={styles.scanBtn}
         />
+
+        {caps.viewFinancials && (
+          <TextField label="מחיר ליחידה (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+        )}
 
         <TextField label="כמות במחסן" value={warehouseQty} onChange={setWarehouseQty} placeholder="0" keyboardType="numeric" />
         {existing && <Text style={styles.note}>מלאי במיקומים אחרים מתעדכן דרך מסך ההעברה.</Text>}

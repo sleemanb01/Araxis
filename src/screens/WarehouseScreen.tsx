@@ -42,6 +42,7 @@ export function WarehouseScreen() {
             item={item}
             canEdit={canEdit}
             crews={crews}
+            showPrice={caps.viewFinancials}
             onEdit={() => navigation.navigate('ItemEditor', { itemId: item.id })}
           />
         )}
@@ -106,11 +107,13 @@ function InventoryRow({
   item,
   canEdit,
   crews,
+  showPrice,
   onEdit,
 }: {
   item: InventoryItem;
   canEdit: boolean;
   crews: Crew[];
+  showPrice: boolean;
   onEdit: () => void;
 }) {
   const low = isLowStock(item);
@@ -124,6 +127,9 @@ function InventoryRow({
       <TouchableOpacity style={styles.rowInfo} onPress={onEdit} activeOpacity={0.7}>
         <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
         <View style={styles.rowMeta}>
+          {showPrice && typeof item.price === 'number' && (
+            <Text style={styles.price}>₪{item.price.toLocaleString('he-IL')}</Text>
+          )}
           {item.lacks && (
             <View style={styles.lacksTag}>
               <Text style={styles.lacksText}>חסר</Text>
@@ -237,6 +243,7 @@ const styles = StyleSheet.create({
   lacksTag: { backgroundColor: Colors.danger, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   lacksText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   split: { fontSize: 12, color: Colors.textSecondary },
+  price: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   stepBtn: {
     width: 32,

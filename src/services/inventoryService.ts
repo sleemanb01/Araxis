@@ -28,6 +28,7 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
     id: snap.id,
     itemName: d.itemName ?? d.name ?? '',
     barcode: d.barcode ?? undefined,
+    price: typeof d.price === 'number' ? d.price : undefined,
     lacks: d.lacks === true ? true : undefined,
     locations: d.locations && typeof d.locations === 'object' ? d.locations : {},
   };
