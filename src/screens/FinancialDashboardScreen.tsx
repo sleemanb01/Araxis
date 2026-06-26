@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
+import { useInventory } from '../context/InventoryContext';
+import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
@@ -10,39 +12,30 @@ interface Totals {
   paid: number;
   outstanding: number;
   payouts: number;
+  equipment: number;
   profit: number;
   calls: number;
 }
-
-const ZERO: Totals = { revenue: 0, paid: 0, outstanding: 0, payouts: 0, profit: 0, calls: 0 };
 
 function ils(n: number): string {
   return '₪' + Math.round(n).toLocaleString('he-IL');
 }
 
 export function FinancialDashboardScreen() {
+  const { items } = useInventory();
   const [loading, setLoading] = useState(true);
-  const [t, setT] = useState<Totals>(ZERO);
+  const [calls, setCalls] = useState<ServiceCall[]>([]);
+  const [fins, setFins] = useState<(PrivateFinancials | null)[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const calls = await getAllCalls();
-        const fins = await Promise.all(calls.map((c) => getFinancials(c.id).catch(() => null)));
-        let revenue = 0;
-        let paid = 0;
-        let payouts = 0;
-        calls.forEach((c, i) => {
-          const f = fins[i];
-          if (f) {
-            revenue += f.overallPrice || 0;
-            paid += f.paidAmount || 0;
-          }
-          payouts += c.payouts.totalTechPayout || 0;
-        });
+        const cs = await getAllCalls();
+        const fs = await Promise.all(cs.map((c) => getFinancials(c.id).catch(() => null)));
         if (!cancelled) {
-          setT({ revenue, paid, outstanding: revenue - paid, payouts, profit: revenue - payouts, calls: calls.length });
+          setCalls(cs);
+          setFins(fs);
           setLoading(false);
         }
       } catch {
@@ -53,6 +46,25 @@ export function FinancialDashboardScreen() {
       cancelled = true;
     };
   }, []);
+
+  const t = useMemo<Totals>(() => {
+    let revenue = 0;
+    let paid = 0;
+    let payouts = 0;
+    let equipment = 0;
+    calls.forEach((c, i) => {
+      const f = fins[i];
+      if (f) {
+        revenue += f.overallPrice || 0;
+        paid += f.paidAmount || 0;
+      }
+      payouts += c.payouts.totalTechPayout || 0;
+      (c.requiredItems ?? []).forEach((id) => {
+        equipment += items.find((it) => it.id === id)?.price ?? 0;
+      });
+    });
+    return { revenue, paid, outstanding: revenue - paid, payouts, equipment, profit: revenue - payouts, calls: calls.length };
+  }, [calls, fins, items]);
 
   if (loading) {
     return (
@@ -73,6 +85,7 @@ export function FinancialDashboardScreen() {
           <Metric label="תשלומי צוות" value={ils(t.payouts)} />
           <Metric label="שולם" value={ils(t.paid)} />
           <Metric label="יתרה לגבייה" value={ils(t.outstanding)} warn={t.outstanding > 0} />
+          <Metric label="עלות ציוד" value={ils(t.equipment)} />
         </View>
         <Text style={styles.note}>רווח = הכנסות − תשלומי צוות · יתרה = הכנסות − שולם</Text>
       </ScrollView>

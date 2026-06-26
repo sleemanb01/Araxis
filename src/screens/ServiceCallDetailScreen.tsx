@@ -81,6 +81,7 @@ export function ServiceCallDetailScreen() {
 
   const checked = new Set(call.checkedItems ?? []);
   const reqItems = call.requiredItems ?? [];
+  const equipmentCost = reqItems.reduce((s, id) => s + (items.find((i) => i.id === id)?.price ?? 0), 0);
   // Can't finish a job until every required item is checked off.
   const allItemsChecked = reqItems.every((id) => checked.has(id));
   const blockFinish = next === 'completed' && reqItems.length > 0 && !allItemsChecked;
@@ -299,6 +300,9 @@ export function ServiceCallDetailScreen() {
                 </>
               )}
             </View>
+            {caps.viewFinancials && (
+              <Text style={styles.line}>עלות ציוד: ₪{equipmentCost.toLocaleString('he-IL')}</Text>
+            )}
             <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
           </>
         )}

@@ -70,6 +70,7 @@ export function NewServiceCallScreen() {
 
   const selectedCrew = crews.find((c) => c.id === crewId) ?? null;
   const memberIds = selectedCrew?.memberIds ?? [];
+  const equipmentCost = requiredItems.reduce((s, id) => s + (items.find((i) => i.id === id)?.price ?? 0), 0);
 
   // Weekdays (0=Sun..6=Sat) the calendar marks as available: the chosen crew's
   // MANAGER availability; before a crew is picked, the union across crew mates.
@@ -273,6 +274,9 @@ export function NewServiceCallScreen() {
         )}
         {caps.viewTeamPayouts && selectedCrew && (
           <Text style={styles.note}>יחולק שווה בשווה בין {memberIds.length} חברי {selectedCrew.name}.</Text>
+        )}
+        {caps.viewFinancials && (
+          <Text style={styles.note}>עלות ציוד: ₪{equipmentCost.toLocaleString('he-IL')}</Text>
         )}
 
         <TextField label="הערות" value={notes} onChange={setNotes} placeholder="הערות לקריאה" multiline />
