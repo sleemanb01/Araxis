@@ -152,10 +152,7 @@ export function ProfileScreen() {
                 <ProgressRing size={150} strokeWidth={12} progress={dailyTarget > 0 ? dayPercent / 100 : 1} color={dayColor}>
                   <Text style={styles.rLabel}>{dayLabel}</Text>
                   {dailyTarget > 0 ? (
-                    <>
-                      <Text style={[styles.rValue, { color: dayColor }]}>{dayPercent}%</Text>
-                      <Text style={styles.rSub}>{ils(todayProfit)} / {ils(dailyTarget)}</Text>
-                    </>
+                    <Text style={[styles.rValue, { color: dayColor }]}>{dayPercent}%</Text>
                   ) : (
                     <Text style={[styles.rValue, { color: dayColor }]}>{ils(todayProfit)}</Text>
                   )}
