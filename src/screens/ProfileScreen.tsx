@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
+import { ProgressRing } from '../components/ProgressRing';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
@@ -118,18 +119,18 @@ export function ProfileScreen() {
     }
   }
 
-  const targetTone =
-    target <= 0 ? styles.cNeutral : percent >= 100 ? styles.cGreen : percent >= 50 ? styles.cOrange : styles.cRed;
-  const dayTone =
+  const monthColor =
+    target <= 0 ? Colors.textSecondary : percent >= 100 ? '#1E9E5A' : percent >= 50 ? '#D97706' : Colors.danger;
+  const dayColor =
     dailyTarget <= 0
       ? todayProfit < 0
-        ? styles.cRed
-        : styles.cGreen
+        ? Colors.danger
+        : '#1E9E5A'
       : dayPercent >= 100
-      ? styles.cGreen
+      ? '#1E9E5A'
       : dayPercent >= 50
-      ? styles.cOrange
-      : styles.cRed;
+      ? '#D97706'
+      : Colors.danger;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -140,32 +141,32 @@ export function ProfileScreen() {
         {caps.viewFinancials && (
           <>
             <View style={styles.circlesRow}>
-              <TouchableOpacity
-                style={[styles.circle, dayTone]}
-                onPress={() => navigation.navigate('FinancialDashboard')}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.cLabel}>{dayLabel}</Text>
-                {dailyTarget > 0 ? (
-                  <>
-                    <Text style={styles.cValue}>{dayPercent}%</Text>
-                    <Text style={styles.cSub}>{ils(todayProfit)} / {ils(dailyTarget)}</Text>
-                  </>
-                ) : (
-                  <Text style={styles.cValue}>{ils(todayProfit)}</Text>
-                )}
+              <TouchableOpacity onPress={() => navigation.navigate('FinancialDashboard')} activeOpacity={0.85}>
+                <ProgressRing size={150} strokeWidth={12} progress={dailyTarget > 0 ? dayPercent / 100 : 1} color={dayColor}>
+                  <Text style={styles.rLabel}>{dayLabel}</Text>
+                  {dailyTarget > 0 ? (
+                    <>
+                      <Text style={[styles.rValue, { color: dayColor }]}>{dayPercent}%</Text>
+                      <Text style={styles.rSub}>{ils(todayProfit)} / {ils(dailyTarget)}</Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.rValue, { color: dayColor }]}>{ils(todayProfit)}</Text>
+                  )}
+                </ProgressRing>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.circle, targetTone]} onPress={openSetTarget} activeOpacity={0.85}>
-                <Text style={styles.cLabel}>{monthLabel}</Text>
-                {target > 0 ? (
-                  <>
-                    <Text style={styles.cValue}>{percent}%</Text>
-                    <Text style={styles.cSub}>{ils(monthProfit)} / {ils(target)}</Text>
-                  </>
-                ) : (
-                  <Text style={styles.cSet}>הגדר יעד</Text>
-                )}
+              <TouchableOpacity onPress={openSetTarget} activeOpacity={0.85}>
+                <ProgressRing size={150} strokeWidth={12} progress={target > 0 ? percent / 100 : 0} color={monthColor}>
+                  <Text style={styles.rLabel}>{monthLabel}</Text>
+                  {target > 0 ? (
+                    <>
+                      <Text style={[styles.rValue, { color: monthColor }]}>{percent}%</Text>
+                      <Text style={styles.rSub}>{ils(monthProfit)} / {ils(target)}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.rSet}>הגדר יעד</Text>
+                  )}
+                </ProgressRing>
               </TouchableOpacity>
             </View>
 
@@ -255,15 +256,10 @@ const styles = StyleSheet.create({
   name: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   role: { fontSize: 15, color: Colors.textSecondary, marginTop: 2 },
   circlesRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 18 },
-  circle: { width: 150, height: 150, borderRadius: 75, alignItems: 'center', justifyContent: 'center', padding: 8 },
-  cGreen: { backgroundColor: '#1E9E5A' },
-  cRed: { backgroundColor: Colors.danger },
-  cOrange: { backgroundColor: '#D97706' },
-  cNeutral: { backgroundColor: Colors.textSecondary },
-  cLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' },
-  cValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', marginTop: 6, writingDirection: 'ltr' },
-  cSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 4, writingDirection: 'ltr' },
-  cSet: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginTop: 8 },
+  rLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  rValue: { fontSize: 24, fontWeight: '800', marginTop: 4, writingDirection: 'ltr' },
+  rSub: { color: Colors.textSecondary, fontSize: 10, marginTop: 3, writingDirection: 'ltr' },
+  rSet: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 6 },
   chart: {
     alignSelf: 'stretch',
     marginTop: 18,
