@@ -50,6 +50,15 @@ export function ProfileScreen() {
           <Row label="צוות" value={profile.teamId || '—'} />
         </View>
 
+        {caps.viewFinancials && (
+          <CustomButton
+            label="לוח כספים"
+            variant="secondary"
+            onPress={() => navigation.navigate('FinancialDashboard')}
+            style={styles.financeBtn}
+          />
+        )}
+
         <View style={styles.crewSection}>
           <View style={styles.crewHeader}>
             {caps.manageCrew && (
@@ -134,6 +143,7 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 14, color: Colors.textSecondary },
   rowValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  financeBtn: { alignSelf: 'stretch', marginTop: 16 },
   crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 24 },
   crewHeader: {
     flexDirection: 'row',

@@ -14,6 +14,8 @@ import {
   onSnapshot,
   query,
   where,
+  getDocs,
+  getDoc,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import {
@@ -71,6 +73,19 @@ export function subscribeToUpcomingCalls(
       onError?.(err as Error);
     }
   );
+}
+
+/** One-shot fetch of all service calls (for the financial dashboard). */
+export async function getAllCalls(): Promise<ServiceCall[]> {
+  const snap = await getDocs(collection(db, CALLS));
+  return snap.docs.map(toCall);
+}
+
+/** One-shot fetch of a call's financials (the viewFinancials-gated subcollection). */
+export async function getFinancials(callId: string): Promise<PrivateFinancials | null> {
+  const snap = await getDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS));
+  const d = snap.data();
+  return d ? (d as PrivateFinancials) : null;
 }
 
 export async function createServiceCall(payload: CreateServiceCallPayload): Promise<string> {

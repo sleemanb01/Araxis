@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Transfer:          { crewId?: string } | undefined;
   CrewDetail:        { crewId: string };
   CrewWithdrawals:   { crewId: string };
+  FinancialDashboard: undefined;
   NewServiceCall:    undefined;
 };
 
