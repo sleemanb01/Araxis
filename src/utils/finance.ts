@@ -17,6 +17,31 @@ export interface FinancialTotals {
   profit: number;      // revenue − payouts
 }
 
+/** Calendar-month key for a date, e.g. "2026-06". */
+export function monthKey(d: Date): string {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+
+/** Profit per calendar month (key "YYYY-MM") across calls; fins[i] ↔ calls[i]. */
+export function monthlyProfit(
+  calls: ServiceCall[],
+  fins: (PrivateFinancials | null)[],
+  items: InventoryItem[]
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  calls.forEach((c, i) => {
+    const gross = fins[i]?.overallPrice ?? 0;
+    const equip = (c.requiredItems ?? []).reduce(
+      (a, id) => a + (items.find((it) => it.id === id)?.price ?? 0),
+      0
+    );
+    const p = gross - equip - (c.payouts.totalTechPayout ?? 0);
+    const key = monthKey(new Date(c.scheduledDate));
+    out[key] = (out[key] ?? 0) + p;
+  });
+  return out;
+}
+
 /** Aggregate financial totals across calls; fins[i] is the financials for calls[i]. */
 export function aggregateTotals(
   calls: ServiceCall[],

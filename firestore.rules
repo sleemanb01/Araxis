@@ -67,6 +67,11 @@ service cloud.firestore {
       allow update, delete: if can('manageInventory');
     }
 
+    // ---- Monthly targets ---- (financial managers only)
+    match /targets/{docId} {
+      allow read, write: if can('viewFinancials');
+    }
+
     // ---- Service catalog ----
     // Open list of service types. Any signed-in user can read it and add a new
     // one (e.g. during sign-up, before they're provisioned). No edits/deletes.

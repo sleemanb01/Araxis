@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,9 @@ import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
-import { aggregateTotals } from '../utils/finance';
+import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
+import { aggregateTotals, monthlyProfit, monthKey } from '../utils/finance';
+import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -26,27 +28,54 @@ export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, caps, crews, signOut } = useUser();
   const { items } = useInventory();
+
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
-  const [revenue, setRevenue] = useState<number | null>(null);
+
+  const [calls, setCalls] = useState<ServiceCall[]>([]);
+  const [fins, setFins] = useState<(PrivateFinancials | null)[]>([]);
+  const [targets, setTargets] = useState<Record<string, number>>({});
+  const [settingTarget, setSettingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState('');
 
   useEffect(() => {
     if (!caps.viewFinancials) return;
     let cancelled = false;
     (async () => {
       try {
-        const calls = await getAllCalls();
-        const fins = await Promise.all(calls.map((c) => getFinancials(c.id).catch(() => null)));
-        if (!cancelled) setRevenue(aggregateTotals(calls, fins, items).profit);
+        const cs = await getAllCalls();
+        const fs = await Promise.all(cs.map((c) => getFinancials(c.id).catch(() => null)));
+        if (!cancelled) {
+          setCalls(cs);
+          setFins(fs);
+        }
       } catch {
-        /* leave as — */
+        /* leave empty */
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [caps.viewFinancials, items]);
+  }, [caps.viewFinancials]);
+
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    const unsub = subscribeToTargets(setTargets, () => {});
+    return unsub;
+  }, [caps.viewFinancials]);
+
+  const profit = useMemo(() => aggregateTotals(calls, fins, items).profit, [calls, fins, items]);
+  const monthly = useMemo(() => monthlyProfit(calls, fins, items), [calls, fins, items]);
+
+  const now = new Date();
+  const curKey = monthKey(now);
+  const monthProfit = monthly[curKey] ?? 0;
+  const target = targets[curKey] ?? 0;
+  const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
+  const monthIdx = now.getMonth();
+  const year = Array.from({ length: 12 }, (_, m) => monthly[`${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`] ?? 0);
+  const maxAbs = Math.max(1, ...year.map((v) => Math.abs(v)));
 
   if (!profile) return null;
 
@@ -66,25 +95,69 @@ export function ProfileScreen() {
     }
   }
 
+  function openSetTarget() {
+    setTargetInput(target > 0 ? String(target) : '');
+    setSettingTarget(true);
+  }
+  async function saveTarget() {
+    const amount = Math.max(0, parseFloat(targetInput) || 0);
+    try {
+      await setMonthTarget(curKey, amount);
+      setSettingTarget(false);
+    } catch {
+      Alert.alert('שגיאה', 'שמירת היעד נכשלה.');
+    }
+  }
+
+  const targetTone =
+    target <= 0 ? styles.cNeutral : percent >= 100 ? styles.cGreen : percent >= 50 ? styles.cOrange : styles.cRed;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
         <Text style={styles.name}>{profile.name}</Text>
         <Text style={styles.role}>{capsLabel(caps)}</Text>
 
-        <View style={styles.card}>
-          <Row label="צוות" value={profile.teamId || '—'} />
-        </View>
-
         {caps.viewFinancials && (
-          <TouchableOpacity
-            style={[styles.revBtn, revenue != null && revenue < 0 && styles.revBtnNeg]}
-            onPress={() => navigation.navigate('FinancialDashboard')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.revLabel}>רווח</Text>
-            <Text style={styles.revValue}>{revenue == null ? '…' : ils(revenue)}</Text>
-          </TouchableOpacity>
+          <>
+            <View style={styles.circlesRow}>
+              <TouchableOpacity
+                style={[styles.circle, profit < 0 ? styles.cRed : styles.cGreen]}
+                onPress={() => navigation.navigate('FinancialDashboard')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.cLabel}>רווח</Text>
+                <Text style={styles.cValue}>{ils(profit)}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.circle, targetTone]} onPress={openSetTarget} activeOpacity={0.85}>
+                <Text style={styles.cLabel}>יעד החודש</Text>
+                {target > 0 ? (
+                  <>
+                    <Text style={styles.cValue}>{percent}%</Text>
+                    <Text style={styles.cSub}>{ils(monthProfit)} / {ils(target)}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.cSet}>הגדר יעד</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.chart}>
+              <Text style={styles.chartTitle}>התקדמות שנתית {now.getFullYear()}</Text>
+              <View style={styles.bars}>
+                {year.map((val, m) => {
+                  const h = Math.max(2, Math.round((Math.abs(val) / maxAbs) * 64));
+                  return (
+                    <View key={m} style={styles.barCol}>
+                      <View style={[styles.bar, { height: h }, val < 0 && styles.barNeg, m === monthIdx && styles.barCur]} />
+                      <Text style={styles.barLabel}>{m + 1}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          </>
         )}
 
         <View style={styles.crewSection}>
@@ -135,67 +208,54 @@ export function ProfileScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
-  );
-}
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.row}>
-      <Text style={styles.rowValue}>{value}</Text>
-      <Text style={styles.rowLabel}>{label}</Text>
-    </View>
+      <Modal visible={settingTarget} transparent animationType="fade" onRequestClose={() => setSettingTarget(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>יעד ל{now.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</Text>
+            <TextField label="סכום יעד (₪)" value={targetInput} onChange={setTargetInput} placeholder="0" keyboardType="numeric" />
+            <CustomButton label="שמור" onPress={saveTarget} style={styles.btn} />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setSettingTarget(false)} />
+          </View>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 32 },
+  container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 28 },
   name: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   role: { fontSize: 15, color: Colors.textSecondary, marginTop: 2 },
-  card: {
+  circlesRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 18 },
+  circle: { width: 150, height: 150, borderRadius: 75, alignItems: 'center', justifyContent: 'center', padding: 8 },
+  cGreen: { backgroundColor: '#1E9E5A' },
+  cRed: { backgroundColor: Colors.danger },
+  cOrange: { backgroundColor: '#D97706' },
+  cNeutral: { backgroundColor: Colors.textSecondary },
+  cLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 14, fontWeight: '600' },
+  cValue: { color: '#FFFFFF', fontSize: 26, fontWeight: '800', marginTop: 6, writingDirection: 'ltr' },
+  cSub: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 4, writingDirection: 'ltr' },
+  cSet: { color: '#FFFFFF', fontSize: 16, fontWeight: '700', marginTop: 8 },
+  chart: {
     alignSelf: 'stretch',
+    marginTop: 18,
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    padding: 6,
-    marginTop: 24,
     borderWidth: 1,
     borderColor: Colors.border,
+    padding: 12,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  rowLabel: { fontSize: 14, color: Colors.textSecondary },
-  rowValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  revBtn: {
-    alignSelf: 'center',
-    width: 168,
-    height: 168,
-    borderRadius: 84,
-    backgroundColor: '#1E9E5A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 20,
-    shadowColor: '#1E9E5A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6,
-  },
-  revBtnNeg: { backgroundColor: Colors.danger, shadowColor: Colors.danger },
-  revLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 16, fontWeight: '600' },
-  revValue: { color: '#FFFFFF', fontSize: 30, fontWeight: '800', marginTop: 8, writingDirection: 'ltr' },
-  crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 24 },
-  crewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
+  chartTitle: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 10 },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 80 },
+  barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  bar: { width: 11, borderRadius: 3, backgroundColor: Colors.primary },
+  barNeg: { backgroundColor: Colors.danger },
+  barCur: { backgroundColor: '#1E9E5A' },
+  barLabel: { fontSize: 9, color: Colors.textSecondary, marginTop: 4 },
+  crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 18 },
+  crewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   crewTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
   addBtn: {
     flexDirection: 'row',
