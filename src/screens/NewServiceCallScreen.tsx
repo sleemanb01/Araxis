@@ -245,6 +245,9 @@ export function NewServiceCallScreen() {
               <View key={id} style={[styles.reqChip, item?.lacks && styles.reqChipLacks]}>
                 {item?.lacks && <View style={styles.redDot} />}
                 <Text style={styles.reqChipText} numberOfLines={1}>{item?.itemName ?? '—'}</Text>
+                {caps.viewFinancials && item?.price != null && (
+                  <Text style={styles.reqChipPrice}>₪{item.price.toLocaleString('he-IL')}</Text>
+                )}
                 <TouchableOpacity onPress={() => removeRequired(id)} hitSlop={6}>
                   <Ionicons name="close-circle" size={16} color={Colors.textSecondary} />
                 </TouchableOpacity>
@@ -382,6 +385,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
+  reqChipPrice: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   reqChip: {
     flexDirection: 'row',
     alignItems: 'center',
