@@ -72,6 +72,11 @@ service cloud.firestore {
       allow read, write: if can('viewFinancials');
     }
 
+    // ---- Retention archive (kept monthly profit totals) ---- (financial managers only)
+    match /archives/{docId} {
+      allow read, write: if can('viewFinancials');
+    }
+
     // ---- Service catalog ----
     // Open list of service types. Any signed-in user can read it and add a new
     // one (e.g. during sign-up, before they're provisioned). No edits/deletes.

@@ -12,6 +12,8 @@ import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
+import { subscribeToArchive, initArchiveIfMissing, ArchiveSummary } from '../services/archiveService';
+import { ExportDataModal } from '../components/ExportDataModal';
 import { monthlyProfit, dailyProfit, callProfit, monthKey, dayKey } from '../utils/finance';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { capsLabel } from '../types/user';
@@ -40,6 +42,8 @@ export function ProfileScreen() {
   const [settingTarget, setSettingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!caps.viewFinancials) return;
@@ -67,7 +71,28 @@ export function ProfileScreen() {
     return unsub;
   }, [caps.viewFinancials]);
 
-  const monthly = useMemo(() => monthlyProfit(calls, fins, items), [calls, fins, items]);
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    initArchiveIfMissing().catch(() => {});
+    return subscribeToArchive(setArchive, () => {});
+  }, [caps.viewFinancials]);
+
+  // Prompt an export every ~4 months (erase is gated on downloading first).
+  useEffect(() => {
+    if (!caps.viewFinancials || !archive.lastExportAt) return;
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 4);
+    if (new Date(archive.lastExportAt) <= cutoff) setExportOpen(true);
+  }, [caps.viewFinancials, archive.lastExportAt]);
+
+  // Live monthly profit merged with archived months (so the chart keeps history
+  // after old data is erased).
+  const monthly = useMemo(() => {
+    const live = monthlyProfit(calls, fins, items);
+    const out: Record<string, number> = { ...archive.monthlyProfit };
+    Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
+    return out;
+  }, [calls, fins, items, archive]);
   const daily = useMemo(() => dailyProfit(calls, fins, items), [calls, fins, items]);
   const crewProfits = useMemo(() => {
     const out: Record<string, number> = {};
@@ -203,6 +228,12 @@ export function ProfileScreen() {
                 })}
               </View>
             </View>
+            <CustomButton
+              label="ייצוא נתונים"
+              variant="secondary"
+              onPress={() => setExportOpen(true)}
+              style={styles.exportBtn}
+            />
           </>
         )}
 
@@ -270,6 +301,18 @@ export function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
+      <ExportDataModal
+        visible={exportOpen}
+        onClose={() => setExportOpen(false)}
+        calls={calls}
+        fins={fins}
+        items={items}
+        onErased={() => {
+          setCalls([]);
+          setFins([]);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -293,6 +336,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 12,
   },
+  exportBtn: { alignSelf: 'stretch', marginTop: 12 },
   chartHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   chartTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', flex: 1, writingDirection: 'ltr' },
   yearNav: { fontSize: 26, color: Colors.primary, fontWeight: '700', paddingHorizontal: 12 },
