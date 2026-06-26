@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { useUser } from '../context/UserContext';
 import { createCrew } from '../services/adminService';
+import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -15,12 +16,35 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+function ils(n: number): string {
+  return '₪' + Math.round(n).toLocaleString('he-IL');
+}
+
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, caps, crews, signOut } = useUser();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [revenue, setRevenue] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const calls = await getAllCalls();
+        const fins = await Promise.all(calls.map((c) => getFinancials(c.id).catch(() => null)));
+        const rev = fins.reduce((s, f) => s + (f?.overallPrice || 0), 0);
+        if (!cancelled) setRevenue(rev);
+      } catch {
+        /* leave as — */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [caps.viewFinancials]);
 
   if (!profile) return null;
 
@@ -51,12 +75,15 @@ export function ProfileScreen() {
         </View>
 
         {caps.viewFinancials && (
-          <CustomButton
-            label="לוח כספים"
-            variant="secondary"
+          <TouchableOpacity
+            style={styles.revBtn}
             onPress={() => navigation.navigate('FinancialDashboard')}
-            style={styles.financeBtn}
-          />
+            activeOpacity={0.85}
+          >
+            <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
+            <Text style={styles.revValue}>{revenue == null ? '…' : ils(revenue)}</Text>
+            <Text style={styles.revLabel}>הכנסות</Text>
+          </TouchableOpacity>
         )}
 
         <View style={styles.crewSection}>
@@ -143,7 +170,23 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontSize: 14, color: Colors.textSecondary },
   rowValue: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  financeBtn: { alignSelf: 'stretch', marginTop: 16 },
+  revBtn: {
+    alignSelf: 'center',
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    backgroundColor: '#1E9E5A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 22,
+    shadowColor: '#1E9E5A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  revValue: { color: '#FFFFFF', fontSize: 21, fontWeight: '800', marginTop: 5, writingDirection: 'ltr' },
+  revLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 12, marginTop: 2 },
   crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 24 },
   crewHeader: {
     flexDirection: 'row',
