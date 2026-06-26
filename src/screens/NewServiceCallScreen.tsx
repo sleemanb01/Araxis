@@ -18,6 +18,11 @@ import { WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
+const HE_WD = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+function sameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
 export function NewServiceCallScreen() {
   const navigation = useNavigation();
   const { crews, caps } = useUser();
@@ -42,6 +47,20 @@ export function NewServiceCallScreen() {
   const [scanOpen, setScanOpen] = useState(false);
   const [pendingBarcode, setPendingBarcode] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
+  const [calOpen, setCalOpen] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
+  const [itemSearch, setItemSearch] = useState('');
+
+  // Next two weeks for the horizontal date strip; the full calendar covers the rest.
+  const strip = useMemo(() => {
+    const base = new Date();
+    base.setHours(9, 0, 0, 0);
+    return Array.from({ length: 14 }, (_, i) => {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      return d;
+    });
+  }, []);
 
   // Assignable team = your crew mates (req 1: you only see your crew mates).
   const crewMateIds = useMemo(() => [...new Set(crews.flatMap((c) => c.memberIds))], [crews]);
@@ -115,6 +134,20 @@ export function NewServiceCallScreen() {
     else {
       setPendingBarcode(code);
       setNewItemName('');
+    }
+  }
+
+  // Add an item manually (pick existing in the modal, or create a new one by name).
+  async function createManual() {
+    const n = itemSearch.trim();
+    if (!n) return;
+    try {
+      const id = await createInventoryItem({ itemName: n, lacks: true, locations: { [WAREHOUSE]: 0 } });
+      addRequired(id);
+      setManualOpen(false);
+      setItemSearch('');
+    } catch {
+      Alert.alert('שגיאה', 'הוספת הפריט נכשלה.');
     }
   }
 
@@ -202,8 +235,33 @@ export function NewServiceCallScreen() {
         </View>
         <TextField label="טלפון ליצירת קשר" value={contactPhone} onChange={setContactPhone} placeholder="+972 50 1234567" keyboardType="phone-pad" />
 
-        <Text style={styles.label}>מועד</Text>
-        <Calendar selected={date} onSelect={setDate} availableWeekdays={availableWeekdays} />
+        <Text style={styles.label}>מועד · {date.toLocaleDateString('he-IL')}</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.dateStripScroll}
+          contentContainerStyle={styles.dateStrip}
+        >
+          <TouchableOpacity style={styles.calBtn} onPress={() => setCalOpen(true)} activeOpacity={0.85}>
+            <Ionicons name="calendar-outline" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+          {strip.map((d) => {
+            const sel = sameDay(d, date);
+            const avail = availableWeekdays.includes(d.getDay());
+            return (
+              <TouchableOpacity
+                key={d.toISOString()}
+                style={[styles.dateChip, sel && styles.dateChipSel]}
+                onPress={() => setDate(d)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.dateWd, sel && styles.dateTextSel]}>{HE_WD[d.getDay()]}</Text>
+                <Text style={[styles.dateNum, sel && styles.dateTextSel]}>{d.getDate()}</Text>
+                {avail && !sel && <View style={styles.dateDot} />}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         <Text style={styles.label}>צוות (אופציונלי)</Text>
         <View style={styles.chips}>
@@ -227,7 +285,9 @@ export function NewServiceCallScreen() {
         >
           <TouchableOpacity style={styles.reqAdd} onPress={() => setScanOpen(true)} activeOpacity={0.85}>
             <Ionicons name="barcode-outline" size={22} color="#FFFFFF" />
-            <Ionicons name="add" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.reqAddManual} onPress={() => setManualOpen(true)} activeOpacity={0.85}>
+            <Ionicons name="add" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           {requiredItems.map((id) => {
             const item = items.find((i) => i.id === id);
@@ -272,6 +332,65 @@ export function NewServiceCallScreen() {
       </ScrollView>
 
       <BarcodeScannerModal visible={scanOpen} onClose={() => setScanOpen(false)} onScanned={onScanned} />
+
+      <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Calendar
+              selected={date}
+              onSelect={(d) => {
+                setDate(d);
+                setCalOpen(false);
+              }}
+              availableWeekdays={availableWeekdays}
+            />
+            <CustomButton label="סגור" variant="ghost" onPress={() => setCalOpen(false)} />
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={manualOpen} transparent animationType="fade" onRequestClose={() => setManualOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>הוספת פריט</Text>
+            <TextField label="חיפוש או שם פריט" value={itemSearch} onChange={setItemSearch} placeholder="הקלד שם…" />
+            <ScrollView style={styles.pickList} keyboardShouldPersistTaps="handled">
+              {items
+                .filter((it) => !itemSearch.trim() || it.itemName.includes(itemSearch.trim()))
+                .slice(0, 30)
+                .map((it) => (
+                  <TouchableOpacity
+                    key={it.id}
+                    style={styles.pickRow}
+                    onPress={() => {
+                      addRequired(it.id);
+                      setManualOpen(false);
+                      setItemSearch('');
+                    }}
+                  >
+                    <Text style={styles.pickText}>{it.itemName}{it.lacks ? ' (חסר)' : ''}</Text>
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
+            {!!itemSearch.trim() && !items.some((i) => i.itemName === itemSearch.trim()) && (
+              <CustomButton
+                label={`צור חדש: "${itemSearch.trim()}"`}
+                variant="secondary"
+                onPress={createManual}
+                style={styles.btn}
+              />
+            )}
+            <CustomButton
+              label="ביטול"
+              variant="ghost"
+              onPress={() => {
+                setManualOpen(false);
+                setItemSearch('');
+              }}
+            />
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={!!pendingBarcode} transparent animationType="fade" onRequestClose={() => setPendingBarcode(null)}>
         <View style={styles.modalBg}>
@@ -333,6 +452,28 @@ const styles = StyleSheet.create({
   btn: { marginTop: 16 },
   financeRow: { flexDirection: 'row', gap: 8 },
   financeCol: { flex: 1 },
+  dateStripScroll: { height: 64, marginBottom: 14 },
+  dateStrip: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  calBtn: { width: 48, height: 56, borderRadius: 10, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  dateChip: {
+    width: 48,
+    height: 56,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateChipSel: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dateWd: { fontSize: 12, color: Colors.textSecondary },
+  dateNum: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, marginTop: 2 },
+  dateTextSel: { color: '#FFFFFF' },
+  dateDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#1E9E5A', marginTop: 3 },
+  reqAddManual: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#0F766E', alignItems: 'center', justifyContent: 'center' },
+  pickList: { maxHeight: 200 },
+  pickRow: { paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  pickText: { fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
   reqScroll: { height: 52, marginBottom: 14 },
   reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reqAdd: {
