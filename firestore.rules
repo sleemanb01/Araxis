@@ -61,7 +61,10 @@ service cloud.firestore {
     // ---- Inventory ----
     match /inventory/{itemId} {
       allow read: if provisioned();
-      allow write: if can('manageInventory');
+      // Inventory managers manage stock; a call creator may add a new (missing)
+      // item — flagged `lacks` — while building a job.
+      allow create: if can('manageInventory') || can('createCalls');
+      allow update, delete: if can('manageInventory');
     }
 
     // ---- Service catalog ----

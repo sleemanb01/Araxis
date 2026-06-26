@@ -28,6 +28,7 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
     id: snap.id,
     itemName: d.itemName ?? d.name ?? '',
     barcode: d.barcode ?? undefined,
+    lacks: d.lacks === true ? true : undefined,
     locations: d.locations && typeof d.locations === 'object' ? d.locations : {},
   };
 }
@@ -144,8 +145,9 @@ export async function returnToWarehouse(
   await batch.commit();
 }
 
-export async function createInventoryItem(payload: CreateInventoryPayload): Promise<void> {
-  await addDoc(collection(db, INVENTORY), payload);
+export async function createInventoryItem(payload: CreateInventoryPayload): Promise<string> {
+  const ref = await addDoc(collection(db, INVENTORY), payload);
+  return ref.id;
 }
 
 export async function updateInventoryItem(

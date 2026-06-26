@@ -45,6 +45,7 @@ export function ItemEditorScreen() {
           itemName: name.trim(),
           barcode: code, // '' clears it
           locations: { ...existing.locations, [WAREHOUSE]: qty },
+          ...(existing.lacks && qty > 0 ? { lacks: false } : {}), // restocked → clear "lacks"
         });
       } else {
         await createInventoryItem({

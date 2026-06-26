@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { WarehouseScreen } from '../screens/WarehouseScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { useInventory } from '../context/InventoryContext';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { TabParamList } from './types';
@@ -23,10 +24,14 @@ const TAB_LABELS: Record<keyof TabParamList, string> = {
 };
 
 export function TabNavigator() {
+  const { items } = useInventory();
+  const lacksCount = items.filter((i) => i.lacks).length;
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarBadge: route.name === 'Warehouse' && lacksCount > 0 ? lacksCount : undefined,
+        tabBarBadgeStyle: { backgroundColor: Colors.danger, color: '#FFFFFF', fontSize: 10 },
         tabBarStyle: {
           height: Layout.tabBarHeight,
           backgroundColor: Colors.tabBar,

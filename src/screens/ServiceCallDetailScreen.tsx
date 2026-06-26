@@ -144,6 +144,20 @@ export function ServiceCallDetailScreen() {
           <Text style={styles.muted}>אין ציוד רשום</Text>
         )}
 
+        {!!call.requiredItems?.length && (
+          <>
+            <Text style={styles.section}>פריטים נדרשים</Text>
+            {call.requiredItems.map((id) => {
+              const it = items.find((i) => i.id === id);
+              return (
+                <Text key={id} style={styles.line}>
+                  • {it?.itemName ?? id}{it?.lacks ? ' — חסר' : ''}
+                </Text>
+              );
+            })}
+          </>
+        )}
+
         <Text style={styles.section}>{showTeamPay ? 'חלוקת תשלום' : 'התשלום שלי'}</Text>
         {splitsToShow.map(([id, amt]) => (
           <View key={id} style={styles.payRow}>

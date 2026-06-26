@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -7,16 +7,21 @@ import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { Calendar } from '../components/Calendar';
+import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { getUsersByIds } from '../services/userService';
 import { createServiceCall, setFinancials } from '../services/serviceCallService';
+import { createInventoryItem } from '../services/inventoryService';
 import { useUser } from '../context/UserContext';
+import { useInventory } from '../context/InventoryContext';
 import { UserProfile } from '../types/user';
+import { WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
 export function NewServiceCallScreen() {
   const navigation = useNavigation();
   const { crews, caps } = useUser();
+  const { items } = useInventory();
   const [crew, setCrew] = useState<UserProfile[]>([]); // crew-mate profiles (for availability)
   const [clientName, setClientName] = useState('');
   const [address, setAddress] = useState('');
@@ -33,6 +38,10 @@ export function NewServiceCallScreen() {
   const [price, setPrice] = useState('');
   const [paid, setPaid] = useState('');
   const [saving, setSaving] = useState(false);
+  const [requiredItems, setRequiredItems] = useState<string[]>([]);
+  const [scanOpen, setScanOpen] = useState(false);
+  const [pendingBarcode, setPendingBarcode] = useState<string | null>(null);
+  const [newItemName, setNewItemName] = useState('');
 
   // Assignable team = your crew mates (req 1: you only see your crew mates).
   const crewMateIds = useMemo(() => [...new Set(crews.flatMap((c) => c.memberIds))], [crews]);
@@ -90,6 +99,42 @@ export function NewServiceCallScreen() {
     }
   }
 
+  function addRequired(id: string) {
+    setRequiredItems((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+  function removeRequired(id: string) {
+    setRequiredItems((prev) => prev.filter((x) => x !== id));
+  }
+
+  // Scanned a required item: add it if it's already in the warehouse, else prompt
+  // to create a new (missing) item.
+  function onScanned(code: string) {
+    setScanOpen(false);
+    const existing = items.find((i) => i.barcode === code);
+    if (existing) addRequired(existing.id);
+    else {
+      setPendingBarcode(code);
+      setNewItemName('');
+    }
+  }
+
+  async function confirmNewItem() {
+    if (!pendingBarcode || !newItemName.trim()) return;
+    try {
+      const id = await createInventoryItem({
+        itemName: newItemName.trim(),
+        barcode: pendingBarcode,
+        lacks: true,
+        locations: { [WAREHOUSE]: 0 },
+      });
+      addRequired(id);
+      setPendingBarcode(null);
+      setNewItemName('');
+    } catch {
+      Alert.alert('שגיאה', 'הוספת הפריט למחסן נכשלה.');
+    }
+  }
+
   async function submit() {
     if (!clientName.trim()) {
       Alert.alert('שגיאה', 'יש להזין שם לקוח.');
@@ -112,6 +157,7 @@ export function NewServiceCallScreen() {
         ...(address.trim() ? { address: address.trim() } : {}),
         ...(contactPhone.trim() ? { contactPhone: contactPhone.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(requiredItems.length ? { requiredItems } : {}),
         status: 'pending',
         scheduledDate: date.toISOString(),
         hardwareUsed: [],
@@ -172,6 +218,26 @@ export function NewServiceCallScreen() {
           ))}
         </View>
 
+        <Text style={styles.label}>פריטים נדרשים (אופציונלי)</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reqRow}>
+          <TouchableOpacity style={styles.reqAdd} onPress={() => setScanOpen(true)} activeOpacity={0.85}>
+            <Ionicons name="barcode-outline" size={22} color="#FFFFFF" />
+            <Ionicons name="add" size={14} color="#FFFFFF" />
+          </TouchableOpacity>
+          {requiredItems.map((id) => {
+            const item = items.find((i) => i.id === id);
+            return (
+              <View key={id} style={[styles.reqChip, item?.lacks && styles.reqChipLacks]}>
+                {item?.lacks && <View style={styles.redDot} />}
+                <Text style={styles.reqChipText} numberOfLines={1}>{item?.itemName ?? '—'}</Text>
+                <TouchableOpacity onPress={() => removeRequired(id)} hitSlop={6}>
+                  <Ionicons name="close-circle" size={16} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </ScrollView>
+
         {caps.viewTeamPayouts && (
           <>
             <TextField label="תשלום לצוות (₪)" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
@@ -192,6 +258,21 @@ export function NewServiceCallScreen() {
 
         <CustomButton label="צור קריאה" onPress={submit} loading={saving} style={styles.btn} />
       </ScrollView>
+
+      <BarcodeScannerModal visible={scanOpen} onClose={() => setScanOpen(false)} onScanned={onScanned} />
+
+      <Modal visible={!!pendingBarcode} transparent animationType="fade" onRequestClose={() => setPendingBarcode(null)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>פריט חדש</Text>
+            <Text style={styles.modalSub} numberOfLines={1}>ברקוד: {pendingBarcode}</Text>
+            <TextField label="שם הפריט" value={newItemName} onChange={setNewItemName} placeholder="לדוגמה: מצלמה" />
+            <Text style={styles.modalSub}>● יתווסף למחסן עם סימון "חסר".</Text>
+            <CustomButton label="הוסף" onPress={confirmNewItem} disabled={!newItemName.trim()} style={styles.btn} />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setPendingBarcode(null)} />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -238,4 +319,33 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#FFFFFF', fontWeight: '600' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 14 },
   btn: { marginTop: 16 },
+  reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, marginBottom: 14 },
+  reqAdd: {
+    width: 52,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  reqChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    maxWidth: 180,
+  },
+  reqChipLacks: { borderColor: Colors.danger },
+  reqChipText: { fontSize: 14, color: Colors.textPrimary },
+  redDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.danger },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 4 },
+  modalSub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
 });

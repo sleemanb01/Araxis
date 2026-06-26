@@ -124,6 +124,11 @@ function InventoryRow({
       <TouchableOpacity style={styles.rowInfo} onPress={onEdit} activeOpacity={0.7}>
         <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
         <View style={styles.rowMeta}>
+          {item.lacks && (
+            <View style={styles.lacksTag}>
+              <Text style={styles.lacksText}>חסר</Text>
+            </View>
+          )}
           {low && (
             <View style={styles.lowTag}>
               <Ionicons name="alert-circle-outline" size={12} color="#A32D2D" />
@@ -229,6 +234,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   lowText: { fontSize: 11, color: '#A32D2D', fontWeight: '500' },
+  lacksTag: { backgroundColor: Colors.danger, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
+  lacksText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   split: { fontSize: 12, color: Colors.textSecondary },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   stepBtn: {
