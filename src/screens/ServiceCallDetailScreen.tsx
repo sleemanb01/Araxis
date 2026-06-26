@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
+import { dialPhone, openWhatsapp } from '../utils/contact';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
@@ -96,6 +98,30 @@ export function ServiceCallDetailScreen() {
         </View>
         <Text style={styles.date}>{new Date(call.scheduledDate).toLocaleDateString('he-IL')}</Text>
 
+        {(call.address || call.contactPhone) && (
+          <View style={styles.contactBox}>
+            {!!call.address && (
+              <View style={styles.contactRow}>
+                <Ionicons name="location-outline" size={17} color={Colors.textSecondary} />
+                <Text style={styles.contactText}>{call.address}</Text>
+              </View>
+            )}
+            {!!call.contactPhone && (
+              <View style={styles.contactRow}>
+                <View style={styles.contactBtns}>
+                  <TouchableOpacity style={styles.cbtn} onPress={() => dialPhone(call.contactPhone!)} hitSlop={6}>
+                    <Ionicons name="call" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.cbtn, styles.cbtnWa]} onPress={() => openWhatsapp(call.contactPhone!)} hitSlop={6}>
+                    <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.contactText}>{call.contactPhone}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <Text style={styles.section}>צוות</Text>
         <Text style={styles.line}>
           ראש צוות: {call.teamAssignment.leadTech === uid ? 'אני' : call.teamAssignment.leadTech}
@@ -164,6 +190,12 @@ const styles = StyleSheet.create({
   badge: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
   badgeText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   date: { fontSize: 14, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  contactBox: { backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 12, marginTop: 4, gap: 10 },
+  contactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  contactText: { flex: 1, fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
+  contactBtns: { flexDirection: 'row', gap: 8 },
+  cbtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  cbtnWa: { backgroundColor: '#25D366' },
   section: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginTop: 18, marginBottom: 6 },
   line: { fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
   lineBold: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },

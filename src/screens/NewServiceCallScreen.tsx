@@ -17,6 +17,8 @@ export function NewServiceCallScreen() {
   const { crews, caps } = useUser();
   const [crew, setCrew] = useState<UserProfile[]>([]); // crew-mate profiles (for availability)
   const [clientName, setClientName] = useState('');
+  const [address, setAddress] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setHours(9, 0, 0, 0);
@@ -78,6 +80,8 @@ export function NewServiceCallScreen() {
     try {
       const id = await createServiceCall({
         clientName: clientName.trim(),
+        ...(address.trim() ? { address: address.trim() } : {}),
+        ...(contactPhone.trim() ? { contactPhone: contactPhone.trim() } : {}),
         status: 'pending',
         scheduledDate: date.toISOString(),
         hardwareUsed: [],
@@ -103,6 +107,8 @@ export function NewServiceCallScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>קריאת שירות חדשה</Text>
         <TextField label="שם הלקוח / אתר" value={clientName} onChange={setClientName} placeholder="לדוגמה: אתר מרכזי" />
+        <TextField label="כתובת" value={address} onChange={setAddress} placeholder="רחוב, עיר" />
+        <TextField label="טלפון ליצירת קשר" value={contactPhone} onChange={setContactPhone} placeholder="050-0000000" keyboardType="phone-pad" />
 
         <Text style={styles.label}>מועד</Text>
         <Calendar selected={date} onSelect={setDate} availableWeekdays={availableWeekdays} />
