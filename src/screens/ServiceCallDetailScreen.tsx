@@ -85,6 +85,9 @@ export function ServiceCallDetailScreen() {
 
   const checked = new Set(call.checkedItems ?? []);
   const reqItems = call.requiredItems ?? [];
+  // Can't finish a job until every required item is checked off.
+  const allItemsChecked = reqItems.every((id) => checked.has(id));
+  const blockFinish = next === 'completed' && reqItems.length > 0 && !allItemsChecked;
 
   const priceN = Math.max(0, parseFloat(price) || 0);
   const paidN = Math.max(0, parseFloat(paid) || 0);
@@ -316,7 +319,17 @@ export function ServiceCallDetailScreen() {
         )}
 
         {canEdit && next && (
-          <CustomButton label={`סמן כ"${CallStatusLabelsHe[next]}"`} onPress={advance} style={styles.btn} />
+          <>
+            {blockFinish && (
+              <Text style={styles.blockHint}>יש לסמן את כל הפריטים הנדרשים לפני סיום העבודה.</Text>
+            )}
+            <CustomButton
+              label={`סמן כ"${CallStatusLabelsHe[next]}"`}
+              onPress={advance}
+              disabled={blockFinish}
+              style={styles.btn}
+            />
+          </>
         )}
       </ScrollView>
 
@@ -399,6 +412,7 @@ const styles = StyleSheet.create({
   finStatus: { fontSize: 14, fontWeight: '700', color: Colors.primary, textAlign: 'right', marginTop: 2 },
   btn: { marginTop: 28 },
   btnFin: { marginTop: 10 },
+  blockHint: { fontSize: 13, color: Colors.danger, textAlign: 'right', marginTop: 24, marginBottom: -16 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
   modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 20 },
   modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 4 },
