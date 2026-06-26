@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SectionList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { ServiceCallCard } from '../components/ServiceCallCard';
 import { SectionHeader } from '../components/SectionHeader';
 import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { ServiceCall } from '../types/serviceCall';
 import { dayKey } from '../utils/finance';
+import { formatDayLabel } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -34,101 +36,108 @@ export function DashboardScreen() {
   );
 
   const [filter, setFilter] = useState<'today' | 'all'>('today');
-  const sections = useMemo(() => {
-    const todayKey = dayKey(new Date());
-    const byDate = [...mine].sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
-    if (filter === 'today') {
-      const data = byDate.filter((c) => dayKey(new Date(c.scheduledDate)) === todayKey);
-      return data.length ? [{ title: '', data }] : [];
-    }
-    // All jobs, grouped into one list per calendar day.
-    const map = new Map<string, ServiceCall[]>();
-    byDate.forEach((c) => {
+
+  const todayJobs = useMemo(() => {
+    const k = dayKey(new Date());
+    return mine
+      .filter((c) => dayKey(new Date(c.scheduledDate)) === k)
+      .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+  }, [mine]);
+
+  // "All" → one row per day that has jobs (tap to open that day's list).
+  const days = useMemo(() => {
+    const map = new Map<string, number>();
+    mine.forEach((c) => {
       const k = dayKey(new Date(c.scheduledDate));
-      const arr = map.get(k);
-      if (arr) arr.push(c);
-      else map.set(k, [c]);
+      map.set(k, (map.get(k) ?? 0) + 1);
     });
-    return Array.from(map.values()).map((data) => ({
-      title: new Date(data[0].scheduledDate).toLocaleDateString('he-IL', {
-        weekday: 'short',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }),
-      data,
-    }));
-  }, [mine, filter]);
-  const total = sections.reduce((n, s) => n + s.data.length, 0);
+    return Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([day, count]) => ({ day, count }));
+  }, [mine]);
 
   const subtitleFor = (c: ServiceCall) =>
     showTeamPay
       ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
       : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`;
 
+  const header = (
+    <View>
+      <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
+      {caps.createCalls && (
+        <CustomButton
+          label="+ קריאה חדשה"
+          onPress={() => navigation.navigate('NewServiceCall')}
+          style={styles.newBtn}
+        />
+      )}
+      <SectionHeader title="הקריאות שלי" count={filter === 'today' ? todayJobs.length : mine.length} />
+      <View style={styles.segment}>
+        <TouchableOpacity
+          style={[styles.segBtn, filter === 'today' && styles.segBtnOn]}
+          onPress={() => setFilter('today')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.segText, filter === 'today' && styles.segTextOn]}>היום</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segBtn, filter === 'all' && styles.segBtnOn]}
+          onPress={() => setFilter('all')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.segText, filter === 'all' && styles.segTextOn]}>הכל</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const emptyComp = loading ? (
+    <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+  ) : (
+    <Text style={styles.empty}>אין קריאות קרובות.</Text>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <SectionList
-        sections={sections}
-        keyExtractor={(c) => c.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.jobRow}
-            onPress={() => navigation.navigate('ServiceCallDetail', { callId: item.id })}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.chev}>‹</Text>
-            <View style={styles.jobInfo}>
-              <Text style={styles.jobName} numberOfLines={1}>{item.clientName}</Text>
-              <Text style={styles.jobMeta} numberOfLines={1}>
-                {new Date(item.scheduledDate).toLocaleDateString('he-IL')} · {subtitleFor(item)}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        renderSectionHeader={({ section }) =>
-          section.title ? <Text style={styles.dateHeader}>{section.title}</Text> : null
-        }
-        stickySectionHeadersEnabled={false}
-        ListHeaderComponent={
-          <View>
-            <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
-            {caps.createCalls && (
-              <CustomButton
-                label="+ קריאה חדשה"
-                onPress={() => navigation.navigate('NewServiceCall')}
-                style={styles.newBtn}
-              />
-            )}
-            <SectionHeader title="הקריאות שלי" count={total} />
-            <View style={styles.segment}>
-              <TouchableOpacity
-                style={[styles.segBtn, filter === 'today' && styles.segBtnOn]}
-                onPress={() => setFilter('today')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.segText, filter === 'today' && styles.segTextOn]}>היום</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segBtn, filter === 'all' && styles.segBtnOn]}
-                onPress={() => setFilter('all')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.segText, filter === 'all' && styles.segTextOn]}>הכל</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        }
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
-          ) : (
-            <Text style={styles.empty}>אין קריאות קרובות.</Text>
-          )
-        }
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-      />
+      {filter === 'today' ? (
+        <FlatList
+          data={todayJobs}
+          keyExtractor={(c) => c.id}
+          renderItem={({ item }) => (
+            <ServiceCallCard
+              call={item}
+              subtitle={subtitleFor(item)}
+              onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id })}
+            />
+          )}
+          ListHeaderComponent={header}
+          ListEmptyComponent={emptyComp}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={days}
+          keyExtractor={(d) => d.day}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.dayRow}
+              onPress={() => navigation.navigate('DayJobs', { day: item.day })}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.chev}>‹</Text>
+              <View style={styles.dayInfo}>
+                <Text style={styles.dayName}>{formatDayLabel(item.day)}</Text>
+                <Text style={styles.dayMeta}>{item.count} עבודות</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          ListHeaderComponent={header}
+          ListEmptyComponent={emptyComp}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -151,18 +160,17 @@ const styles = StyleSheet.create({
   segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: '#FFFFFF' },
-  dateHeader: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary, textAlign: 'right', marginTop: 16, marginBottom: 8 },
-  jobRow: {
+  dayRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
     borderRadius: 10,
-    padding: 13,
+    padding: 15,
     marginBottom: 10,
   },
   chev: { fontSize: 24, color: Colors.textSecondary },
-  jobInfo: { flex: 1, marginStart: 12, alignItems: 'flex-end' },
-  jobName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
-  jobMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
+  dayInfo: { flex: 1, marginStart: 12, alignItems: 'flex-end' },
+  dayName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  dayMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });

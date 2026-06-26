@@ -7,6 +7,7 @@ import { TransferScreen } from '../screens/TransferScreen';
 import { CrewDetailScreen } from '../screens/CrewDetailScreen';
 import { CrewWithdrawalsScreen } from '../screens/CrewWithdrawalsScreen';
 import { CrewJobsScreen } from '../screens/CrewJobsScreen';
+import { DayJobsScreen } from '../screens/DayJobsScreen';
 import { FinancialDashboardScreen } from '../screens/FinancialDashboardScreen';
 import { NewServiceCallScreen } from '../screens/NewServiceCallScreen';
 import { RootStackParamList } from './types';
@@ -32,6 +33,7 @@ export function RootNavigator() {
       <Stack.Screen name="CrewDetail" component={CrewDetailScreen} options={{ title: 'צוות' }} />
       <Stack.Screen name="CrewWithdrawals" component={CrewWithdrawalsScreen} options={{ title: 'היסטוריית משיכות' }} />
       <Stack.Screen name="CrewJobs" component={CrewJobsScreen} options={{ title: 'עבודות שבוצעו' }} />
+      <Stack.Screen name="DayJobs" component={DayJobsScreen} options={{ title: 'עבודות היום' }} />
       <Stack.Screen name="FinancialDashboard" component={FinancialDashboardScreen} options={{ title: 'לוח כספים' }} />
       <Stack.Screen name="NewServiceCall" component={NewServiceCallScreen} options={{ title: 'קריאה חדשה', presentation: 'modal' }} />
     </Stack.Navigator>
