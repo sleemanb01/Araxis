@@ -12,7 +12,7 @@ import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
-import { monthlyProfit, dailyProfit, monthKey, dayKey } from '../utils/finance';
+import { monthlyProfit, dailyProfit, callProfit, monthKey, dayKey } from '../utils/finance';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
@@ -69,6 +69,13 @@ export function ProfileScreen() {
 
   const monthly = useMemo(() => monthlyProfit(calls, fins, items), [calls, fins, items]);
   const daily = useMemo(() => dailyProfit(calls, fins, items), [calls, fins, items]);
+  const crewProfits = useMemo(() => {
+    const out: Record<string, number> = {};
+    calls.forEach((c, i) => {
+      if (c.crewId) out[c.crewId] = (out[c.crewId] ?? 0) + callProfit(c, fins[i], items);
+    });
+    return out;
+  }, [calls, fins, items]);
 
   const now = new Date();
   const curKey = monthKey(now);
@@ -222,6 +229,14 @@ export function ProfileScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={styles.chev}>‹</Text>
+                {caps.viewFinancials && (
+                  <View style={styles.crewProfitBox}>
+                    <Text style={[styles.crewProfit, (crewProfits[item.id] ?? 0) < 0 && styles.crewProfitNeg]}>
+                      {ils(crewProfits[item.id] ?? 0)}
+                    </Text>
+                    <Text style={styles.crewProfitCap}>רווח</Text>
+                  </View>
+                )}
                 <View style={styles.crewInfo}>
                   <Text style={styles.crewName}>{item.name}</Text>
                   <Text style={styles.crewMeta}>
@@ -314,6 +329,10 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  crewProfitBox: { alignItems: 'center', marginHorizontal: 10 },
+  crewProfit: { fontSize: 15, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr' },
+  crewProfitNeg: { color: Colors.danger },
+  crewProfitCap: { fontSize: 10, color: Colors.textSecondary, marginTop: 1 },
   crewInfo: { flex: 1, alignItems: 'flex-end' },
   crewName: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   crewMeta: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
