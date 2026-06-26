@@ -10,9 +10,10 @@ import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { getFinancials } from '../services/serviceCallService';
+import { subscribeToArchive, ArchiveSummary } from '../services/archiveService';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
-import { dayKey, callProfit } from '../utils/finance';
-import { formatDayLabel } from '../utils/date';
+import { dayKey, monthKey, callProfit } from '../utils/finance';
+import { formatMonthLabel } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -39,6 +40,12 @@ export function DashboardScreen() {
   );
 
   const [filter, setFilter] = useState<'today' | 'all'>('today');
+  const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
+
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    return subscribeToArchive(setArchive, () => {});
+  }, [caps.viewFinancials]);
 
   // Financials aren't on the live call docs; fetch them (viewFinancials) for profit.
   const [fins, setFins] = useState<Record<string, PrivateFinancials | null>>({});
@@ -65,20 +72,18 @@ export function DashboardScreen() {
       .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
   }, [mine]);
 
-  // "All" → one row per day that has jobs (tap to open that day's list).
-  const days = useMemo(() => {
-    const map = new Map<string, { count: number; profit: number }>();
+  // "All" → one row per month with its profit. Live months are merged with the
+  // archived monthly totals, so recycled months still show after the data wipe.
+  const months = useMemo(() => {
+    const m: Record<string, number> = { ...archive.monthlyProfit };
     mine.forEach((c) => {
-      const k = dayKey(new Date(c.scheduledDate));
-      const cur = map.get(k) ?? { count: 0, profit: 0 };
-      cur.count += 1;
-      cur.profit += callProfit(c, fins[c.id] ?? null, items);
-      map.set(k, cur);
+      const k = monthKey(new Date(c.scheduledDate));
+      m[k] = (m[k] ?? 0) + callProfit(c, fins[c.id] ?? null, items);
     });
-    return Array.from(map.entries())
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([day, v]) => ({ day, count: v.count, profit: v.profit }));
-  }, [mine, fins, items]);
+    return Object.entries(m)
+      .sort((a, b) => b[0].localeCompare(a[0])) // most recent first
+      .map(([month, profit]) => ({ month, profit }));
+  }, [mine, fins, items, archive]);
 
   const subtitleFor = (c: ServiceCall) =>
     showTeamPay
@@ -141,25 +146,17 @@ export function DashboardScreen() {
         />
       ) : (
         <FlatList
-          data={days}
-          keyExtractor={(d) => d.day}
+          data={months}
+          keyExtractor={(m) => m.month}
           renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.dayRow}
-              onPress={() => navigation.navigate('DayJobs', { day: item.day })}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.chev}>‹</Text>
+            <View style={styles.monthRow}>
               {caps.viewFinancials && (
-                <Text style={[styles.dayProfit, item.profit < 0 && styles.dayProfitNeg]}>
+                <Text style={[styles.monthProfit, item.profit < 0 && styles.monthProfitNeg]}>
                   ₪{Math.round(item.profit).toLocaleString('he-IL')}
                 </Text>
               )}
-              <View style={styles.dayInfo}>
-                <Text style={styles.dayName}>{formatDayLabel(item.day)}</Text>
-                <Text style={styles.dayMeta}>{item.count} עבודות</Text>
-              </View>
-            </TouchableOpacity>
+              <Text style={styles.monthName}>{formatMonthLabel(item.month)}</Text>
+            </View>
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
@@ -189,19 +186,16 @@ const styles = StyleSheet.create({
   segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: '#FFFFFF' },
-  dayRow: {
+  monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.surface,
     borderRadius: 10,
-    padding: 15,
+    padding: 16,
     marginBottom: 10,
   },
-  chev: { fontSize: 24, color: Colors.textSecondary },
-  dayProfit: { fontSize: 15, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr', marginHorizontal: 8 },
-  dayProfitNeg: { color: Colors.danger },
-  dayInfo: { flex: 1, marginStart: 12, alignItems: 'flex-end' },
-  dayName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
-  dayMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
+  monthProfit: { fontSize: 16, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr', marginEnd: 12 },
+  monthProfitNeg: { color: Colors.danger },
+  monthName: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });
