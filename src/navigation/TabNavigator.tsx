@@ -14,13 +14,13 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const TAB_ICONS: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
   Dashboard: 'briefcase-outline',
   Warehouse: 'cube-outline',
-  Profile:   'person-outline',
+  Profile:   'speedometer-outline',
 };
 
 const TAB_LABELS: Record<keyof TabParamList, string> = {
   Dashboard: 'עבודות',
   Warehouse: 'מחסן',
-  Profile:   'פרופיל',
+  Profile:   'לוח בקרה',
 };
 
 export function TabNavigator() {
