@@ -20,6 +20,7 @@ export interface ServiceCall {
   clientName: string;
   address?: string;                 // job site address
   contactPhone?: string;            // on-site contact phone
+  notes?: string;                   // free-text notes for the job
   status: ServiceCallStatus;
   scheduledDate: string;            // ISO date string
   hardwareUsed: string[];           // inventory item ids consumed on this call

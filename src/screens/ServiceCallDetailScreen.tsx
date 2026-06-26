@@ -122,6 +122,13 @@ export function ServiceCallDetailScreen() {
           </View>
         )}
 
+        {!!call.notes && (
+          <>
+            <Text style={styles.section}>הערות</Text>
+            <Text style={styles.line}>{call.notes}</Text>
+          </>
+        )}
+
         <Text style={styles.section}>צוות</Text>
         <Text style={styles.line}>
           ראש צוות: {call.teamAssignment.leadTech === uid ? 'אני' : call.teamAssignment.leadTech}

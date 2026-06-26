@@ -22,6 +22,7 @@ export function NewServiceCallScreen() {
   const [address, setAddress] = useState('');
   const [locating, setLocating] = useState(false);
   const [contactPhone, setContactPhone] = useState('+972 5');
+  const [notes, setNotes] = useState('');
   const [date, setDate] = useState(() => {
     const d = new Date();
     d.setHours(9, 0, 0, 0);
@@ -110,6 +111,7 @@ export function NewServiceCallScreen() {
         clientName: clientName.trim(),
         ...(address.trim() ? { address: address.trim() } : {}),
         ...(contactPhone.trim() ? { contactPhone: contactPhone.trim() } : {}),
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
         status: 'pending',
         scheduledDate: date.toISOString(),
         hardwareUsed: [],
@@ -156,7 +158,6 @@ export function NewServiceCallScreen() {
 
         <Text style={styles.label}>מועד</Text>
         <Calendar selected={date} onSelect={setDate} availableWeekdays={availableWeekdays} />
-        <Text style={styles.note}>● ימים זמינים לצוות מסומנים בנקודה ירוקה</Text>
 
         <Text style={styles.label}>צוות (אופציונלי)</Text>
         <View style={styles.chips}>
@@ -186,6 +187,8 @@ export function NewServiceCallScreen() {
             <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
           </>
         )}
+
+        <TextField label="הערות" value={notes} onChange={setNotes} placeholder="הערות לקריאה" multiline />
 
         <CustomButton label="צור קריאה" onPress={submit} loading={saving} style={styles.btn} />
       </ScrollView>
