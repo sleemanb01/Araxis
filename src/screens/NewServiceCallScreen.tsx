@@ -235,7 +235,7 @@ export function NewServiceCallScreen() {
         </View>
         <TextField label="טלפון ליצירת קשר" value={contactPhone} onChange={setContactPhone} placeholder="+972 50 1234567" keyboardType="phone-pad" />
 
-        <Text style={styles.label}>מועד · {date.toLocaleDateString('he-IL')}</Text>
+        <Text style={styles.label}>מועד</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
