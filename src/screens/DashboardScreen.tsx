@@ -69,6 +69,7 @@ export function DashboardScreen() {
                 style={styles.newBtn}
               />
             )}
+            <SectionHeader title="הקריאות שלי" count={visible.length} />
             <View style={styles.segment}>
               <TouchableOpacity
                 style={[styles.segBtn, filter === 'today' && styles.segBtnOn]}
@@ -85,7 +86,6 @@ export function DashboardScreen() {
                 <Text style={[styles.segText, filter === 'all' && styles.segTextOn]}>הכל</Text>
               </TouchableOpacity>
             </View>
-            <SectionHeader title="הקריאות שלי" count={visible.length} />
           </View>
         }
         ListEmptyComponent={
