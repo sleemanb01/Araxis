@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -8,8 +8,10 @@ import { SectionHeader } from '../components/SectionHeader';
 import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
-import { ServiceCall } from '../types/serviceCall';
-import { dayKey } from '../utils/finance';
+import { useInventory } from '../context/InventoryContext';
+import { getFinancials } from '../services/serviceCallService';
+import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
+import { dayKey, callProfit } from '../utils/finance';
 import { formatDayLabel } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -21,6 +23,7 @@ export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, caps } = useUser();
   const { calls, loading } = useLiveMetrics();
+  const { items } = useInventory();
   const uid = profile?.uid ?? '';
   const showTeamPay = caps.viewTeamPayouts;
 
@@ -37,6 +40,24 @@ export function DashboardScreen() {
 
   const [filter, setFilter] = useState<'today' | 'all'>('today');
 
+  // Financials aren't on the live call docs; fetch them (viewFinancials) for profit.
+  const [fins, setFins] = useState<Record<string, PrivateFinancials | null>>({});
+  const callIds = mine.map((c) => c.id).join(',');
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        mine.map(async (c) => [c.id, await getFinancials(c.id).catch(() => null)] as const)
+      );
+      if (!cancelled) setFins(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callIds, caps.viewFinancials]);
+
   const todayJobs = useMemo(() => {
     const k = dayKey(new Date());
     return mine
@@ -46,15 +67,18 @@ export function DashboardScreen() {
 
   // "All" → one row per day that has jobs (tap to open that day's list).
   const days = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { count: number; profit: number }>();
     mine.forEach((c) => {
       const k = dayKey(new Date(c.scheduledDate));
-      map.set(k, (map.get(k) ?? 0) + 1);
+      const cur = map.get(k) ?? { count: 0, profit: 0 };
+      cur.count += 1;
+      cur.profit += callProfit(c, fins[c.id] ?? null, items);
+      map.set(k, cur);
     });
     return Array.from(map.entries())
       .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([day, count]) => ({ day, count }));
-  }, [mine]);
+      .map(([day, v]) => ({ day, count: v.count, profit: v.profit }));
+  }, [mine, fins, items]);
 
   const subtitleFor = (c: ServiceCall) =>
     showTeamPay
@@ -126,6 +150,11 @@ export function DashboardScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.chev}>‹</Text>
+              {caps.viewFinancials && (
+                <Text style={[styles.dayProfit, item.profit < 0 && styles.dayProfitNeg]}>
+                  ₪{Math.round(item.profit).toLocaleString('he-IL')}
+                </Text>
+              )}
               <View style={styles.dayInfo}>
                 <Text style={styles.dayName}>{formatDayLabel(item.day)}</Text>
                 <Text style={styles.dayMeta}>{item.count} עבודות</Text>
@@ -169,6 +198,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   chev: { fontSize: 24, color: Colors.textSecondary },
+  dayProfit: { fontSize: 15, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr', marginHorizontal: 8 },
+  dayProfitNeg: { color: Colors.danger },
   dayInfo: { flex: 1, marginStart: 12, alignItems: 'flex-end' },
   dayName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   dayMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
