@@ -14,7 +14,7 @@ import { Layout } from '../constants/layout';
 
 export function NewServiceCallScreen() {
   const navigation = useNavigation();
-  const { crews } = useUser();
+  const { crews, caps } = useUser();
   const [crew, setCrew] = useState<UserProfile[]>([]); // crew-mate profiles (for availability)
   const [clientName, setClientName] = useState('');
   const [date, setDate] = useState(() => {
@@ -121,13 +121,21 @@ export function NewServiceCallScreen() {
           ))}
         </View>
 
-        <TextField label="תשלום לצוות (₪)" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
-        {selectedCrew && (
-          <Text style={styles.note}>יחולק שווה בשווה בין {memberIds.length} חברי {selectedCrew.name}.</Text>
+        {caps.viewTeamPayouts && (
+          <>
+            <TextField label="תשלום לצוות (₪)" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
+            {selectedCrew && (
+              <Text style={styles.note}>יחולק שווה בשווה בין {memberIds.length} חברי {selectedCrew.name}.</Text>
+            )}
+          </>
         )}
 
-        <TextField label="מחיר ללקוח (₪) — מנהל בלבד" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
-        <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+        {caps.viewFinancials && (
+          <>
+            <TextField label="מחיר ללקוח (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+            <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+          </>
+        )}
 
         <CustomButton label="צור קריאה" onPress={submit} loading={saving} style={styles.btn} />
       </ScrollView>
