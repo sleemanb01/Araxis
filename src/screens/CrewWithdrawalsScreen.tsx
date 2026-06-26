@@ -39,7 +39,8 @@ export function CrewWithdrawalsScreen() {
       .catch(() => {});
   }, [withdrawals]);
 
-  const totalUnits = withdrawals.reduce((s, w) => s + w.amount, 0);
+  const withdrawCount = withdrawals.filter((w) => w.type !== 'return').length;
+  const returnCount = withdrawals.filter((w) => w.type === 'return').length;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -48,10 +49,13 @@ export function CrewWithdrawalsScreen() {
         keyExtractor={(w) => w.id}
         renderItem={({ item }) => (
           <View style={styles.row}>
-            <Text style={styles.amount}>{item.amount}</Text>
+            <Text style={[styles.amount, item.type === 'return' && styles.amountReturn]}>
+              {item.amount}
+            </Text>
             <View style={styles.info}>
               <Text style={styles.name} numberOfLines={1}>{item.itemName || item.itemId}</Text>
               <Text style={styles.meta}>
+                {item.type === 'return' ? 'החזרה · ' : ''}
                 {(names[item.withdrawerId] || 'משתמש')} · {formatDate(item.createdAt)}
               </Text>
             </View>
@@ -61,7 +65,7 @@ export function CrewWithdrawalsScreen() {
           <View>
             <Text style={styles.title}>היסטוריית משיכות</Text>
             <Text style={styles.sub}>
-              {withdrawals.length} משיכות · {totalUnits} יחידות
+              {withdrawCount} משיכות · {returnCount} החזרות
             </Text>
           </View>
         }
@@ -86,6 +90,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   amount: { fontSize: 18, fontWeight: '700', color: Colors.primary, minWidth: 34, textAlign: 'center' },
+  amountReturn: { color: '#1E9E5A' },
   info: { flex: 1, marginStart: 12 },
   name: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   meta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },

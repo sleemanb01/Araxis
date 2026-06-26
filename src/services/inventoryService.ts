@@ -110,18 +110,38 @@ export async function withdrawToCrew(
     itemName: item.itemName,
     withdrawerId,
     amount: qty,
+    type: 'withdraw',
     createdAt: new Date().toISOString(),
   });
   await batch.commit();
 }
 
-/** Return `qty` of an item from a crew's stock back to the global warehouse. */
+/**
+ * Return `qty` of an item from a crew's stock back to the global warehouse, and
+ * log it to the crew's history (type 'return') — atomically, like withdrawals.
+ */
 export async function returnToWarehouse(
-  itemId: string,
+  item: InventoryItem,
   qty: number,
-  crewId: string
+  crewId: string,
+  returnerId: string
 ): Promise<void> {
-  await transfer(itemId, qty, crewLocation(crewId), WAREHOUSE);
+  if (qty <= 0) return;
+  const batch = writeBatch(db);
+  batch.update(doc(db, INVENTORY, item.id), {
+    [`locations.${crewLocation(crewId)}`]: increment(-qty),
+    [`locations.${WAREHOUSE}`]: increment(qty),
+  });
+  batch.set(doc(collection(db, WITHDRAWALS)), {
+    crewId,
+    itemId: item.id,
+    itemName: item.itemName,
+    withdrawerId: returnerId,
+    amount: qty,
+    type: 'return',
+    createdAt: new Date().toISOString(),
+  });
+  await batch.commit();
 }
 
 export async function createInventoryItem(payload: CreateInventoryPayload): Promise<void> {

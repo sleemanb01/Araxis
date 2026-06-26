@@ -9,5 +9,6 @@ export interface Withdrawal {
   itemName?: string;
   withdrawerId: string;
   amount: number;
+  type: 'withdraw' | 'return'; // warehouse→crew, or crew→warehouse
   createdAt: string; // ISO
 }

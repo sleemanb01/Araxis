@@ -19,6 +19,7 @@ function toWithdrawal(snap: { id: string; data: () => any }): Withdrawal {
     itemName: d.itemName ?? undefined,
     withdrawerId: d.withdrawerId ?? '',
     amount: d.amount ?? 0,
+    type: d.type === 'return' ? 'return' : 'withdraw',
     createdAt: d.createdAt ?? '',
   };
 }

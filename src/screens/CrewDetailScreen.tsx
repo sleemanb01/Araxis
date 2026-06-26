@@ -81,6 +81,7 @@ export function CrewDetailScreen() {
 
   const crewLoc = crewLocation(crew.id);
   const crewStock = items.filter((i) => qtyAt(i, crewLoc) > 0);
+  const withdrawCount = withdrawals.filter((w) => w.type !== 'return').length;
 
   // Live max for the return picker (the item's current qty in this crew's stock).
   const returnMax = returnItem ? qtyAt(items.find((i) => i.id === returnItem.id) ?? returnItem, crewLoc) : 0;
@@ -91,7 +92,7 @@ export function CrewDetailScreen() {
   }
 
   async function doReturn() {
-    if (!returnItem || !crew) return;
+    if (!returnItem || !crew || !me) return;
     const qty = Math.min(returnQty, returnMax);
     if (qty <= 0) {
       setReturnItem(null);
@@ -99,7 +100,7 @@ export function CrewDetailScreen() {
     }
     setReturning(true);
     try {
-      await returnToWarehouse(returnItem.id, qty, crew.id);
+      await returnToWarehouse(returnItem, qty, crew.id, me.uid);
       setReturning(false);
       setReturnItem(null);
     } catch {
@@ -153,7 +154,7 @@ export function CrewDetailScreen() {
               activeOpacity={0.8}
             >
               <Text style={styles.chev}>‹</Text>
-              <Text style={styles.statText}>סה״כ משיכות: {withdrawals.length}</Text>
+              <Text style={styles.statText}>סה״כ משיכות: {withdrawCount}</Text>
             </TouchableOpacity>
             <Text style={styles.label}>מלאי הצוות</Text>
             {crewStock.length === 0 ? (
