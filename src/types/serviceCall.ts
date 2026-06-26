@@ -22,6 +22,8 @@ export interface ServiceCall {
   contactPhone?: string;            // on-site contact phone
   notes?: string;                   // free-text notes for the job
   requiredItems?: string[];         // inventory item ids needed for the job
+  checkedItems?: string[];          // required item ids checked off (checklist)
+  crewId?: string;                  // assigned crew
   status: ServiceCallStatus;
   scheduledDate: string;            // ISO date string
   hardwareUsed: string[];           // inventory item ids consumed on this call

@@ -194,6 +194,7 @@ export function NewServiceCallScreen() {
         ...(contactPhone.trim() ? { contactPhone: contactPhone.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         ...(requiredItems.length ? { requiredItems } : {}),
+        ...(selectedCrew ? { crewId: selectedCrew.id } : {}),
         status: 'pending',
         scheduledDate: date.toISOString(),
         hardwareUsed: [],
