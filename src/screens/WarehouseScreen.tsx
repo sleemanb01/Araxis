@@ -131,7 +131,9 @@ function InventoryRow({
             <Text style={styles.price}>₪{item.price.toLocaleString('he-IL')}</Text>
           )}
           {showPrice && typeof item.customerPrice === 'number' && (
-            <Text style={styles.customerPrice}>מחיר ללקוח ₪{item.customerPrice.toLocaleString('he-IL')}</Text>
+            <Text style={styles.customerPrice}>
+              רווח ₪{(item.customerPrice - (item.price ?? 0)).toLocaleString('he-IL')}
+            </Text>
           )}
           {item.lacks && (
             <View style={styles.lacksTag}>

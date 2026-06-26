@@ -90,6 +90,8 @@ export function ItemEditorScreen() {
     ]);
   }
 
+  const unitProfit = (parseFloat(customerPrice) || 0) - (parseFloat(price) || 0);
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -109,7 +111,7 @@ export function ItemEditorScreen() {
           <>
             <TextField label="מחיר עלות ליחידה (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
             <TextField label="מחיר ללקוח (₪)" value={customerPrice} onChange={setCustomerPrice} placeholder="0" keyboardType="numeric" />
-            <Text style={styles.customerHint}>מחיר ללקוח — הרווח שתרצה מהלקוח על כל יחידה.</Text>
+            <Text style={styles.customerHint}>רווח ליחידה: ₪{unitProfit.toLocaleString('he-IL')}</Text>
           </>
         )}
 
