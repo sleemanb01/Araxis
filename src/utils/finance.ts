@@ -22,24 +22,56 @@ export function monthKey(d: Date): string {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
 }
 
-/** Profit per calendar month (key "YYYY-MM") across calls; fins[i] ↔ calls[i]. */
+/** Full-date key for a date, e.g. "2026-06-26". */
+export function dayKey(d: Date): string {
+  return monthKey(d) + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/** Net profit of a single call: client price − equipment cost − crew payout. */
+export function callProfit(
+  call: ServiceCall,
+  fin: PrivateFinancials | null,
+  items: InventoryItem[]
+): number {
+  const gross = fin?.overallPrice ?? 0;
+  const equip = (call.requiredItems ?? []).reduce(
+    (a, id) => a + (items.find((it) => it.id === id)?.price ?? 0),
+    0
+  );
+  return gross - equip - (call.payouts.totalTechPayout ?? 0);
+}
+
+/** Profit grouped by a date key (month or day) across calls; fins[i] ↔ calls[i]. */
+function profitByKey(
+  calls: ServiceCall[],
+  fins: (PrivateFinancials | null)[],
+  items: InventoryItem[],
+  keyFn: (d: Date) => string
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  calls.forEach((c, i) => {
+    const key = keyFn(new Date(c.scheduledDate));
+    out[key] = (out[key] ?? 0) + callProfit(c, fins[i], items);
+  });
+  return out;
+}
+
+/** Profit per calendar month (key "YYYY-MM"). */
 export function monthlyProfit(
   calls: ServiceCall[],
   fins: (PrivateFinancials | null)[],
   items: InventoryItem[]
 ): Record<string, number> {
-  const out: Record<string, number> = {};
-  calls.forEach((c, i) => {
-    const gross = fins[i]?.overallPrice ?? 0;
-    const equip = (c.requiredItems ?? []).reduce(
-      (a, id) => a + (items.find((it) => it.id === id)?.price ?? 0),
-      0
-    );
-    const p = gross - equip - (c.payouts.totalTechPayout ?? 0);
-    const key = monthKey(new Date(c.scheduledDate));
-    out[key] = (out[key] ?? 0) + p;
-  });
-  return out;
+  return profitByKey(calls, fins, items, monthKey);
+}
+
+/** Profit per day (key "YYYY-MM-DD"). */
+export function dailyProfit(
+  calls: ServiceCall[],
+  fins: (PrivateFinancials | null)[],
+  items: InventoryItem[]
+): Record<string, number> {
+  return profitByKey(calls, fins, items, dayKey);
 }
 
 /** Aggregate financial totals across calls; fins[i] is the financials for calls[i]. */

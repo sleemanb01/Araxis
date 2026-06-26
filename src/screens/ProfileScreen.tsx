@@ -11,7 +11,7 @@ import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
-import { monthlyProfit, monthKey } from '../utils/finance';
+import { monthlyProfit, dailyProfit, monthKey, dayKey } from '../utils/finance';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
@@ -66,10 +66,12 @@ export function ProfileScreen() {
   }, [caps.viewFinancials]);
 
   const monthly = useMemo(() => monthlyProfit(calls, fins, items), [calls, fins, items]);
+  const daily = useMemo(() => dailyProfit(calls, fins, items), [calls, fins, items]);
 
   const now = new Date();
   const curKey = monthKey(now);
   const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
+  const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
   const monthProfit = monthly[curKey] ?? 0;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
@@ -77,10 +79,11 @@ export function ProfileScreen() {
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${now.getFullYear()}-${String(m + 1).padStart(2, '0')}`] ?? 0);
   const maxAbs = Math.max(1, ...year.map((v) => Math.abs(v)));
 
-  // Pace vs the pro-rated daily target (monthly target ÷ days in month × days elapsed).
+  // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const expectedToDate = target > 0 ? (target / daysInMonth) * now.getDate() : 0;
-  const paceRatio = expectedToDate > 0 ? monthProfit / expectedToDate : monthProfit >= 0 ? 1 : 0;
+  const dailyTarget = target > 0 ? target / daysInMonth : 0;
+  const todayProfit = daily[dayKey(now)] ?? 0;
+  const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;
 
@@ -117,7 +120,16 @@ export function ProfileScreen() {
 
   const targetTone =
     target <= 0 ? styles.cNeutral : percent >= 100 ? styles.cGreen : percent >= 50 ? styles.cOrange : styles.cRed;
-  const profitTone = paceRatio >= 1 ? styles.cGreen : paceRatio >= 0.5 ? styles.cOrange : styles.cRed;
+  const dayTone =
+    dailyTarget <= 0
+      ? todayProfit < 0
+        ? styles.cRed
+        : styles.cGreen
+      : dayPercent >= 100
+      ? styles.cGreen
+      : dayPercent >= 50
+      ? styles.cOrange
+      : styles.cRed;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -129,16 +141,23 @@ export function ProfileScreen() {
           <>
             <View style={styles.circlesRow}>
               <TouchableOpacity
-                style={[styles.circle, monthProfit < 0 ? styles.cRed : styles.cGreen]}
+                style={[styles.circle, dayTone]}
                 onPress={() => navigation.navigate('FinancialDashboard')}
                 activeOpacity={0.85}
               >
-                <Text style={styles.cLabel}>{monthLabel}</Text>
-                <Text style={styles.cValue}>{ils(monthProfit)}</Text>
+                <Text style={styles.cLabel}>{dayLabel}</Text>
+                {dailyTarget > 0 ? (
+                  <>
+                    <Text style={styles.cValue}>{dayPercent}%</Text>
+                    <Text style={styles.cSub}>{ils(todayProfit)} / {ils(dailyTarget)}</Text>
+                  </>
+                ) : (
+                  <Text style={styles.cValue}>{ils(todayProfit)}</Text>
+                )}
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.circle, targetTone]} onPress={openSetTarget} activeOpacity={0.85}>
-                <Text style={styles.cLabel}>יעד {monthLabel}</Text>
+                <Text style={styles.cLabel}>{monthLabel}</Text>
                 {target > 0 ? (
                   <>
                     <Text style={styles.cValue}>{percent}%</Text>
