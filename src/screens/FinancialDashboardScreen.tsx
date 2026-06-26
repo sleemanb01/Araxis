@@ -62,12 +62,12 @@ export function FinancialDashboardScreen() {
         </View>
 
         <View style={styles.row}>
-          <Metric label="שולם" value={ils(t.paid)} />
-          <Metric label="לא שולם" value={ils(t.outstanding)} warn={t.outstanding > 0} />
+          <Metric label="שולם" value={ils(t.paid)} tone="green" />
+          <Metric label="לא שולם" value={ils(t.outstanding)} tone="red" />
         </View>
         <View style={styles.row}>
-          <Metric label="עלות ציוד" value={ils(t.equipment)} />
-          <Metric label="עלות צוות" value={ils(t.payouts)} />
+          <Metric label="עלות ציוד" value={ils(t.equipment)} tone="orange" />
+          <Metric label="עלות צוות" value={ils(t.payouts)} tone="orange" />
         </View>
 
         <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות</Text>
@@ -76,11 +76,18 @@ export function FinancialDashboardScreen() {
   );
 }
 
-function Metric({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
+const TONES = {
+  green: { card: { backgroundColor: '#E8F6EE', borderColor: '#BBE5CC' }, value: { color: '#1E7E47' } },
+  red: { card: { backgroundColor: '#FCEBEB', borderColor: '#F3C9C9' }, value: { color: '#B91C1C' } },
+  orange: { card: { backgroundColor: '#FBF0DC', borderColor: '#F0D9A8' }, value: { color: '#B45309' } },
+};
+
+function Metric({ label, value, tone }: { label: string; value: string; tone: 'green' | 'red' | 'orange' }) {
+  const tc = TONES[tone];
   return (
-    <View style={[styles.card, warn && styles.cardWarn]}>
+    <View style={[styles.card, tc.card]}>
       <Text style={styles.cardLabel}>{label}</Text>
-      <Text style={[styles.cardValue, warn && styles.cardValueWarn]}>{value}</Text>
+      <Text style={[styles.cardValue, tc.value]}>{value}</Text>
     </View>
   );
 }
