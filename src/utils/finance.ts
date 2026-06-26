@@ -2,8 +2,45 @@
  * Frontend financial derivations. Balance/status are NEVER stored in Firestore —
  * they are computed from overallPrice + paidAmount on the client.
  */
+import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
+import { InventoryItem } from '../types/inventory';
 
 export type FinancialStatus = 'Unpaid' | 'Partial' | 'Paid in Full';
+
+export interface FinancialTotals {
+  gross: number;       // total client price
+  revenue: number;     // gross − equipment cost
+  paid: number;
+  outstanding: number; // gross − paid (what the client still owes)
+  payouts: number;
+  equipment: number;   // sum of required items' prices
+  profit: number;      // revenue − payouts
+}
+
+/** Aggregate financial totals across calls; fins[i] is the financials for calls[i]. */
+export function aggregateTotals(
+  calls: ServiceCall[],
+  fins: (PrivateFinancials | null)[],
+  items: InventoryItem[]
+): FinancialTotals {
+  let gross = 0;
+  let paid = 0;
+  let payouts = 0;
+  let equipment = 0;
+  calls.forEach((c, i) => {
+    const f = fins[i];
+    if (f) {
+      gross += f.overallPrice || 0;
+      paid += f.paidAmount || 0;
+    }
+    payouts += c.payouts.totalTechPayout || 0;
+    (c.requiredItems ?? []).forEach((id) => {
+      equipment += items.find((it) => it.id === id)?.price ?? 0;
+    });
+  });
+  const revenue = gross - equipment;
+  return { gross, revenue, paid, outstanding: gross - paid, payouts, equipment, profit: revenue - payouts };
+}
 
 export function financialStatus(overallPrice: number, paidAmount: number): FinancialStatus {
   if (paidAmount <= 0) return 'Unpaid';

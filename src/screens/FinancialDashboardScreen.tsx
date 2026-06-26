@@ -4,18 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { useInventory } from '../context/InventoryContext';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
+import { aggregateTotals } from '../utils/finance';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-
-interface Totals {
-  revenue: number;
-  paid: number;
-  outstanding: number;
-  payouts: number;
-  equipment: number;
-  profit: number;
-  calls: number;
-}
 
 function ils(n: number): string {
   return '₪' + Math.round(n).toLocaleString('he-IL');
@@ -47,25 +38,7 @@ export function FinancialDashboardScreen() {
     };
   }, []);
 
-  const t = useMemo<Totals>(() => {
-    let gross = 0; // total client price
-    let paid = 0;
-    let payouts = 0;
-    let equipment = 0;
-    calls.forEach((c, i) => {
-      const f = fins[i];
-      if (f) {
-        gross += f.overallPrice || 0;
-        paid += f.paidAmount || 0;
-      }
-      payouts += c.payouts.totalTechPayout || 0;
-      (c.requiredItems ?? []).forEach((id) => {
-        equipment += items.find((it) => it.id === id)?.price ?? 0;
-      });
-    });
-    const revenue = gross - equipment; // revenue net of equipment cost
-    return { revenue, paid, outstanding: gross - paid, payouts, equipment, profit: revenue - payouts, calls: calls.length };
-  }, [calls, fins, items]);
+  const t = useMemo(() => aggregateTotals(calls, fins, items), [calls, fins, items]);
 
   if (loading) {
     return (
@@ -79,7 +52,7 @@ export function FinancialDashboardScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>לוח כספים</Text>
-        <Text style={styles.sub}>על פני {t.calls} קריאות שירות</Text>
+        <Text style={styles.sub}>על פני {calls.length} קריאות שירות</Text>
         <View style={styles.grid}>
           <Metric label="הכנסות" value={ils(t.revenue)} />
           <Metric label="רווח" value={ils(t.profit)} accent />
