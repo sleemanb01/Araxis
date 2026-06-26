@@ -38,7 +38,7 @@ export function ProfileScreen() {
       try {
         const calls = await getAllCalls();
         const fins = await Promise.all(calls.map((c) => getFinancials(c.id).catch(() => null)));
-        if (!cancelled) setRevenue(aggregateTotals(calls, fins, items).revenue);
+        if (!cancelled) setRevenue(aggregateTotals(calls, fins, items).profit);
       } catch {
         /* leave as — */
       }
@@ -84,7 +84,7 @@ export function ProfileScreen() {
           >
             <Ionicons name="stats-chart" size={22} color="#FFFFFF" />
             <Text style={styles.revValue}>{revenue == null ? '…' : ils(revenue)}</Text>
-            <Text style={styles.revLabel}>הכנסות</Text>
+            <Text style={styles.revLabel}>רווח</Text>
           </TouchableOpacity>
         )}
 

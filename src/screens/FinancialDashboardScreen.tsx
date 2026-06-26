@@ -53,25 +53,34 @@ export function FinancialDashboardScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>לוח כספים</Text>
         <Text style={styles.sub}>על פני {calls.length} קריאות שירות</Text>
-        <View style={styles.grid}>
-          <Metric label="הכנסות" value={ils(t.revenue)} />
-          <Metric label="רווח" value={ils(t.profit)} accent />
-          <Metric label="תשלומי צוות" value={ils(t.payouts)} />
-          <Metric label="שולם" value={ils(t.paid)} />
-          <Metric label="יתרה לגבייה" value={ils(t.outstanding)} warn={t.outstanding > 0} />
-          <Metric label="עלות ציוד" value={ils(t.equipment)} />
+
+        <View style={styles.profitWrap}>
+          <View style={[styles.profitCircle, t.profit < 0 && styles.profitNeg]}>
+            <Text style={styles.profitLabel}>רווח</Text>
+            <Text style={styles.profitValue}>{ils(t.profit)}</Text>
+          </View>
         </View>
-        <Text style={styles.note}>הכנסות = מחיר ללקוח − עלות ציוד · רווח = הכנסות − תשלומי צוות</Text>
+
+        <View style={styles.row}>
+          <Metric label="שולם" value={ils(t.paid)} />
+          <Metric label="לא שולם" value={ils(t.outstanding)} warn={t.outstanding > 0} />
+        </View>
+        <View style={styles.row}>
+          <Metric label="עלות ציוד" value={ils(t.equipment)} />
+          <Metric label="עלות צוות" value={ils(t.payouts)} />
+        </View>
+
+        <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Metric({ label, value, accent, warn }: { label: string; value: string; accent?: boolean; warn?: boolean }) {
+function Metric({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
   return (
-    <View style={[styles.card, accent && styles.cardAccent, warn && styles.cardWarn]}>
-      <Text style={[styles.cardLabel, accent && styles.cardLabelAccent]}>{label}</Text>
-      <Text style={[styles.cardValue, accent && styles.cardValueAccent, warn && styles.cardValueWarn]}>{value}</Text>
+    <View style={[styles.card, warn && styles.cardWarn]}>
+      <Text style={styles.cardLabel}>{label}</Text>
+      <Text style={[styles.cardValue, warn && styles.cardValueWarn]}>{value}</Text>
     </View>
   );
 }
@@ -80,23 +89,29 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   scroll: { padding: Layout.screenPadding },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 4 },
-  sub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 16 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  card: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
+  sub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
+  profitWrap: { alignItems: 'center', marginVertical: 22 },
+  profitCircle: {
+    width: 188,
+    height: 188,
+    borderRadius: 94,
+    backgroundColor: '#1E9E5A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1E9E5A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 6,
   },
-  cardAccent: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  profitNeg: { backgroundColor: Colors.danger, shadowColor: Colors.danger },
+  profitLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 16, fontWeight: '600' },
+  profitValue: { color: '#FFFFFF', fontSize: 32, fontWeight: '800', marginTop: 8, writingDirection: 'ltr' },
+  row: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  card: { flex: 1, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 16 },
   cardWarn: { backgroundColor: '#FAEEDA', borderColor: '#F0D9A8' },
   cardLabel: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right' },
-  cardLabelAccent: { color: '#FFFFFF' },
   cardValue: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'right', marginTop: 8, writingDirection: 'ltr' },
-  cardValueAccent: { color: '#FFFFFF' },
   cardValueWarn: { color: '#854F0B' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 18 },
 });
