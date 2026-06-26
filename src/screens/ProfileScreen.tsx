@@ -77,12 +77,13 @@ export function ProfileScreen() {
     return subscribeToArchive(setArchive, () => {});
   }, [caps.viewFinancials]);
 
-  // Prompt an export every ~4 months (erase is gated on downloading first).
+  // Prompt an export at each bi-monthly Israeli VAT period start — the 1st of
+  // Jan / Mar / May / Jul / Sep / Nov — once per period. (erase gated on download.)
   useEffect(() => {
     if (!caps.viewFinancials || !archive.lastExportAt) return;
-    const cutoff = new Date();
-    cutoff.setMonth(cutoff.getMonth() - 4);
-    if (new Date(archive.lastExportAt) <= cutoff) setExportOpen(true);
+    const d = new Date();
+    const periodStart = new Date(d.getFullYear(), Math.floor(d.getMonth() / 2) * 2, 1);
+    if (new Date(archive.lastExportAt) < periodStart) setExportOpen(true);
   }, [caps.viewFinancials, archive.lastExportAt]);
 
   // Live monthly profit merged with archived months (so the chart keeps history
