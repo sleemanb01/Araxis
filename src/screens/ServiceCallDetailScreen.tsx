@@ -136,12 +136,23 @@ export function ServiceCallDetailScreen() {
     adjustQuantity(itemId, crewLocation(call!.crewId), delta).catch(() => {});
   }
 
-  function toggleChecked(id: string) {
+  function uncheckItem(id: string, returnToStock: boolean) {
     const set = new Set(call!.checkedItems ?? []);
-    const willCheck = !set.has(id);
-    willCheck ? set.add(id) : set.delete(id);
+    set.delete(id);
     updateServiceCall(callId, { checkedItems: Array.from(set) }).catch(() => {});
-    moveStock(id, willCheck ? -1 : 1);
+    if (returnToStock) moveStock(id, 1);
+  }
+
+  // You can't manually check an item — you check it by adding it (which consumes
+  // it from the crew). Tapping a checked item unchecks it, asking whether to
+  // return it to the crew's stock.
+  function onItemTap(id: string) {
+    if (!canEdit || !checked.has(id)) return;
+    Alert.alert('ביטול סימון', 'להחזיר את הפריט למלאי הצוות?', [
+      { text: 'לא', onPress: () => uncheckItem(id, false) },
+      { text: 'כן', onPress: () => uncheckItem(id, true) },
+      { text: 'ביטול', style: 'cancel' },
+    ]);
   }
 
   // Adding an item ensures it's in the checklist AND checks it off (you've got it).
@@ -249,8 +260,8 @@ export function ServiceCallDetailScreen() {
               <TouchableOpacity
                 key={id}
                 style={styles.checkRow}
-                onPress={() => canEdit && toggleChecked(id)}
-                disabled={!canEdit}
+                onPress={() => onItemTap(id)}
+                disabled={!canEdit || !on}
                 activeOpacity={0.7}
               >
                 <Ionicons
