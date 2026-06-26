@@ -236,7 +236,7 @@ export function ServiceCallDetailScreen() {
           <View style={styles.crewRow}>
             {canEdit && (
               <TouchableOpacity onPress={withdrawCrew} hitSlop={6}>
-                <Text style={styles.withdraw}>הסר</Text>
+                <Text style={styles.withdraw}>הסר צוות</Text>
               </TouchableOpacity>
             )}
             <Text style={[styles.line, styles.flex1]}>
