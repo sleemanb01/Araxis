@@ -21,9 +21,10 @@ export function buildProfitCsv(
     byDay.set(k, cur);
   });
   const rows = Array.from(byDay.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  const header = 'תאריך,עבודות,הכנסה,רווח';
-  const lines = rows.map(
-    ([day, v]) => `${day},${v.jobs},${Math.round(v.revenue)},${Math.round(v.profit)}`
-  );
+  const header = 'תאריך,עבודות,הכנסה,הוצאות,רווח';
+  const lines = rows.map(([day, v]) => {
+    const expenses = v.revenue - v.profit; // equipment cost + crew payout
+    return `${day},${v.jobs},${Math.round(v.revenue)},${Math.round(expenses)},${Math.round(v.profit)}`;
+  });
   return [header, ...lines].join('\n');
 }
