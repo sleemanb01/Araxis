@@ -48,14 +48,14 @@ export function FinancialDashboardScreen() {
   }, []);
 
   const t = useMemo<Totals>(() => {
-    let revenue = 0;
+    let gross = 0; // total client price
     let paid = 0;
     let payouts = 0;
     let equipment = 0;
     calls.forEach((c, i) => {
       const f = fins[i];
       if (f) {
-        revenue += f.overallPrice || 0;
+        gross += f.overallPrice || 0;
         paid += f.paidAmount || 0;
       }
       payouts += c.payouts.totalTechPayout || 0;
@@ -63,7 +63,8 @@ export function FinancialDashboardScreen() {
         equipment += items.find((it) => it.id === id)?.price ?? 0;
       });
     });
-    return { revenue, paid, outstanding: revenue - paid, payouts, equipment, profit: revenue - payouts, calls: calls.length };
+    const revenue = gross - equipment; // revenue net of equipment cost
+    return { revenue, paid, outstanding: gross - paid, payouts, equipment, profit: revenue - payouts, calls: calls.length };
   }, [calls, fins, items]);
 
   if (loading) {
@@ -87,7 +88,7 @@ export function FinancialDashboardScreen() {
           <Metric label="יתרה לגבייה" value={ils(t.outstanding)} warn={t.outstanding > 0} />
           <Metric label="עלות ציוד" value={ils(t.equipment)} />
         </View>
-        <Text style={styles.note}>רווח = הכנסות − תשלומי צוות · יתרה = הכנסות − שולם</Text>
+        <Text style={styles.note}>הכנסות = מחיר ללקוח − עלות ציוד · רווח = הכנסות − תשלומי צוות</Text>
       </ScrollView>
     </SafeAreaView>
   );

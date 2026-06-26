@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { useUser } from '../context/UserContext';
+import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { capsLabel } from '../types/user';
@@ -23,6 +24,7 @@ function ils(n: number): string {
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, caps, crews, signOut } = useUser();
+  const { items } = useInventory();
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
@@ -35,8 +37,12 @@ export function ProfileScreen() {
       try {
         const calls = await getAllCalls();
         const fins = await Promise.all(calls.map((c) => getFinancials(c.id).catch(() => null)));
-        const rev = fins.reduce((s, f) => s + (f?.overallPrice || 0), 0);
-        if (!cancelled) setRevenue(rev);
+        const gross = fins.reduce((s, f) => s + (f?.overallPrice || 0), 0);
+        const equipment = calls.reduce(
+          (s, c) => s + (c.requiredItems ?? []).reduce((a, id) => a + (items.find((it) => it.id === id)?.price ?? 0), 0),
+          0
+        );
+        if (!cancelled) setRevenue(gross - equipment); // revenue net of equipment cost
       } catch {
         /* leave as — */
       }
@@ -44,7 +50,7 @@ export function ProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, [caps.viewFinancials]);
+  }, [caps.viewFinancials, items]);
 
   if (!profile) return null;
 
