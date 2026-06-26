@@ -16,7 +16,6 @@ import { updateProfile } from '../services/userService';
 import { PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
 import { Crew } from '../types/crew';
 import { WAREHOUSE } from '../types/inventory';
-import { financialStatus, FINANCIAL_STATUS_HE } from '../utils/finance';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -290,9 +289,6 @@ export function ServiceCallDetailScreen() {
                 </>
               )}
             </View>
-            {caps.viewFinancials && (
-              <Text style={styles.finStatus}>{FINANCIAL_STATUS_HE[financialStatus(priceN, paidN)]}</Text>
-            )}
             <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
           </>
         )}
