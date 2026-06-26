@@ -8,7 +8,7 @@ import { TextField } from '../components/TextField';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
-import { createInventoryItem, updateInventoryItem } from '../services/inventoryService';
+import { createInventoryItem, updateInventoryItem, deleteInventoryItem } from '../services/inventoryService';
 import { qtyAt, WAREHOUSE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -28,6 +28,9 @@ export function ItemEditorScreen() {
   const [name, setName] = useState(existing?.itemName ?? '');
   const [barcode, setBarcode] = useState(existing?.barcode ?? '');
   const [price, setPrice] = useState(existing?.price != null ? String(existing.price) : '');
+  const [customerPrice, setCustomerPrice] = useState(
+    existing?.customerPrice != null ? String(existing.customerPrice) : ''
+  );
   const [scannerOpen, setScannerOpen] = useState(false);
   const [warehouseQty, setWarehouseQty] = useState(
     String(existing ? qtyAt(existing, WAREHOUSE) : 0)
@@ -42,6 +45,7 @@ export function ItemEditorScreen() {
     const qty = Math.max(0, parseInt(warehouseQty, 10) || 0);
     const code = barcode.trim();
     const priceN = Math.max(0, parseFloat(price) || 0);
+    const customerPriceN = Math.max(0, parseFloat(customerPrice) || 0);
     setSaving(true);
     try {
       if (existing) {
@@ -50,14 +54,14 @@ export function ItemEditorScreen() {
           barcode: code, // '' clears it
           locations: { ...existing.locations, [WAREHOUSE]: qty },
           ...(existing.lacks && qty > 0 ? { lacks: false } : {}), // restocked → clear "lacks"
-          ...(caps.viewFinancials ? { price: priceN } : {}),
+          ...(caps.viewFinancials ? { price: priceN, customerPrice: customerPriceN } : {}),
         });
       } else {
         await createInventoryItem({
           itemName: name.trim(),
           locations: { [WAREHOUSE]: qty },
           ...(code ? { barcode: code } : {}), // omit empty on create
-          ...(caps.viewFinancials ? { price: priceN } : {}),
+          ...(caps.viewFinancials ? { price: priceN, customerPrice: customerPriceN } : {}),
         });
       }
       navigation.goBack();
@@ -65,6 +69,25 @@ export function ItemEditorScreen() {
       Alert.alert('שגיאה', 'השמירה נכשלה. נסה שוב.');
       setSaving(false);
     }
+  }
+
+  function confirmDelete() {
+    if (!existing) return;
+    Alert.alert('מחיקת פריט', `למחוק את "${existing.itemName}"? פעולה זו אינה ניתנת לביטול.`, [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'מחק',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteInventoryItem(existing.id);
+            navigation.goBack();
+          } catch {
+            Alert.alert('שגיאה', 'המחיקה נכשלה.');
+          }
+        },
+      },
+    ]);
   }
 
   return (
@@ -83,12 +106,19 @@ export function ItemEditorScreen() {
         />
 
         {caps.viewFinancials && (
-          <TextField label="מחיר ליחידה (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+          <>
+            <TextField label="מחיר עלות ליחידה (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+            <TextField label="מחיר ללקוח (₪)" value={customerPrice} onChange={setCustomerPrice} placeholder="0" keyboardType="numeric" />
+            <Text style={styles.customerHint}>מחיר ללקוח — הרווח שתרצה מהלקוח על כל יחידה.</Text>
+          </>
         )}
 
         <TextField label="כמות במחסן" value={warehouseQty} onChange={setWarehouseQty} placeholder="0" keyboardType="numeric" />
         {existing && <Text style={styles.note}>מלאי במיקומים אחרים מתעדכן דרך מסך ההעברה.</Text>}
         <CustomButton label="שמור" onPress={save} loading={saving} style={styles.btn} />
+        {existing && caps.manageInventory && (
+          <CustomButton label="מחק פריט" variant="danger" onPress={confirmDelete} style={styles.deleteBtn} />
+        )}
       </ScrollView>
 
       <BarcodeScannerModal
@@ -106,5 +136,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 16 },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
   scanBtn: { marginTop: -6, marginBottom: 18 },
+  customerHint: { fontSize: 12, color: '#1E9E5A', fontWeight: '600', textAlign: 'right', marginTop: -6, marginBottom: 12 },
   btn: { marginTop: 12 },
+  deleteBtn: { marginTop: 24 },
 });

@@ -24,6 +24,7 @@ export interface ServiceCall {
   requiredItems?: string[];         // inventory item ids needed for the job
   checkedItems?: string[];          // required item ids checked off (checklist)
   crewId?: string;                  // assigned crew
+  itemPrices?: Record<string, number>; // snapshot of required-item COST prices, frozen when the job completes
   status: ServiceCallStatus;
   scheduledDate: string;            // ISO date string
   hardwareUsed: string[];           // inventory item ids consumed on this call

@@ -10,6 +10,7 @@ import {
   doc,
   addDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   increment,
   arrayUnion,
@@ -29,6 +30,7 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
     itemName: d.itemName ?? d.name ?? '',
     barcode: d.barcode ?? undefined,
     price: typeof d.price === 'number' ? d.price : undefined,
+    customerPrice: typeof d.customerPrice === 'number' ? d.customerPrice : undefined,
     lacks: d.lacks === true ? true : undefined,
     locations: d.locations && typeof d.locations === 'object' ? d.locations : {},
   };
@@ -156,4 +158,8 @@ export async function updateInventoryItem(
   patch: Partial<InventoryItem>
 ): Promise<void> {
   await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
+}
+
+export async function deleteInventoryItem(id: string): Promise<void> {
+  await deleteDoc(doc(db, INVENTORY, id));
 }

@@ -7,7 +7,8 @@ export interface InventoryItem {
   id: string;
   itemName: string;
   barcode?: string;                   // scanned/typed barcode (EAN/UPC/QR/etc.)
-  price?: number;                     // unit price (manager-only, viewFinancials)
+  price?: number;                     // unit COST price (manager-only, viewFinancials)
+  customerPrice?: number;             // desired profit per unit from the customer (manager-only)
   lacks?: boolean;                    // flagged as missing/needed (added from a job)
   locations: Record<string, number>; // location key -> quantity on hand
 }
@@ -29,8 +30,8 @@ export function crewIdFromLocation(key: string): string {
   return key.slice(CREW_PREFIX.length);
 }
 
-/** Flag low stock when the total across all locations is at/below this. */
-export const LOW_STOCK_THRESHOLD = 3;
+/** Flag low stock when the total across all locations is below this. */
+export const LOW_STOCK_THRESHOLD = 5;
 
 export function totalQty(i: InventoryItem): number {
   return Object.values(i.locations).reduce((sum, n) => sum + (n ?? 0), 0);
@@ -41,5 +42,5 @@ export function qtyAt(i: InventoryItem, location: string): number {
 }
 
 export function isLowStock(i: InventoryItem): boolean {
-  return totalQty(i) <= LOW_STOCK_THRESHOLD;
+  return totalQty(i) < LOW_STOCK_THRESHOLD;
 }

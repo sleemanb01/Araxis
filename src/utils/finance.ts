@@ -27,6 +27,16 @@ export function dayKey(d: Date): string {
   return monthKey(d) + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+/**
+ * Cost of a required item on a call. A finished job carries a frozen price
+ * snapshot (itemPrices) so later price edits don't change its books; otherwise
+ * use the item's current price.
+ */
+export function itemCostOn(call: ServiceCall, id: string, items: InventoryItem[]): number {
+  const snap = call.itemPrices?.[id];
+  return snap != null ? snap : items.find((it) => it.id === id)?.price ?? 0;
+}
+
 /** Net profit of a single call: client price − equipment cost − crew payout. */
 export function callProfit(
   call: ServiceCall,
@@ -34,10 +44,7 @@ export function callProfit(
   items: InventoryItem[]
 ): number {
   const gross = fin?.overallPrice ?? 0;
-  const equip = (call.requiredItems ?? []).reduce(
-    (a, id) => a + (items.find((it) => it.id === id)?.price ?? 0),
-    0
-  );
+  const equip = (call.requiredItems ?? []).reduce((a, id) => a + itemCostOn(call, id, items), 0);
   return gross - equip - (call.payouts.totalTechPayout ?? 0);
 }
 
@@ -92,7 +99,7 @@ export function aggregateTotals(
     }
     payouts += c.payouts.totalTechPayout || 0;
     (c.requiredItems ?? []).forEach((id) => {
-      equipment += items.find((it) => it.id === id)?.price ?? 0;
+      equipment += itemCostOn(c, id, items);
     });
   });
   const revenue = gross - equipment;

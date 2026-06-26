@@ -10,7 +10,7 @@ import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
-import { subscribeToCall, subscribeToFinancials, setCallStatus, setFinancials, updateServiceCall } from '../services/serviceCallService';
+import { subscribeToCall, subscribeToFinancials, setFinancials, updateServiceCall } from '../services/serviceCallService';
 import { adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
 import { ServiceCall, PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
@@ -90,7 +90,9 @@ export function ServiceCallDetailScreen() {
 
   const checked = new Set(call.checkedItems ?? []);
   const reqItems = call.requiredItems ?? [];
-  const equipmentCost = reqItems.reduce((s, id) => s + (items.find((i) => i.id === id)?.price ?? 0), 0);
+  // Completed jobs use the frozen price snapshot; live jobs use current prices.
+  const priceOf = (id: string): number | undefined => call.itemPrices?.[id] ?? items.find((i) => i.id === id)?.price;
+  const equipmentCost = reqItems.reduce((s, id) => s + (priceOf(id) ?? 0), 0);
   // Can't finish a job until every required item is checked off.
   const allItemsChecked = reqItems.every((id) => checked.has(id));
   const blockFinish = next === 'completed' && reqItems.length > 0 && !allItemsChecked;
@@ -102,7 +104,17 @@ export function ServiceCallDetailScreen() {
 
   function advance() {
     if (!next) return;
-    setCallStatus(callId, next).catch(() => Alert.alert('שגיאה', 'עדכון הסטטוס נכשל.'));
+    const patch: Partial<ServiceCall> = { status: next };
+    if (next === 'completed') {
+      // Freeze item prices so later price edits don't change this finished job.
+      const snap: Record<string, number> = {};
+      (call!.requiredItems ?? []).forEach((id) => {
+        const p = items.find((i) => i.id === id)?.price;
+        if (typeof p === 'number') snap[id] = p;
+      });
+      patch.itemPrices = snap;
+    }
+    updateServiceCall(callId, patch).catch(() => Alert.alert('שגיאה', 'עדכון הסטטוס נכשל.'));
   }
 
   async function saveFinancials() {
@@ -265,6 +277,7 @@ export function ServiceCallDetailScreen() {
         {reqItems.length ? (
           reqItems.map((id) => {
             const it = items.find((i) => i.id === id);
+            const itPrice = priceOf(id);
             const on = checked.has(id);
             return (
               <TouchableOpacity
@@ -279,8 +292,8 @@ export function ServiceCallDetailScreen() {
                   size={22}
                   color={on ? Colors.primary : Colors.textSecondary}
                 />
-                {caps.viewFinancials && it?.price != null && (
-                  <Text style={styles.itemPrice}>₪{it.price.toLocaleString('he-IL')}</Text>
+                {caps.viewFinancials && itPrice != null && (
+                  <Text style={styles.itemPrice}>₪{itPrice.toLocaleString('he-IL')}</Text>
                 )}
                 <Text style={[styles.checkText, on && styles.checkTextDone]}>
                   {it?.itemName ?? id}

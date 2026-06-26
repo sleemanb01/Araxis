@@ -46,6 +46,7 @@ function toCall(snap: { id: string; data: () => any }): ServiceCall {
     requiredItems: Array.isArray(d.requiredItems) ? d.requiredItems : undefined,
     checkedItems: Array.isArray(d.checkedItems) ? d.checkedItems : undefined,
     crewId: d.crewId ?? undefined,
+    itemPrices: d.itemPrices && typeof d.itemPrices === 'object' ? d.itemPrices : undefined,
     status: (d.status ?? 'pending') as ServiceCallStatus,
     scheduledDate: d.scheduledDate ?? new Date().toISOString(),
     hardwareUsed: Array.isArray(d.hardwareUsed) ? d.hardwareUsed : [],

@@ -130,6 +130,9 @@ function InventoryRow({
           {showPrice && typeof item.price === 'number' && (
             <Text style={styles.price}>₪{item.price.toLocaleString('he-IL')}</Text>
           )}
+          {showPrice && typeof item.customerPrice === 'number' && (
+            <Text style={styles.customerPrice}>מחיר ללקוח ₪{item.customerPrice.toLocaleString('he-IL')}</Text>
+          )}
           {item.lacks && (
             <View style={styles.lacksTag}>
               <Text style={styles.lacksText}>חסר</Text>
@@ -244,6 +247,7 @@ const styles = StyleSheet.create({
   lacksText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   split: { fontSize: 12, color: Colors.textSecondary },
   price: { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  customerPrice: { fontSize: 12, fontWeight: '700', color: '#1E9E5A' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   stepBtn: {
     width: 32,
