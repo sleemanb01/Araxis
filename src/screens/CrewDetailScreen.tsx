@@ -111,6 +111,11 @@ export function CrewDetailScreen() {
             <Text style={styles.sub}>
               {members.length} חברי צוות{isManager ? ' · אתה המנהל' : ''}
             </Text>
+          </View>
+        }
+        ListEmptyComponent={<Text style={styles.empty}>אין חברים בצוות עדיין.</Text>}
+        ListFooterComponent={
+          <View style={styles.stock}>
             <TouchableOpacity
               style={styles.statRow}
               onPress={() => navigation.navigate('CrewWithdrawals', { crewId: crew.id })}
@@ -119,11 +124,6 @@ export function CrewDetailScreen() {
               <Text style={styles.chev}>‹</Text>
               <Text style={styles.statText}>סה״כ משיכות: {withdrawals.length}</Text>
             </TouchableOpacity>
-          </View>
-        }
-        ListEmptyComponent={<Text style={styles.empty}>אין חברים בצוות עדיין.</Text>}
-        ListFooterComponent={
-          <View style={styles.stock}>
             <Text style={styles.label}>מלאי הצוות</Text>
             {crewStock.length === 0 ? (
               <Text style={styles.stockEmpty}>אין ציוד בצוות. משוך מהמחסן.</Text>
