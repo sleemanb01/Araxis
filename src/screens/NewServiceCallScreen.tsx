@@ -243,20 +243,27 @@ export function NewServiceCallScreen() {
           })}
         </ScrollView>
 
-        {caps.viewTeamPayouts && (
-          <>
-            <TextField label="תשלום לצוות (₪)" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
-            {selectedCrew && (
-              <Text style={styles.note}>יחולק שווה בשווה בין {memberIds.length} חברי {selectedCrew.name}.</Text>
+        {(caps.viewTeamPayouts || caps.viewFinancials) && (
+          <View style={styles.financeRow}>
+            {caps.viewTeamPayouts && (
+              <View style={styles.financeCol}>
+                <TextField label="תשלום צוות ₪" value={payout} onChange={setPayout} placeholder="0" keyboardType="numeric" />
+              </View>
             )}
-          </>
+            {caps.viewFinancials && (
+              <>
+                <View style={styles.financeCol}>
+                  <TextField label="מחיר ללקוח ₪" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
+                </View>
+                <View style={styles.financeCol}>
+                  <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+                </View>
+              </>
+            )}
+          </View>
         )}
-
-        {caps.viewFinancials && (
-          <>
-            <TextField label="מחיר ללקוח (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
-            <TextField label="שולם (₪)" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
-          </>
+        {caps.viewTeamPayouts && selectedCrew && (
+          <Text style={styles.note}>יחולק שווה בשווה בין {memberIds.length} חברי {selectedCrew.name}.</Text>
         )}
 
         <TextField label="הערות" value={notes} onChange={setNotes} placeholder="הערות לקריאה" multiline />
@@ -324,6 +331,8 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#FFFFFF', fontWeight: '600' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 14 },
   btn: { marginTop: 16 },
+  financeRow: { flexDirection: 'row', gap: 8 },
+  financeCol: { flex: 1 },
   reqScroll: { height: 52, marginBottom: 14 },
   reqRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   reqAdd: {
