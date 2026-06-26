@@ -132,6 +132,9 @@ function InventoryRow({
               ₪{(item.customerPrice - (item.price ?? 0)).toLocaleString('he-IL')}
             </Text>
           )}
+          {showPrice && typeof item.customerPrice === 'number' && (item.price ?? 0) > 0 && (
+            <Text style={styles.profitPct}>{Math.round((item.customerPrice / item.price!) * 100)}%</Text>
+          )}
           {item.lacks && (
             <View style={styles.lacksTag}>
               <Text style={styles.lacksText}>חסר</Text>
@@ -246,6 +249,7 @@ const styles = StyleSheet.create({
   lacksText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   split: { fontSize: 12, color: Colors.textSecondary },
   customerPrice: { fontSize: 12, fontWeight: '700', color: '#1E9E5A' },
+  profitPct: { fontSize: 12, fontWeight: '700', color: '#2563EB' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   stepBtn: {
     width: 32,

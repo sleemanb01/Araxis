@@ -90,7 +90,10 @@ export function ItemEditorScreen() {
     ]);
   }
 
-  const unitProfit = (parseFloat(customerPrice) || 0) - (parseFloat(price) || 0);
+  const costNum = parseFloat(price) || 0;
+  const custNum = parseFloat(customerPrice) || 0;
+  const unitProfit = custNum - costNum;
+  const profitPct = costNum > 0 ? Math.round((custNum / costNum) * 100) : 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
@@ -111,7 +114,10 @@ export function ItemEditorScreen() {
           <>
             <TextField label="מחיר עלות ליחידה (₪)" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
             <TextField label="מחיר ללקוח (₪)" value={customerPrice} onChange={setCustomerPrice} placeholder="0" keyboardType="numeric" />
-            <Text style={styles.customerHint}>₪{unitProfit.toLocaleString('he-IL')}</Text>
+            <View style={styles.profitRow}>
+              <Text style={styles.customerHint}>₪{unitProfit.toLocaleString('he-IL')}</Text>
+              {costNum > 0 && <Text style={styles.profitPct}>{profitPct}%</Text>}
+            </View>
           </>
         )}
 
@@ -138,7 +144,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 16 },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 8 },
   scanBtn: { marginTop: -6, marginBottom: 18 },
-  customerHint: { fontSize: 12, color: '#1E9E5A', fontWeight: '600', textAlign: 'right', marginTop: -6, marginBottom: 12 },
+  profitRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: -4, marginBottom: 12 },
+  customerHint: { fontSize: 13, color: '#1E9E5A', fontWeight: '700' },
+  profitPct: { fontSize: 13, color: '#2563EB', fontWeight: '700' },
   btn: { marginTop: 12 },
   deleteBtn: { marginTop: 24 },
 });
