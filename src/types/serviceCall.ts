@@ -25,6 +25,7 @@ export interface ServiceCall {
   checkedItems?: string[];          // required item ids checked off (checklist)
   crewId?: string;                  // assigned crew
   itemPrices?: Record<string, number>; // snapshot of required-item COST prices, frozen when the job completes
+  reminderSentAt?: string;          // ISO time a day-before WhatsApp reminder was sent (set by Cloud Function)
   status: ServiceCallStatus;
   scheduledDate: string;            // ISO date string
   hardwareUsed: string[];           // inventory item ids consumed on this call

@@ -7,12 +7,22 @@
  * The first admin per project is bootstrapped with scripts/set-admin.js.
  */
 import { onCall, HttpsError, CallableRequest } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { defineSecret, defineString } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 initializeApp();
 const db = getFirestore();
+
+// WhatsApp Business (Meta Cloud API) config. TOKEN + PHONE_ID are secrets:
+//   firebase functions:secrets:set WHATSAPP_TOKEN
+//   firebase functions:secrets:set WHATSAPP_PHONE_ID
+const WHATSAPP_TOKEN = defineSecret('WHATSAPP_TOKEN');
+const WHATSAPP_PHONE_ID = defineSecret('WHATSAPP_PHONE_ID');
+const WHATSAPP_TEMPLATE = defineString('WHATSAPP_TEMPLATE', { default: 'appointment_reminder' });
+const WHATSAPP_LANG = defineString('WHATSAPP_LANG', { default: 'he' });
 
 const CAP_KEYS = [
   'manageCrew',
@@ -147,5 +157,113 @@ export const removeCrewMember = onCall(
     });
     await recomputeUserClaim(uid);
     return { ok: true };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Appointment reminders — daily at 09:00 (Asia/Jerusalem) a WhatsApp template
+// message is sent (Meta Cloud API) to the contact phone of every appointment
+// scheduled for TOMORROW. Needs the WHATSAPP_TOKEN / WHATSAPP_PHONE_ID secrets
+// and an approved template (default "appointment_reminder", 3 body params:
+// client name, date/time, address).
+// ---------------------------------------------------------------------------
+
+/** Jerusalem calendar date "YYYY-MM-DD" for an instant. */
+function jslmDate(d: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jerusalem',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+}
+
+/** Normalize an Israeli phone to international digits (e.g. "972501234567"). */
+function toIntlPhone(raw: string): string | null {
+  const s = (raw || '').replace(/[^\d+]/g, '').replace(/^\+/, '');
+  if (s.startsWith('972')) return s || null;
+  if (s.startsWith('0')) return '972' + s.slice(1);
+  return s || null;
+}
+
+async function sendWhatsAppReminder(to: string, call: any): Promise<void> {
+  const when = new Date(call.scheduledDate).toLocaleString('he-IL', {
+    timeZone: 'Asia/Jerusalem',
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+  const body = {
+    messaging_product: 'whatsapp',
+    to,
+    type: 'template',
+    template: {
+      name: WHATSAPP_TEMPLATE.value(),
+      language: { code: WHATSAPP_LANG.value() },
+      components: [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: String(call.clientName || '') },
+            { type: 'text', text: when },
+            { type: 'text', text: String(call.address || '—') },
+          ],
+        },
+      ],
+    },
+  };
+  const res = await fetch(
+    `https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_ID.value()}/messages`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN.value()}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`WhatsApp API ${res.status}: ${await res.text()}`);
+  }
+}
+
+export const sendAppointmentReminders = onSchedule(
+  {
+    schedule: 'every day 09:00',
+    timeZone: 'Asia/Jerusalem',
+    region: 'me-west1',
+    secrets: [WHATSAPP_TOKEN, WHATSAPP_PHONE_ID],
+  },
+  async () => {
+    // Generous UTC window, then keep only appointments whose Jerusalem calendar
+    // day is tomorrow (robust to timezone/DST).
+    const lo = new Date();
+    lo.setUTCHours(0, 0, 0, 0);
+    const hi = new Date(lo);
+    hi.setUTCDate(hi.getUTCDate() + 3);
+    const tomorrow = jslmDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
+
+    const snap = await db
+      .collection('serviceCalls')
+      .where('scheduledDate', '>=', lo.toISOString())
+      .where('scheduledDate', '<', hi.toISOString())
+      .get();
+
+    let sent = 0;
+    for (const docSnap of snap.docs) {
+      const c = docSnap.data() as any;
+      if (!c.contactPhone || c.reminderSentAt || c.status === 'completed') continue;
+      if (jslmDate(new Date(c.scheduledDate)) !== tomorrow) continue;
+      const to = toIntlPhone(c.contactPhone);
+      if (!to) continue;
+      try {
+        await sendWhatsAppReminder(to, c);
+        await docSnap.ref.update({ reminderSentAt: new Date().toISOString() });
+        sent++;
+      } catch (e) {
+        console.error('[reminder] failed for', docSnap.id, e);
+      }
+    }
+    console.log(`[reminder] sent ${sent} reminder(s) for ${tomorrow}`);
   }
 );
