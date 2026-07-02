@@ -7,6 +7,7 @@
 
 import {
   collection,
+  collectionGroup,
   doc,
   addDoc,
   updateDoc,
@@ -113,6 +114,32 @@ export async function getFinancials(callId: string): Promise<PrivateFinancials |
   const snap = await getDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS));
   const d = snap.data();
   return d ? (d as PrivateFinancials) : null;
+}
+
+/**
+ * ALL financials in ONE collection-group query (vs. one read per call).
+ * Falls back to per-call reads if the collection-group rule isn't deployed yet.
+ */
+export async function getAllFinancialsByCallId(
+  callIds: string[]
+): Promise<Record<string, PrivateFinancials | null>> {
+  const out: Record<string, PrivateFinancials | null> = {};
+  callIds.forEach((id) => (out[id] = null));
+  try {
+    const snap = await getDocs(collectionGroup(db, 'privateData'));
+    snap.docs.forEach((d) => {
+      const callId = d.ref.parent.parent?.id;
+      if (d.id === FINANCIALS && callId && callId in out) {
+        out[callId] = d.data() as PrivateFinancials;
+      }
+    });
+    return out;
+  } catch {
+    // Rules for the collection-group read not deployed yet — fall back.
+    const fins = await Promise.all(callIds.map((id) => getFinancials(id).catch(() => null)));
+    callIds.forEach((id, i) => (out[id] = fins[i]));
+    return out;
+  }
 }
 
 export async function createServiceCall(payload: CreateServiceCallPayload): Promise<string> {

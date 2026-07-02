@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
@@ -38,17 +38,18 @@ export function DayJobsScreen() {
       ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
       : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`;
 
+  const openCall = useCallback(
+    (c: ServiceCall) => navigation.navigate('ServiceCallDetail', { callId: c.id, readOnly: true }),
+    [navigation]
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
         data={dayJobs}
         keyExtractor={(c) => c.id}
         renderItem={({ item }) => (
-          <ServiceCallCard
-            call={item}
-            subtitle={subtitleFor(item)}
-            onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id, readOnly: true })}
-          />
+          <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
         )}
         ListHeaderComponent={
           <View>

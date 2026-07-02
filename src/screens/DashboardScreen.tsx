@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -9,10 +9,10 @@ import { CustomButton } from '../components/CustomButton';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
-import { getFinancials } from '../services/serviceCallService';
 import { subscribeToArchive, ArchiveSummary } from '../services/archiveService';
-import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
-import { dayKey, monthKey, callProfit } from '../utils/finance';
+import { useFinancialData } from '../hooks/useFinancialData';
+import { ServiceCall } from '../types/serviceCall';
+import { dayKey, monthKey, callProfit, itemPriceMap } from '../utils/finance';
 import { formatMonthLabel } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -47,23 +47,8 @@ export function DashboardScreen() {
     return subscribeToArchive(setArchive, () => {});
   }, [caps.viewFinancials]);
 
-  // Financials aren't on the live call docs; fetch them (viewFinancials) for profit.
-  const [fins, setFins] = useState<Record<string, PrivateFinancials | null>>({});
-  const callIds = mine.map((c) => c.id).join(',');
-  useEffect(() => {
-    if (!caps.viewFinancials) return;
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        mine.map(async (c) => [c.id, await getFinancials(c.id).catch(() => null)] as const)
-      );
-      if (!cancelled) setFins(Object.fromEntries(entries));
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callIds, caps.viewFinancials]);
+  // Financials aren't on the live call docs; one shared cached fetch covers them.
+  const { finsById: fins } = useFinancialData(caps.viewFinancials);
 
   const todayJobs = useMemo(() => {
     const k = dayKey(new Date());
@@ -75,10 +60,11 @@ export function DashboardScreen() {
   // "All" → one row per month with its profit. Live months are merged with the
   // archived monthly totals, so recycled months still show after the data wipe.
   const months = useMemo(() => {
+    const priceMap = itemPriceMap(items);
     const m: Record<string, number> = { ...archive.monthlyProfit };
     mine.forEach((c) => {
       const k = monthKey(new Date(c.scheduledDate));
-      m[k] = (m[k] ?? 0) + callProfit(c, fins[c.id] ?? null, items);
+      m[k] = (m[k] ?? 0) + callProfit(c, fins[c.id] ?? null, priceMap);
     });
     return Object.entries(m)
       .sort((a, b) => b[0].localeCompare(a[0])) // most recent first
@@ -89,6 +75,11 @@ export function DashboardScreen() {
     showTeamPay
       ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
       : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`;
+
+  const openCall = useCallback(
+    (c: ServiceCall) => navigation.navigate('ServiceCallDetail', { callId: c.id }),
+    [navigation]
+  );
 
   const header = (
     <View>
@@ -133,11 +124,7 @@ export function DashboardScreen() {
           data={todayJobs}
           keyExtractor={(c) => c.id}
           renderItem={({ item }) => (
-            <ServiceCallCard
-              call={item}
-              subtitle={subtitleFor(item)}
-              onPress={(c) => navigation.navigate('ServiceCallDetail', { callId: c.id })}
-            />
+            <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}

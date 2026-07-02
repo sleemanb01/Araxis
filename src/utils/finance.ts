@@ -27,21 +27,36 @@ export function dayKey(d: Date): string {
   return monthKey(d) + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+/** id -> price map for O(1) lookups. Build ONCE before looping over calls. */
+export type PriceMap = Map<string, number>;
+export function itemPriceMap(items: InventoryItem[]): PriceMap {
+  const m: PriceMap = new Map();
+  items.forEach((i) => {
+    if (typeof i.price === 'number') m.set(i.id, i.price);
+  });
+  return m;
+}
+
+/** Items lookup — a prebuilt PriceMap is O(1); a raw array falls back to find. */
+type Items = InventoryItem[] | PriceMap;
+function priceIn(items: Items, id: string): number | undefined {
+  return items instanceof Map ? items.get(id) : items.find((it) => it.id === id)?.price;
+}
+
 /**
  * Cost of a required item on a call. A finished job carries a frozen price
  * snapshot (itemPrices) so later price edits don't change its books; otherwise
  * use the item's current price.
  */
-export function itemCostOn(call: ServiceCall, id: string, items: InventoryItem[]): number {
-  const snap = call.itemPrices?.[id];
-  return snap != null ? snap : items.find((it) => it.id === id)?.price ?? 0;
+export function itemCostOn(call: ServiceCall, id: string, items: Items): number {
+  return call.itemPrices?.[id] ?? priceIn(items, id) ?? 0;
 }
 
 /** Net profit of a single call: client price − equipment cost − crew payout. */
 export function callProfit(
   call: ServiceCall,
   fin: PrivateFinancials | null,
-  items: InventoryItem[]
+  items: Items
 ): number {
   const gross = fin?.overallPrice ?? 0;
   const equip = (call.requiredItems ?? []).reduce((a, id) => a + itemCostOn(call, id, items), 0);
@@ -55,10 +70,11 @@ function profitByKey(
   items: InventoryItem[],
   keyFn: (d: Date) => string
 ): Record<string, number> {
+  const map = itemPriceMap(items); // once, not per call
   const out: Record<string, number> = {};
   calls.forEach((c, i) => {
     const key = keyFn(new Date(c.scheduledDate));
-    out[key] = (out[key] ?? 0) + callProfit(c, fins[i], items);
+    out[key] = (out[key] ?? 0) + callProfit(c, fins[i], map);
   });
   return out;
 }
@@ -87,6 +103,7 @@ export function aggregateTotals(
   fins: (PrivateFinancials | null)[],
   items: InventoryItem[]
 ): FinancialTotals {
+  const map = itemPriceMap(items);
   let gross = 0;
   let paid = 0;
   let payouts = 0;
@@ -99,7 +116,7 @@ export function aggregateTotals(
     }
     payouts += c.payouts.totalTechPayout || 0;
     (c.requiredItems ?? []).forEach((id) => {
-      equipment += itemCostOn(c, id, items);
+      equipment += itemCostOn(c, id, map);
     });
   });
   const revenue = gross - equipment;

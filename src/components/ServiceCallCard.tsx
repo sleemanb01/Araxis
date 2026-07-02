@@ -13,8 +13,9 @@ interface Props {
   onPress: (call: ServiceCall) => void;
 }
 
-/** A service-call row with a status-colored edge bar. */
-export function ServiceCallCard({ call, subtitle, onPress }: Props) {
+/** A service-call row with a status-colored edge bar. Memoized — list rows
+ *  re-render only when their call/subtitle/handler actually change. */
+export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subtitle, onPress }: Props) {
   const { profile, user } = useUser();
   const color = CallStatusColors[call.status];
   const date = new Date(call.scheduledDate).toLocaleDateString('he-IL');
@@ -61,7 +62,7 @@ export function ServiceCallCard({ call, subtitle, onPress }: Props) {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

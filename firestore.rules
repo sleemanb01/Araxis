@@ -75,6 +75,12 @@ service cloud.firestore {
       allow update, delete: if can('manageInventory');
     }
 
+    // Collection-group read of all financials in one query (dashboards).
+    // Only serviceCalls have a privateData subcollection; write stays nested.
+    match /{path=**}/privateData/{docId} {
+      allow read: if can('viewFinancials');
+    }
+
     // ---- Monthly targets ---- (financial managers only)
     match /targets/{docId} {
       allow read, write: if can('viewFinancials');

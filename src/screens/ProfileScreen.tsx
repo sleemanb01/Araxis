@@ -10,12 +10,11 @@ import { ProgressRing } from '../components/ProgressRing';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
-import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
 import { subscribeToArchive, initArchiveIfMissing, ArchiveSummary } from '../services/archiveService';
 import { ExportDataModal } from '../components/ExportDataModal';
-import { monthlyProfit, dailyProfit, callProfit, monthKey, dayKey } from '../utils/finance';
-import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
+import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
+import { monthlyProfit, dailyProfit, callProfit, itemPriceMap, monthKey, dayKey } from '../utils/finance';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -36,34 +35,13 @@ export function ProfileScreen() {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const [calls, setCalls] = useState<ServiceCall[]>([]);
-  const [fins, setFins] = useState<(PrivateFinancials | null)[]>([]);
+  const { calls, fins } = useFinancialData(caps.viewFinancials);
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [settingTarget, setSettingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
   const [exportOpen, setExportOpen] = useState(false);
-
-  useEffect(() => {
-    if (!caps.viewFinancials) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const cs = await getAllCalls();
-        const fs = await Promise.all(cs.map((c) => getFinancials(c.id).catch(() => null)));
-        if (!cancelled) {
-          setCalls(cs);
-          setFins(fs);
-        }
-      } catch {
-        /* leave empty */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [caps.viewFinancials]);
 
   useEffect(() => {
     if (!caps.viewFinancials) return;
@@ -96,9 +74,10 @@ export function ProfileScreen() {
   }, [calls, fins, items, archive]);
   const daily = useMemo(() => dailyProfit(calls, fins, items), [calls, fins, items]);
   const crewProfits = useMemo(() => {
+    const priceMap = itemPriceMap(items);
     const out: Record<string, number> = {};
     calls.forEach((c, i) => {
-      if (c.crewId) out[c.crewId] = (out[c.crewId] ?? 0) + callProfit(c, fins[i], items);
+      if (c.crewId) out[c.crewId] = (out[c.crewId] ?? 0) + callProfit(c, fins[i], priceMap);
     });
     return out;
   }, [calls, fins, items]);
@@ -309,10 +288,7 @@ export function ProfileScreen() {
         calls={calls}
         fins={fins}
         items={items}
-        onErased={() => {
-          setCalls([]);
-          setFins([]);
-        }}
+        onErased={invalidateFinancialData}
       />
     </SafeAreaView>
   );

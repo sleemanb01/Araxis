@@ -1,9 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getAllCalls, getFinancials } from '../services/serviceCallService';
 import { useInventory } from '../context/InventoryContext';
-import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
+import { useFinancialData } from '../hooks/useFinancialData';
 import { aggregateTotals } from '../utils/finance';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -14,29 +13,7 @@ function ils(n: number): string {
 
 export function FinancialDashboardScreen() {
   const { items } = useInventory();
-  const [loading, setLoading] = useState(true);
-  const [calls, setCalls] = useState<ServiceCall[]>([]);
-  const [fins, setFins] = useState<(PrivateFinancials | null)[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const cs = await getAllCalls();
-        const fs = await Promise.all(cs.map((c) => getFinancials(c.id).catch(() => null)));
-        if (!cancelled) {
-          setCalls(cs);
-          setFins(fs);
-          setLoading(false);
-        }
-      } catch {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { calls, fins, loading } = useFinancialData(true);
 
   const t = useMemo(() => aggregateTotals(calls, fins, items), [calls, fins, items]);
 
