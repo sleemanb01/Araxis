@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ServiceCallCard } from '../components/ServiceCallCard';
@@ -44,6 +45,7 @@ export function DashboardScreen() {
 
   const [tab, setTab] = useState<'schedule' | 'months'>('schedule');
   const [selectedDay, setSelectedDay] = useState(() => new Date());
+  const [calOpen, setCalOpen] = useState(false);
   const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
 
   useEffect(() => {
@@ -136,6 +138,13 @@ export function DashboardScreen() {
           style={styles.strip}
           contentContainerStyle={styles.stripRow}
         >
+          <TouchableOpacity
+            style={[styles.dayChip, styles.calChip]}
+            onPress={() => setCalOpen(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
+          </TouchableOpacity>
           {stripDays.map((d) => {
             const k = dayKey(d);
             const sel = k === selectedKey;
@@ -176,11 +185,6 @@ export function DashboardScreen() {
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
-          ListFooterComponent={
-            <View style={styles.calWrap}>
-              <Calendar selected={selectedDay} onSelect={setSelectedDay} markedDays={jobDays} />
-            </View>
-          }
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
@@ -204,6 +208,22 @@ export function DashboardScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Calendar
+              selected={selectedDay}
+              onSelect={(d) => {
+                setSelectedDay(d);
+                setCalOpen(false);
+              }}
+              markedDays={jobDays}
+            />
+            <CustomButton label="סגור" variant="ghost" onPress={() => setCalOpen(false)} />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -246,7 +266,9 @@ const styles = StyleSheet.create({
   jobDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#1E9E5A' },
   jobDotOn: { backgroundColor: '#FFFFFF' },
   jobDotOff: { backgroundColor: 'transparent' },
-  calWrap: { marginTop: 14 },
+  calChip: { justifyContent: 'center' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 16 },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
