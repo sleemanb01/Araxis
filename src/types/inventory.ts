@@ -31,9 +31,9 @@ export function crewIdFromLocation(key: string): string {
 }
 
 /** Flag low stock when the total across all locations is below this. */
-export const LOW_STOCK_THRESHOLD = 5;
+const LOW_STOCK_THRESHOLD = 5;
 
-export function totalQty(i: InventoryItem): number {
+function totalQty(i: InventoryItem): number {
   return Object.values(i.locations).reduce((sum, n) => sum + (n ?? 0), 0);
 }
 

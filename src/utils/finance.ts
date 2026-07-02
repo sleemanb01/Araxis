@@ -48,7 +48,7 @@ function priceIn(items: Items, id: string): number | undefined {
  * snapshot (itemPrices) so later price edits don't change its books; otherwise
  * use the item's current price.
  */
-export function itemCostOn(call: ServiceCall, id: string, items: Items): number {
+function itemCostOn(call: ServiceCall, id: string, items: Items): number {
   return call.itemPrices?.[id] ?? priceIn(items, id) ?? 0;
 }
 
@@ -127,15 +127,6 @@ export function financialStatus(overallPrice: number, paidAmount: number): Finan
   if (paidAmount <= 0) return 'Unpaid';
   if (paidAmount >= overallPrice) return 'Paid in Full';
   return 'Partial';
-}
-
-export function balanceDue(overallPrice: number, paidAmount: number): number {
-  return Math.max(0, overallPrice - paidAmount);
-}
-
-/** Business profit on a call after crew payouts. */
-export function profit(overallPrice: number, totalTechPayout: number): number {
-  return overallPrice - totalTechPayout;
 }
 
 export const FINANCIAL_STATUS_HE: Record<FinancialStatus, string> = {

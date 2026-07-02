@@ -4,12 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useInventory } from '../context/InventoryContext';
 import { useFinancialData } from '../hooks/useFinancialData';
 import { aggregateTotals } from '../utils/finance';
+import { ils } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-
-function ils(n: number): string {
-  return '₪' + Math.round(n).toLocaleString('he-IL');
-}
 
 export function FinancialDashboardScreen() {
   const { items } = useInventory();

@@ -13,14 +13,12 @@ import {
   deleteDoc,
   onSnapshot,
   increment,
-  arrayUnion,
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { InventoryItem, CreateInventoryPayload, WAREHOUSE, crewLocation } from '../types/inventory';
 
 const INVENTORY = 'inventory';
-const CALLS = 'serviceCalls';
 const WITHDRAWALS = 'withdrawals';
 
 function toItem(snap: { id: string; data: () => any }): InventoryItem {
@@ -58,38 +56,6 @@ export async function adjustQuantity(
   delta: number
 ): Promise<void> {
   await updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) });
-}
-
-/** Atomically move `qty` units between two locations in a single write. */
-export async function transfer(
-  id: string,
-  qty: number,
-  from: string,
-  to: string
-): Promise<void> {
-  if (qty <= 0 || from === to) return;
-  await updateDoc(doc(db, INVENTORY, id), {
-    [`locations.${from}`]: increment(-qty),
-    [`locations.${to}`]: increment(qty),
-  });
-}
-
-/**
- * Assign hardware to a service call: in ONE batch, deduct the unit from the
- * source location's stock and record the item id on the call's `hardwareUsed`.
- */
-export async function assignHardwareToCall(
-  itemId: string,
-  fromLocation: string,
-  ticketId: string,
-  qty = 1
-): Promise<void> {
-  const batch = writeBatch(db);
-  batch.update(doc(db, INVENTORY, itemId), {
-    [`locations.${fromLocation}`]: increment(-qty),
-  });
-  batch.update(doc(db, CALLS, ticketId), { hardwareUsed: arrayUnion(itemId) });
-  await batch.commit();
 }
 
 /**

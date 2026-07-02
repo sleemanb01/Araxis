@@ -18,13 +18,10 @@ import { monthlyProfit, dailyProfit, callProfit, itemPriceMap, monthKey, dayKey 
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
+import { ils } from '../utils/format';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-
-function ils(n: number): string {
-  return '₪' + Math.round(n).toLocaleString('he-IL');
-}
 
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
