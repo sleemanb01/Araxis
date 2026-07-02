@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
@@ -11,6 +11,10 @@ import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { subscribeToCall, subscribeToFinancials, setFinancials, updateServiceCall } from '../services/serviceCallService';
+import { subscribeToPayments, issuePaymentDocument } from '../services/paymentService';
+import { AddPaymentModal } from '../components/AddPaymentModal';
+import { Payment, PAYMENT_METHOD_HE, PAYMENT_STATUS_HE, DOC_KIND_HE } from '../types/payment';
+import { financialStatus, FINANCIAL_STATUS_HE } from '../utils/finance';
 import { adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
 import { ServiceCall, PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
@@ -47,6 +51,8 @@ export function ServiceCallDetailScreen() {
   const [paid, setPaid] = useState('');
   const [payout, setPayout] = useState('');
   const [addOpen, setAddOpen] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payOpen, setPayOpen] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToCall(callId, setFetchedCall);
@@ -57,6 +63,11 @@ export function ServiceCallDetailScreen() {
     if (!caps.viewFinancials) return;
     const unsub = subscribeToFinancials(callId, setFin);
     return () => unsub();
+  }, [callId, caps.viewFinancials]);
+
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    return subscribeToPayments(callId, setPayments, () => {});
   }, [callId, caps.viewFinancials]);
 
   useEffect(() => {
@@ -102,6 +113,14 @@ export function ServiceCallDetailScreen() {
   const payoutN = Math.max(0, parseFloat(payout) || 0);
   const showFinance = caps.viewTeamPayouts || caps.viewFinancials;
 
+  // With payment records, "paid" is derived from ISSUED documents (backend
+  // keeps financials.paidAmount in sync); manual entry applies only before.
+  const hasPayments = payments.length > 0;
+  const paidIssued = payments.reduce((s, p) => s + (p.status === 'issued' ? p.amount : 0), 0);
+  const reserved = payments.reduce((s, p) => s + (p.status !== 'failed' ? p.amount : 0), 0);
+  const paidShown = hasPayments ? paidIssued : paidN;
+  const balance = Math.max(0, priceN - paidShown);
+
   function advance() {
     if (!next) return;
     const patch: Partial<ServiceCall> = { status: next };
@@ -119,7 +138,9 @@ export function ServiceCallDetailScreen() {
 
   async function saveFinancials() {
     try {
-      if (caps.viewFinancials) await setFinancials(callId, { overallPrice: priceN, paidAmount: paidN });
+      if (caps.viewFinancials) {
+        await setFinancials(callId, { overallPrice: priceN, paidAmount: hasPayments ? paidIssued : paidN });
+      }
       if (caps.viewTeamPayouts && canEdit) {
         await updateServiceCall(callId, { payouts: { totalTechPayout: payoutN, splits: call!.payouts.splits } });
       }
@@ -332,9 +353,11 @@ export function ServiceCallDetailScreen() {
                     <View style={styles.financeCol}>
                       <TextField label="מחיר ללקוח ₪" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
                     </View>
-                    <View style={styles.financeCol}>
-                      <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
-                    </View>
+                    {!hasPayments && (
+                      <View style={styles.financeCol}>
+                        <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+                      </View>
+                    )}
                   </>
                 )}
               </View>
@@ -344,6 +367,77 @@ export function ServiceCallDetailScreen() {
             )}
             {!readOnly && (
               <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
+            )}
+
+            {caps.viewFinancials && (
+              <>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionInline}>תשלומים</Text>
+                  {!readOnly && (
+                    <TouchableOpacity style={styles.addBtn} onPress={() => setPayOpen(true)} activeOpacity={0.85}>
+                      <Ionicons name="add" size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                {priceN > 0 && (
+                  <Text style={styles.paySummary}>
+                    שולם ₪{Math.round(paidShown).toLocaleString('he-IL')} · יתרה ₪
+                    {Math.round(balance).toLocaleString('he-IL')} ·{' '}
+                    {FINANCIAL_STATUS_HE[financialStatus(priceN, paidShown)]}
+                  </Text>
+                )}
+                {payments.length === 0 ? (
+                  <Text style={styles.muted}>אין תשלומים עדיין.</Text>
+                ) : (
+                  payments.map((p) => (
+                    <View key={p.id} style={styles.payRow}>
+                      <View style={styles.payActions}>
+                        {p.morningPdfUrl && (
+                          <TouchableOpacity onPress={() => Linking.openURL(p.morningPdfUrl!)} hitSlop={6}>
+                            <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
+                          </TouchableOpacity>
+                        )}
+                        {p.morningPdfUrl && !!call.contactPhone && (
+                          <TouchableOpacity
+                            onPress={() =>
+                              openWhatsapp(
+                                call!.contactPhone!,
+                                `שלום ${call!.clientName}, מצורף ${DOC_KIND_HE[p.docKind]} על סך ₪${p.amount.toLocaleString('he-IL')}: ${p.morningPdfUrl}`
+                              )
+                            }
+                            hitSlop={6}
+                          >
+                            <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+                          </TouchableOpacity>
+                        )}
+                        {p.status !== 'issued' && !readOnly && (
+                          <TouchableOpacity
+                            onPress={() =>
+                              issuePaymentDocument(callId, p.id).catch((e: any) =>
+                                Alert.alert('שגיאה', e?.message ?? 'הפקת המסמך נכשלה.')
+                              )
+                            }
+                            hitSlop={6}
+                          >
+                            <Ionicons name="refresh" size={20} color={Colors.danger} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <View style={styles.payInfo}>
+                        <Text style={styles.payAmount}>
+                          ₪{p.amount.toLocaleString('he-IL')} · {PAYMENT_METHOD_HE[p.method]}
+                        </Text>
+                        <Text style={styles.payMeta}>
+                          {p.date}
+                          {p.morningDocumentNumber
+                            ? ` · ${DOC_KIND_HE[p.docKind]} ${p.morningDocumentNumber}`
+                            : ` · ${PAYMENT_STATUS_HE[p.status]}`}
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </>
             )}
           </>
         )}
@@ -367,6 +461,13 @@ export function ServiceCallDetailScreen() {
         visible={addOpen}
         onClose={() => setAddOpen(false)}
         onAdded={(id) => addItemToCall(id).catch(() => {})}
+      />
+
+      <AddPaymentModal
+        visible={payOpen}
+        onClose={() => setPayOpen(false)}
+        callId={callId}
+        balance={priceN > 0 ? Math.max(0, priceN - reserved) : undefined}
       />
     </SafeAreaView>
   );
@@ -417,6 +518,23 @@ const styles = StyleSheet.create({
   itemPrice: { fontSize: 14, fontWeight: '700', color: Colors.primary },
   financeRow: { flexDirection: 'row', gap: 8 },
   financeCol: { flex: 1 },
+  paySummary: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right', marginBottom: 8, writingDirection: 'rtl' },
+  payRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  payActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  payInfo: { flex: 1, alignItems: 'flex-end', marginStart: 10 },
+  payAmount: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  payMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
   finStatus: { fontSize: 14, fontWeight: '700', color: Colors.primary, textAlign: 'right', marginTop: 2 },
   btn: { marginTop: 28 },
   btnFin: { marginTop: 10 },

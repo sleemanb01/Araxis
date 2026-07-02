@@ -56,6 +56,13 @@ service cloud.firestore {
       match /privateData/{docId} {
         allow read, write: if can('viewFinancials');
       }
+
+      // Payments — written ONLY by the backend (Morning documents are issued
+      // server-side). Delete allowed for the bi-monthly archive-and-erase.
+      match /payments/{paymentId} {
+        allow read, delete: if can('viewFinancials');
+        allow create, update: if false;
+      }
     }
 
     // ---- Inventory ----

@@ -12,6 +12,7 @@ import { defineSecret, defineString } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { issueDocument, MorningEnv, MorningDocKind, DOC_TYPES } from './morning';
 
 initializeApp();
 const db = getFirestore();
@@ -23,6 +24,13 @@ const WHATSAPP_TOKEN = defineSecret('WHATSAPP_TOKEN');
 const WHATSAPP_PHONE_ID = defineSecret('WHATSAPP_PHONE_ID');
 const WHATSAPP_TEMPLATE = defineString('WHATSAPP_TEMPLATE', { default: 'appointment_reminder' });
 const WHATSAPP_LANG = defineString('WHATSAPP_LANG', { default: 'he' });
+
+// Morning (Green Invoice) credentials — Secret Manager only, never the client:
+//   firebase functions:secrets:set MORNING_API_KEY
+//   firebase functions:secrets:set MORNING_API_SECRET
+const MORNING_API_KEY = defineSecret('MORNING_API_KEY');
+const MORNING_API_SECRET = defineSecret('MORNING_API_SECRET');
+const MORNING_ENV = defineString('MORNING_ENV', { default: 'sandbox' });
 
 const CAP_KEYS = [
   'manageCrew',
@@ -265,5 +273,175 @@ export const sendAppointmentReminders = onSchedule(
       }
     }
     console.log(`[reminder] sent ${sent} reminder(s) for ${tomorrow}`);
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Payments + Morning (Green Invoice) documents.
+//
+// A job's payments live at serviceCalls/{id}/payments/{pid}; each records the
+// amount ACTUALLY received. Accounting documents are issued through Morning
+// only for received amounts (never the full deal price when only a deposit was
+// paid). paidAmount on privateData/financials is kept = sum of ISSUED payments,
+// so every existing dashboard/profit computation stays correct.
+// ---------------------------------------------------------------------------
+
+const PAYMENT_METHODS = ['cash', 'bank_transfer', 'credit_card', 'check', 'bit', 'other'] as const;
+
+function requireFinancials(request: CallableRequest<any>): void {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in required.');
+  const caps = (request.auth.token as any).caps;
+  if (!caps || caps.viewFinancials !== true) {
+    throw new HttpsError('permission-denied', 'Requires financials permission.');
+  }
+}
+
+/** Sum of payments by status for a call. */
+async function paymentTotals(callId: string): Promise<{ issued: number; reserved: number }> {
+  const snap = await db.collection('serviceCalls').doc(callId).collection('payments').get();
+  let issued = 0;
+  let reserved = 0; // issued + pending — reserved against the open balance
+  for (const p of snap.docs) {
+    const d = p.data();
+    const amt = typeof d.amount === 'number' ? d.amount : 0;
+    if (d.status === 'issued') issued += amt;
+    if (d.status === 'issued' || d.status === 'pending') reserved += amt;
+  }
+  return { issued, reserved };
+}
+
+/** Recompute financials.paidAmount from issued payments. */
+async function syncPaidAmount(callId: string): Promise<void> {
+  const { issued } = await paymentTotals(callId);
+  await db
+    .collection('serviceCalls')
+    .doc(callId)
+    .collection('privateData')
+    .doc('financials')
+    .set({ paidAmount: issued }, { merge: true });
+}
+
+/** Issue the Morning document for one payment doc and stamp the result. */
+async function issueForPayment(callId: string, paymentId: string): Promise<any> {
+  const callRef = db.collection('serviceCalls').doc(callId);
+  const payRef = callRef.collection('payments').doc(paymentId);
+  const [callSnap, paySnap] = await Promise.all([callRef.get(), payRef.get()]);
+  if (!callSnap.exists) throw new HttpsError('not-found', 'Job not found.');
+  if (!paySnap.exists) throw new HttpsError('not-found', 'Payment not found.');
+  const call = callSnap.data() as any;
+  const pay = paySnap.data() as any;
+  if (pay.status === 'issued') throw new HttpsError('failed-precondition', 'Document already issued.');
+
+  try {
+    const doc = await issueDocument(
+      MORNING_ENV.value() as MorningEnv,
+      MORNING_API_KEY.value(),
+      MORNING_API_SECRET.value(),
+      {
+        kind: (pay.docKind ?? 'receipt') as MorningDocKind,
+        amount: pay.amount,
+        method: pay.method,
+        date: pay.date,
+        description: pay.note || 'שירות והתקנה',
+        clientName: call.clientName ?? '',
+        clientPhone: call.contactPhone || undefined,
+      }
+    );
+    await payRef.set(
+      {
+        status: 'issued',
+        morningDocumentId: doc.id,
+        morningDocumentNumber: doc.number,
+        morningDocumentType: doc.type,
+        morningPdfUrl: doc.pdfUrl,
+        error: FieldValue.delete(),
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true }
+    );
+    await syncPaidAmount(callId);
+    return { ok: true, document: doc };
+  } catch (e: any) {
+    await payRef.set(
+      { status: 'failed', error: String(e?.message ?? e), updatedAt: new Date().toISOString() },
+      { merge: true }
+    );
+    throw new HttpsError('internal', `Morning: ${e?.message ?? e}`);
+  }
+}
+
+/** Add a (possibly partial) payment to a job; optionally issue its document now. */
+export const addJobPayment = onCall(
+  { region: 'me-west1', secrets: [MORNING_API_KEY, MORNING_API_SECRET] },
+  async (
+    request: CallableRequest<{
+      callId: string;
+      amount: number;
+      method: string;
+      date?: string;   // "YYYY-MM-DD" (default today)
+      note?: string;
+      issueNow?: boolean;
+      docKind?: MorningDocKind;
+    }>
+  ) => {
+    requireFinancials(request);
+    const { callId, method, note, issueNow } = request.data ?? ({} as any);
+    const amount = Math.round((Number(request.data?.amount) || 0) * 100) / 100;
+    const docKind: MorningDocKind =
+      request.data?.docKind && request.data.docKind in DOC_TYPES ? request.data.docKind : 'receipt';
+    if (!callId) throw new HttpsError('invalid-argument', 'callId is required.');
+    if (amount <= 0) throw new HttpsError('invalid-argument', 'amount must be positive.');
+    if (!(PAYMENT_METHODS as readonly string[]).includes(method)) {
+      throw new HttpsError('invalid-argument', 'invalid payment method.');
+    }
+
+    const callRef = db.collection('serviceCalls').doc(callId);
+    const [callSnap, finSnap, totals] = await Promise.all([
+      callRef.get(),
+      callRef.collection('privateData').doc('financials').get(),
+      paymentTotals(callId),
+    ]);
+    if (!callSnap.exists) throw new HttpsError('not-found', 'Job not found.');
+
+    // Never allow recording more than the open balance of the deal.
+    const total = (finSnap.data() as any)?.overallPrice ?? 0;
+    if (total > 0 && totals.reserved + amount > total + 0.005) {
+      throw new HttpsError(
+        'failed-precondition',
+        `Payment exceeds the open balance (${Math.max(0, total - totals.reserved)} ILS left).`
+      );
+    }
+
+    const date = request.data?.date || new Date().toISOString().slice(0, 10);
+    const payRef = callRef.collection('payments').doc();
+    await payRef.set({
+      amount,
+      method,
+      date,
+      note: note || '',
+      docKind,
+      status: 'pending',
+      createdBy: request.auth!.uid,
+      createdAt: new Date().toISOString(),
+    });
+
+    if (issueNow) {
+      const res = await issueForPayment(callId, payRef.id);
+      return { ok: true, paymentId: payRef.id, ...res };
+    }
+    return { ok: true, paymentId: payRef.id };
+  }
+);
+
+/** Issue (or retry) the Morning document for an existing payment. */
+export const issuePaymentDocument = onCall(
+  { region: 'me-west1', secrets: [MORNING_API_KEY, MORNING_API_SECRET] },
+  async (request: CallableRequest<{ callId: string; paymentId: string }>) => {
+    requireFinancials(request);
+    const { callId, paymentId } = request.data ?? ({} as any);
+    if (!callId || !paymentId) {
+      throw new HttpsError('invalid-argument', 'callId and paymentId are required.');
+    }
+    return issueForPayment(callId, paymentId);
   }
 );

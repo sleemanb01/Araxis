@@ -71,15 +71,20 @@ export async function archiveAndErase(monthlyDelta: Record<string, number>): Pro
   const snap = await getDocs(collection(db, CALLS));
   let batch = writeBatch(db);
   let n = 0;
-  for (const c of snap.docs) {
-    batch.delete(doc(db, CALLS, c.id, 'privateData', FINANCIALS));
-    batch.delete(doc(db, CALLS, c.id));
-    n += 2;
-    if (n >= 450) {
+  const push = async (ref: ReturnType<typeof doc>) => {
+    batch.delete(ref);
+    if (++n >= 450) {
       await batch.commit();
       batch = writeBatch(db);
       n = 0;
     }
+  };
+  for (const c of snap.docs) {
+    // Payments subcollection (Morning document records) goes with the call.
+    const pays = await getDocs(collection(db, CALLS, c.id, 'payments'));
+    for (const p of pays.docs) await push(doc(db, CALLS, c.id, 'payments', p.id));
+    await push(doc(db, CALLS, c.id, 'privateData', FINANCIALS));
+    await push(doc(db, CALLS, c.id));
   }
   if (n > 0) await batch.commit();
 }

@@ -5,10 +5,12 @@ export function dialPhone(phone: string) {
   Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('שגיאה', 'לא ניתן לחייג.'));
 }
 
-/** Open a WhatsApp chat with a number. https://wa.me wants digits only. */
-export function openWhatsapp(phone: string) {
+/** Open a WhatsApp chat with a number (optionally pre-filled with `text`).
+ *  https://wa.me wants digits only. */
+export function openWhatsapp(phone: string, text?: string) {
   const digits = phone.replace(/\D/g, '');
-  Linking.openURL(`https://wa.me/${digits}`).catch(() =>
+  const suffix = text ? `?text=${encodeURIComponent(text)}` : '';
+  Linking.openURL(`https://wa.me/${digits}${suffix}`).catch(() =>
     Alert.alert('שגיאה', 'לא ניתן לפתוח את וואטסאפ.')
   );
 }
