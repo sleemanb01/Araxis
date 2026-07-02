@@ -45,6 +45,8 @@ function toCall(snap: { id: string; data: () => any }): ServiceCall {
     contactPhone: d.contactPhone ?? undefined,
     notes: d.notes ?? undefined,
     requiredItems: Array.isArray(d.requiredItems) ? d.requiredItems : undefined,
+    itemQuantities:
+      d.itemQuantities && typeof d.itemQuantities === 'object' ? d.itemQuantities : undefined,
     checkedItems: Array.isArray(d.checkedItems) ? d.checkedItems : undefined,
     crewId: d.crewId ?? undefined,
     itemPrices: d.itemPrices && typeof d.itemPrices === 'object' ? d.itemPrices : undefined,

@@ -22,16 +22,18 @@ export function AddItemModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onAdded: (itemId: string) => void | Promise<void>;
+  onAdded: (itemId: string, qty: number) => void | Promise<void>;
 }) {
   const { items } = useInventory();
   const [name, setName] = useState('');
   const [barcode, setBarcode] = useState('');
+  const [qty, setQty] = useState('1');
   const [scanOpen, setScanOpen] = useState(false);
 
   function close() {
     setName('');
     setBarcode('');
+    setQty('1');
     setScanOpen(false);
     onClose();
   }
@@ -71,7 +73,7 @@ export function AddItemModal({
           locations: { [WAREHOUSE]: 0 },
         });
       }
-      await onAdded(id);
+      await onAdded(id, Math.max(1, parseInt(qty, 10) || 1));
       close();
     } catch {
       Alert.alert('שגיאה', 'הוספת הפריט נכשלה.');
@@ -114,6 +116,8 @@ export function AddItemModal({
             )}
 
             {existing && <Text style={styles.sub}>פריט קיים: {existing.itemName} — יתווסף הקיים.</Text>}
+
+            <TextField label="כמות" value={qty} onChange={setQty} placeholder="1" keyboardType="numeric" />
 
             <CustomButton
               label="הוסף פריט"

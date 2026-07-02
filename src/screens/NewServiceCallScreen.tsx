@@ -42,6 +42,7 @@ export function NewServiceCallScreen() {
   const [paid, setPaid] = useState('');
   const [saving, setSaving] = useState(false);
   const [requiredItems, setRequiredItems] = useState<string[]>([]);
+  const [itemQty, setItemQty] = useState<Record<string, number>>({});
   const [calOpen, setCalOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
@@ -70,7 +71,10 @@ export function NewServiceCallScreen() {
 
   const selectedCrew = crews.find((c) => c.id === crewId) ?? null;
   const memberIds = selectedCrew?.memberIds ?? [];
-  const equipmentCost = requiredItems.reduce((s, id) => s + (items.find((i) => i.id === id)?.price ?? 0), 0);
+  const equipmentCost = requiredItems.reduce(
+    (s, id) => s + (items.find((i) => i.id === id)?.price ?? 0) * (itemQty[id] ?? 1),
+    0
+  );
 
   // Weekdays (0=Sun..6=Sat) the calendar marks as available: the chosen crew's
   // MANAGER availability; before a crew is picked, the union across crew mates.
@@ -112,11 +116,13 @@ export function NewServiceCallScreen() {
     }
   }
 
-  function addRequired(id: string) {
+  function addRequired(id: string, qty = 1) {
     setRequiredItems((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setItemQty((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + qty })); // re-adding stacks
   }
   function removeRequired(id: string) {
     setRequiredItems((prev) => prev.filter((x) => x !== id));
+    setItemQty(({ [id]: _gone, ...rest }) => rest);
   }
 
 
@@ -142,7 +148,7 @@ export function NewServiceCallScreen() {
         ...(address.trim() ? { address: address.trim() } : {}),
         ...(contactPhone.trim() ? { contactPhone: contactPhone.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
-        ...(requiredItems.length ? { requiredItems } : {}),
+        ...(requiredItems.length ? { requiredItems, itemQuantities: itemQty } : {}),
         ...(selectedCrew ? { crewId: selectedCrew.id } : {}),
         status: 'pending',
         scheduledDate: date.toISOString(),
@@ -248,7 +254,10 @@ export function NewServiceCallScreen() {
             return (
               <View key={id} style={[styles.reqChip, item?.lacks && styles.reqChipLacks]}>
                 {item?.lacks && <View style={styles.redDot} />}
-                <Text style={styles.reqChipText} numberOfLines={1}>{item?.itemName ?? '—'}</Text>
+                <Text style={styles.reqChipText} numberOfLines={1}>
+                  {item?.itemName ?? '—'}
+                  {(itemQty[id] ?? 1) > 1 ? ` ×${itemQty[id]}` : ''}
+                </Text>
                 {caps.viewFinancials && item?.price != null && (
                   <Text style={styles.reqChipPrice}>₪{item.price.toLocaleString('he-IL')}</Text>
                 )}

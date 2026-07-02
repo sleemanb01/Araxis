@@ -103,7 +103,8 @@ export function ServiceCallDetailScreen() {
   const reqItems = call.requiredItems ?? [];
   // Completed jobs use the frozen price snapshot; live jobs use current prices.
   const priceOf = (id: string): number | undefined => call.itemPrices?.[id] ?? items.find((i) => i.id === id)?.price;
-  const equipmentCost = reqItems.reduce((s, id) => s + (priceOf(id) ?? 0), 0);
+  const qtyOf = (id: string): number => call!.itemQuantities?.[id] ?? 1;
+  const equipmentCost = reqItems.reduce((s, id) => s + (priceOf(id) ?? 0) * qtyOf(id), 0);
   // Can't finish a job until every required item is checked off.
   const allItemsChecked = reqItems.every((id) => checked.has(id));
   const blockFinish = next === 'completed' && reqItems.length > 0 && !allItemsChecked;
@@ -183,7 +184,7 @@ export function ServiceCallDetailScreen() {
     const set = new Set(call!.checkedItems ?? []);
     set.delete(id);
     updateServiceCall(callId, { checkedItems: Array.from(set) }).catch(() => {});
-    if (returnToStock) moveStock(id, 1);
+    if (returnToStock) moveStock(id, qtyOf(id)); // return the full quantity
   }
 
   // You can't manually check an item — you check it by adding it (which consumes
@@ -199,15 +200,21 @@ export function ServiceCallDetailScreen() {
   }
 
   // Adding an item ensures it's in the checklist AND checks it off (you've got it).
-  async function addItemToCall(itemId: string) {
+  async function addItemToCall(itemId: string, qty = 1) {
     const reqCur = call!.requiredItems ?? [];
     const chkCur = call!.checkedItems ?? [];
+    const qtyCur = call!.itemQuantities ?? {};
     const wasChecked = chkCur.includes(itemId);
+    const prevQty = qtyCur[itemId] ?? (reqCur.includes(itemId) ? 1 : 0);
+    const newQty = prevQty + qty;
     await updateServiceCall(callId, {
       requiredItems: reqCur.includes(itemId) ? reqCur : [...reqCur, itemId],
       checkedItems: wasChecked ? chkCur : [...chkCur, itemId],
+      itemQuantities: { ...qtyCur, [itemId]: newQty },
     });
-    if (!wasChecked) moveStock(itemId, -1); // newly checked → consume from crew stock
+    // Checked ⇒ its full quantity is consumed from the crew stock: a newly
+    // checked item consumes everything, an already-checked one just the delta.
+    moveStock(itemId, -(wasChecked ? qty : newQty));
   }
 
   return (
@@ -318,10 +325,11 @@ export function ServiceCallDetailScreen() {
                   color={on ? Colors.primary : Colors.textSecondary}
                 />
                 {caps.viewFinancials && itPrice != null && (
-                  <Text style={styles.itemPrice}>₪{itPrice.toLocaleString('he-IL')}</Text>
+                  <Text style={styles.itemPrice}>₪{(itPrice * qtyOf(id)).toLocaleString('he-IL')}</Text>
                 )}
                 <Text style={[styles.checkText, on && styles.checkTextDone]}>
                   {it?.itemName ?? id}
+                  {qtyOf(id) > 1 ? ` ×${qtyOf(id)}` : ''}
                 </Text>
               </TouchableOpacity>
             );
@@ -466,7 +474,7 @@ export function ServiceCallDetailScreen() {
       <AddItemModal
         visible={addOpen}
         onClose={() => setAddOpen(false)}
-        onAdded={(id) => addItemToCall(id).catch(() => {})}
+        onAdded={(id, qty) => addItemToCall(id, qty).catch(() => {})}
       />
 
       <AddPaymentModal

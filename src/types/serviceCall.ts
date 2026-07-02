@@ -22,6 +22,7 @@ export interface ServiceCall {
   contactPhone?: string;            // on-site contact phone
   notes?: string;                   // free-text notes for the job
   requiredItems?: string[];         // inventory item ids needed for the job
+  itemQuantities?: Record<string, number>; // units per required item (default 1)
   checkedItems?: string[];          // required item ids checked off (checklist)
   crewId?: string;                  // assigned crew
   itemPrices?: Record<string, number>; // snapshot of required-item COST prices, frozen when the job completes

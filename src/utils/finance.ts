@@ -52,6 +52,11 @@ function itemCostOn(call: ServiceCall, id: string, items: Items): number {
   return call.itemPrices?.[id] ?? priceIn(items, id) ?? 0;
 }
 
+/** Units of a required item on a call (default 1). */
+export function qtyOn(call: ServiceCall, id: string): number {
+  return call.itemQuantities?.[id] ?? 1;
+}
+
 /** Net profit of a single call: client price − equipment cost − crew payout. */
 export function callProfit(
   call: ServiceCall,
@@ -59,7 +64,10 @@ export function callProfit(
   items: Items
 ): number {
   const gross = fin?.overallPrice ?? 0;
-  const equip = (call.requiredItems ?? []).reduce((a, id) => a + itemCostOn(call, id, items), 0);
+  const equip = (call.requiredItems ?? []).reduce(
+    (a, id) => a + itemCostOn(call, id, items) * qtyOn(call, id),
+    0
+  );
   return gross - equip - (call.payouts.totalTechPayout ?? 0);
 }
 
@@ -116,7 +124,7 @@ export function aggregateTotals(
     }
     payouts += c.payouts.totalTechPayout || 0;
     (c.requiredItems ?? []).forEach((id) => {
-      equipment += itemCostOn(c, id, map);
+      equipment += itemCostOn(c, id, map) * qtyOn(c, id);
     });
   });
   const revenue = gross - equipment;
