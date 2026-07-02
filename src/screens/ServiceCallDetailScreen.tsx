@@ -431,6 +431,8 @@ export function ServiceCallDetailScreen() {
                           {p.date}
                           {p.morningDocumentNumber
                             ? ` · ${DOC_KIND_HE[p.docKind]} ${p.morningDocumentNumber}`
+                            : p.status === 'issued'
+                            ? ' · נרשם'
                             : ` · ${PAYMENT_STATUS_HE[p.status]}`}
                         </Text>
                       </View>

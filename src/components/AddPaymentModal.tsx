@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, Alert } from 'react-native';
 import { CustomButton } from './CustomButton';
 import { TextField } from './TextField';
-import { addJobPayment } from '../services/paymentService';
+import { addJobPayment, MORNING_ENABLED } from '../services/paymentService';
 import { PaymentMethod, DocKind, PAYMENT_METHOD_HE, DOC_KIND_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -32,9 +32,20 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
       Alert.alert('שגיאה', 'יש להזין סכום חיובי.');
       return;
     }
+    if (balance != null && amt > balance + 0.005) {
+      Alert.alert('שגיאה', `הסכום גדול מהיתרה הפתוחה (₪${Math.round(balance).toLocaleString('he-IL')}).`);
+      return;
+    }
     setSaving(true);
     try {
-      await addJobPayment({ callId, amount: amt, method, note: note.trim(), issueNow, docKind });
+      await addJobPayment({
+        callId,
+        amount: amt,
+        method,
+        note: note.trim(),
+        issueNow: MORNING_ENABLED && issueNow,
+        docKind,
+      });
       setSaving(false);
       setAmount('');
       setNote('');
@@ -71,11 +82,13 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
 
           <TextField label="הערה (אופציונלי)" value={note} onChange={setNote} placeholder="לדוגמה: מקדמה על ציוד" />
 
-          <View style={styles.issueRow}>
-            <Switch value={issueNow} onValueChange={setIssueNow} />
-            <Text style={styles.issueText}>הפק מסמך עכשיו (Morning)</Text>
-          </View>
-          {issueNow && (
+          {MORNING_ENABLED && (
+            <View style={styles.issueRow}>
+              <Switch value={issueNow} onValueChange={setIssueNow} />
+              <Text style={styles.issueText}>הפק מסמך עכשיו (Morning)</Text>
+            </View>
+          )}
+          {MORNING_ENABLED && issueNow && (
             <View style={styles.chips}>
               {DOC_KINDS.map((k) => (
                 <TouchableOpacity

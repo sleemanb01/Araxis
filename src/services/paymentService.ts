@@ -1,14 +1,23 @@
 /**
- * Payments client — live payment list per job + calls to the backend, which
- * holds the Morning (Green Invoice) credentials and issues the documents.
+ * Payments client — live payment list per job + recording payments.
+ *
+ * MORNING_ENABLED=false (current): payments are recorded locally in Firestore —
+ * no accounting document — so the whole flow (partial payments, balance,
+ * status, paid sync) is testable without the Morning API.
+ * MORNING_ENABLED=true: everything goes through the backend callables, which
+ * hold the Morning (Green Invoice) credentials and issue the documents.
  */
 import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
-import { collection, onSnapshot } from '@react-native-firebase/firestore';
+import { collection, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
 
+/** Flip to true once the Morning secrets are set and the callables deployed. */
+export const MORNING_ENABLED = false;
+
 const functions = getFunctions(getApp(), 'me-west1');
+const CALLS = 'serviceCalls';
 
 /** Realtime payments of a job, newest first. */
 export function subscribeToPayments(
@@ -17,7 +26,7 @@ export function subscribeToPayments(
   onError?: (e: Error) => void
 ): () => void {
   return onSnapshot(
-    collection(db, 'serviceCalls', callId, 'payments'),
+    collection(db, CALLS, callId, 'payments'),
     (snap) => {
       const list = snap.docs.map((d) => {
         const p = d.data() as any;
@@ -46,7 +55,7 @@ export function subscribeToPayments(
   );
 }
 
-/** Record a received payment (validated server-side against the open balance). */
+/** Record a received payment, validated against the deal's open balance. */
 export async function addJobPayment(input: {
   callId: string;
   amount: number;
@@ -56,10 +65,48 @@ export async function addJobPayment(input: {
   issueNow?: boolean;
   docKind?: DocKind;
 }): Promise<void> {
-  await httpsCallable(functions, 'addJobPayment')(input);
+  if (MORNING_ENABLED) {
+    await httpsCallable(functions, 'addJobPayment')(input);
+    return;
+  }
+
+  // Local mode — record the payment and keep financials.paidAmount in sync.
+  const amount = Math.round((Number(input.amount) || 0) * 100) / 100;
+  if (amount <= 0) throw new Error('יש להזין סכום חיובי.');
+  const finRef = doc(db, CALLS, input.callId, 'privateData', 'financials');
+  const [finSnap, paysSnap] = await Promise.all([
+    getDoc(finRef),
+    getDocs(collection(db, CALLS, input.callId, 'payments')),
+  ]);
+  let issued = 0;
+  let reserved = 0;
+  paysSnap.docs.forEach((d) => {
+    const p = d.data() as any;
+    const amt = typeof p.amount === 'number' ? p.amount : 0;
+    if (p.status === 'issued') issued += amt;
+    if (p.status !== 'failed') reserved += amt;
+  });
+  const total = (finSnap.data() as any)?.overallPrice ?? 0;
+  if (total > 0 && reserved + amount > total + 0.005) {
+    throw new Error(
+      `הסכום גדול מהיתרה הפתוחה (נותרו ₪${Math.max(0, Math.round(total - reserved)).toLocaleString('he-IL')}).`
+    );
+  }
+
+  await setDoc(doc(collection(db, CALLS, input.callId, 'payments')), {
+    amount,
+    method: input.method,
+    date: input.date || new Date().toISOString().slice(0, 10),
+    note: input.note || '',
+    docKind: input.docKind ?? 'receipt',
+    status: 'issued', // counts as received; no document in local mode
+    createdAt: new Date().toISOString(),
+  });
+  await setDoc(finRef, { paidAmount: issued + amount }, { merge: true });
 }
 
-/** Issue (or retry) the Morning document for a payment. */
+/** Issue (or retry) the Morning document for a payment (Morning mode only). */
 export async function issuePaymentDocument(callId: string, paymentId: string): Promise<void> {
+  if (!MORNING_ENABLED) throw new Error('חיבור Morning עדיין לא הופעל.');
   await httpsCallable(functions, 'issuePaymentDocument')({ callId, paymentId });
 }
