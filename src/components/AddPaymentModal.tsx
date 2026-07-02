@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { CustomButton } from './CustomButton';
 import { TextField } from './TextField';
 import { addJobPayment, MORNING_ENABLED } from '../services/paymentService';
@@ -58,7 +58,7 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.bg}>
+      <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.card}>
           <Text style={styles.title}>תשלום חדש</Text>
           {balance != null && balance > 0 && (
@@ -106,7 +106,7 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
           <CustomButton label="שמור תשלום" onPress={save} loading={saving} disabled={!amount.trim()} style={styles.btn} />
           <CustomButton label="ביטול" variant="ghost" onPress={onClose} />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

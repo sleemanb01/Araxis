@@ -212,7 +212,11 @@ export function ServiceCallDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <View style={styles.headerRow}>
           <Text style={styles.client}>{call.clientName}</Text>
           <View style={[styles.badge, { backgroundColor: CallStatusColors[call.status] }]}>

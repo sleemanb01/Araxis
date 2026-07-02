@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -258,25 +258,25 @@ export function ProfileScreen() {
       </View>
 
       <Modal visible={creating} transparent animationType="fade" onRequestClose={() => setCreating(false)}>
-        <View style={styles.modalBg}>
+        <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>צוות חדש</Text>
             <TextField label="שם הצוות" value={newName} onChange={setNewName} placeholder="לדוגמה: צוות צפון" />
             <CustomButton label="צור" onPress={doCreate} loading={saving} disabled={!newName.trim()} style={styles.btn} />
             <CustomButton label="ביטול" variant="ghost" onPress={() => setCreating(false)} />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal visible={settingTarget} transparent animationType="fade" onRequestClose={() => setSettingTarget(false)}>
-        <View style={styles.modalBg}>
+        <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>יעד ל{now.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</Text>
             <TextField label="סכום יעד (₪)" value={targetInput} onChange={setTargetInput} placeholder="0" keyboardType="numeric" />
             <CustomButton label="שמור" onPress={saveTarget} style={styles.btn} />
             <CustomButton label="ביטול" variant="ghost" onPress={() => setSettingTarget(false)} />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <ExportDataModal

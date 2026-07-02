@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CustomButton } from './CustomButton';
 import { TextField } from './TextField';
@@ -81,7 +81,7 @@ export function AddItemModal({
   return (
     <>
       <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
-        <View style={styles.bg}>
+        <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={styles.card}>
             <Text style={styles.title}>הוספת פריט</Text>
             <TextField label="שם הפריט" value={name} onChange={setName} placeholder="לדוגמה: מצלמה" />
@@ -123,7 +123,7 @@ export function AddItemModal({
             />
             <CustomButton label="ביטול" variant="ghost" onPress={close} />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <BarcodeScannerModal visible={scanOpen} onClose={() => setScanOpen(false)} onScanned={onScan} />

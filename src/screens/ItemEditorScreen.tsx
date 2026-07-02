@@ -97,7 +97,11 @@ export function ItemEditorScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={styles.title}>{existing ? 'עריכת פריט' : 'פריט חדש'}</Text>
         <TextField label="שם הפריט" value={name} onChange={setName} placeholder="לדוגמה: מצלמת Dahua PTZ 4MP" />
 
