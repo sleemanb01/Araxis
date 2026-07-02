@@ -59,9 +59,9 @@ service cloud.firestore {
 
       // Payments. Create is client-side while Morning is off (local recording);
       // once Morning is live, tighten create to `false` — the backend (Admin
-      // SDK) writes them. Delete allowed for the bi-monthly archive-and-erase.
+      // SDK) writes them. Read/delete live on the collection-group match below.
       match /payments/{paymentId} {
-        allow read, create, delete: if can('viewFinancials');
+        allow create: if can('viewFinancials');
         allow update: if false;
       }
     }
@@ -79,6 +79,12 @@ service cloud.firestore {
     // Only serviceCalls have a privateData subcollection; write stays nested.
     match /{path=**}/privateData/{docId} {
       allow read: if can('viewFinancials');
+    }
+
+    // Payments as a collection group: covers direct reads AND the paged
+    // collection-group deletes of the bi-monthly archive-and-erase.
+    match /{path=**}/payments/{paymentId} {
+      allow read, delete: if can('viewFinancials');
     }
 
     // ---- Monthly targets ---- (financial managers only)

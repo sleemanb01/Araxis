@@ -6,10 +6,13 @@
 
 import {
   collection,
+  collectionGroup,
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
+  query,
   setDoc,
   writeBatch,
 } from '@react-native-firebase/firestore';
@@ -68,23 +71,31 @@ export async function archiveAndErase(monthlyDelta: Record<string, number>): Pro
   });
   await setDoc(ref, { monthlyProfit: merged, lastExportAt: new Date().toISOString() }, { merge: true });
 
-  const snap = await getDocs(collection(db, CALLS));
-  let batch = writeBatch(db);
-  let n = 0;
-  const push = async (ref: ReturnType<typeof doc>) => {
-    batch.delete(ref);
-    if (++n >= 450) {
-      await batch.commit();
-      batch = writeBatch(db);
-      n = 0;
-    }
-  };
-  for (const c of snap.docs) {
-    // Payments subcollection (Morning document records) goes with the call.
-    const pays = await getDocs(collection(db, CALLS, c.id, 'payments'));
-    for (const p of pays.docs) await push(doc(db, CALLS, c.id, 'payments', p.id));
-    await push(doc(db, CALLS, c.id, 'privateData', FINANCIALS));
-    await push(doc(db, CALLS, c.id));
+  // Chunked deletes — pages of docs, one batch per page, never the whole
+  // collection in memory. Deleted docs drop out of the next page query.
+  const PAGE = 150;
+
+  // 1) All payment records in ONE collection-group query per page (no per-call
+  //    subcollection fetches).
+  for (;;) {
+    const snap = await getDocs(query(collectionGroup(db, 'payments'), limit(PAGE)));
+    if (snap.empty) break;
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    if (snap.size < PAGE) break;
   }
-  if (n > 0) await batch.commit();
+
+  // 2) The calls + their financials doc, paged (2 deletes per call ≤ 300/batch).
+  for (;;) {
+    const snap = await getDocs(query(collection(db, CALLS), limit(PAGE)));
+    if (snap.empty) break;
+    const batch = writeBatch(db);
+    snap.docs.forEach((d) => {
+      batch.delete(doc(db, CALLS, d.id, 'privateData', FINANCIALS));
+      batch.delete(d.ref);
+    });
+    await batch.commit();
+    if (snap.size < PAGE) break;
+  }
 }
