@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ServiceCallCard } from '../components/ServiceCallCard';
 import { SectionHeader } from '../components/SectionHeader';
 import { CustomButton } from '../components/CustomButton';
+import { Calendar } from '../components/Calendar';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
@@ -19,6 +20,8 @@ import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const STRIP_DAYS = 15; // today + 2 weeks ahead
 
 export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
@@ -39,7 +42,8 @@ export function DashboardScreen() {
     [calls, caps.viewAllCalls, uid]
   );
 
-  const [filter, setFilter] = useState<'today' | 'all'>('today');
+  const [tab, setTab] = useState<'schedule' | 'months'>('schedule');
+  const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
 
   useEffect(() => {
@@ -50,15 +54,30 @@ export function DashboardScreen() {
   // Financials aren't on the live call docs; one shared cached fetch covers them.
   const { finsById: fins } = useFinancialData(caps.viewFinancials);
 
-  const todayJobs = useMemo(() => {
-    const k = dayKey(new Date());
+  /** Days that have jobs — green dots on the strip and the calendar. */
+  const jobDays = useMemo(() => {
+    const s = new Set<string>();
+    mine.forEach((c) => s.add(dayKey(new Date(c.scheduledDate))));
+    return s;
+  }, [mine]);
+
+  const stripDays = useMemo(() => {
+    const base = new Date();
+    return Array.from(
+      { length: STRIP_DAYS },
+      (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i)
+    );
+  }, []);
+
+  const dayJobs = useMemo(() => {
+    const k = dayKey(selectedDay);
     return mine
       .filter((c) => dayKey(new Date(c.scheduledDate)) === k)
       .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
-  }, [mine]);
+  }, [mine, selectedDay]);
 
-  // "All" → one row per month with its profit. Live months are merged with the
-  // archived monthly totals, so recycled months still show after the data wipe.
+  // "Months" → one row per month with its profit. Live months are merged with
+  // the archived monthly totals, so recycled months still show after the wipe.
   const months = useMemo(() => {
     const priceMap = itemPriceMap(items);
     const m: Record<string, number> = { ...archive.monthlyProfit };
@@ -81,6 +100,7 @@ export function DashboardScreen() {
     [navigation]
   );
 
+  const selectedKey = dayKey(selectedDay);
   const header = (
     <View>
       <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
@@ -91,43 +111,76 @@ export function DashboardScreen() {
           style={styles.newBtn}
         />
       )}
-      <SectionHeader title="הקריאות שלי" count={filter === 'today' ? todayJobs.length : mine.length} />
+      <SectionHeader title="הקריאות שלי" count={tab === 'schedule' ? dayJobs.length : mine.length} />
       <View style={styles.segment}>
         <TouchableOpacity
-          style={[styles.segBtn, filter === 'today' && styles.segBtnOn]}
-          onPress={() => setFilter('today')}
+          style={[styles.segBtn, tab === 'schedule' && styles.segBtnOn]}
+          onPress={() => setTab('schedule')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.segText, filter === 'today' && styles.segTextOn]}>היום</Text>
+          <Text style={[styles.segText, tab === 'schedule' && styles.segTextOn]}>יומן</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.segBtn, filter === 'all' && styles.segBtnOn]}
-          onPress={() => setFilter('all')}
+          style={[styles.segBtn, tab === 'months' && styles.segBtnOn]}
+          onPress={() => setTab('months')}
           activeOpacity={0.8}
         >
-          <Text style={[styles.segText, filter === 'all' && styles.segTextOn]}>הכל</Text>
+          <Text style={[styles.segText, tab === 'months' && styles.segTextOn]}>הכל</Text>
         </TouchableOpacity>
       </View>
+
+      {tab === 'schedule' && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.strip}
+          contentContainerStyle={styles.stripRow}
+        >
+          {stripDays.map((d) => {
+            const k = dayKey(d);
+            const sel = k === selectedKey;
+            return (
+              <TouchableOpacity
+                key={k}
+                style={[styles.dayChip, sel && styles.dayChipOn]}
+                onPress={() => setSelectedDay(d)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.dayChipWd, sel && styles.dayChipTextOn]}>
+                  {d.toLocaleDateString('he-IL', { weekday: 'short' })}
+                </Text>
+                <Text style={[styles.dayChipNum, sel && styles.dayChipTextOn]}>{d.getDate()}</Text>
+                <View style={[styles.jobDot, !jobDays.has(k) && styles.jobDotOff, sel && jobDays.has(k) && styles.jobDotOn]} />
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 
   const emptyComp = loading ? (
     <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
   ) : (
-    <Text style={styles.empty}>אין קריאות קרובות.</Text>
+    <Text style={styles.empty}>{tab === 'schedule' ? 'אין עבודות ביום זה.' : 'אין קריאות קרובות.'}</Text>
   );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {filter === 'today' ? (
+      {tab === 'schedule' ? (
         <FlatList
-          data={todayJobs}
+          data={dayJobs}
           keyExtractor={(c) => c.id}
           renderItem={({ item }) => (
             <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
+          ListFooterComponent={
+            <View style={styles.calWrap}>
+              <Calendar selected={selectedDay} onSelect={setSelectedDay} markedDays={jobDays} />
+            </View>
+          }
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
@@ -173,6 +226,27 @@ const styles = StyleSheet.create({
   segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: '#FFFFFF' },
+  strip: { height: 74, marginTop: 12, marginBottom: 4 },
+  stripRow: { gap: 8, alignItems: 'center' },
+  dayChip: {
+    width: 52,
+    height: 64,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  dayChipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayChipWd: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
+  dayChipNum: { fontSize: 17, color: Colors.textPrimary, fontWeight: '700' },
+  dayChipTextOn: { color: '#FFFFFF' },
+  jobDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#1E9E5A' },
+  jobDotOn: { backgroundColor: '#FFFFFF' },
+  jobDotOff: { backgroundColor: 'transparent' },
+  calWrap: { marginTop: 14 },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',

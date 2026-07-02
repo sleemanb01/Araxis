@@ -14,17 +14,21 @@ function sameDay(a: Date, b: Date): boolean {
 }
 
 /**
- * Month calendar. Past days are disabled; `availableWeekdays` (0=Sun..6=Sat) get
- * a green dot to flag when the team is available. Selecting a day returns it at 09:00.
+ * Month calendar. Past days are disabled; a green dot flags days from
+ * `availableWeekdays` (0=Sun..6=Sat, team availability) and/or specific
+ * `markedDays` ("YYYY-MM-DD" keys, e.g. days that have jobs). Selecting a day
+ * returns it at 09:00.
  */
 export function Calendar({
   selected,
   onSelect,
   availableWeekdays,
+  markedDays,
 }: {
   selected: Date;
   onSelect: (d: Date) => void;
   availableWeekdays?: number[];
+  markedDays?: ReadonlySet<string>;
 }) {
   const [view, setView] = useState(() => new Date(selected.getFullYear(), selected.getMonth(), 1));
   const today = new Date();
@@ -63,7 +67,9 @@ export function Calendar({
           const cellDate = new Date(year, month, d);
           const isPast = cellDate < today;
           const isSel = sameDay(cellDate, selected);
-          const isAvail = availableWeekdays ? availableWeekdays.includes(cellDate.getDay()) : false;
+          const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          const isAvail =
+            (availableWeekdays?.includes(cellDate.getDay()) ?? false) || (markedDays?.has(key) ?? false);
           return (
             <TouchableOpacity
               key={i}
