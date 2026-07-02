@@ -69,7 +69,9 @@ export function ProfileScreen() {
     Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
     return out;
   }, [calls, fins, items, archive]);
-  const daily = useMemo(() => dailyProfit(calls, fins, items), [calls, fins, items]);
+  // The rings track money actually RECEIVED (cash basis): paid − equipment − payout.
+  const monthlyPaid = useMemo(() => monthlyProfit(calls, fins, items, 'paid'), [calls, fins, items]);
+  const dailyPaid = useMemo(() => dailyProfit(calls, fins, items, 'paid'), [calls, fins, items]);
   const crewProfits = useMemo(() => {
     const priceMap = itemPriceMap(items);
     const out: Record<string, number> = {};
@@ -83,7 +85,7 @@ export function ProfileScreen() {
   const curKey = monthKey(now);
   const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
   const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
-  const monthProfit = monthly[curKey] ?? 0;
+  const monthProfit = monthlyPaid[curKey] ?? 0;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
@@ -92,7 +94,7 @@ export function ProfileScreen() {
   // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dailyTarget = target > 0 ? target / daysInMonth : 0;
-  const todayProfit = daily[dayKey(now)] ?? 0;
+  const todayProfit = dailyPaid[dayKey(now)] ?? 0;
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;

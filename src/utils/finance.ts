@@ -57,13 +57,17 @@ export function qtyOn(call: ServiceCall, id: string): number {
   return call.itemQuantities?.[id] ?? 1;
 }
 
-/** Net profit of a single call: client price − equipment cost − crew payout. */
+/** 'billed' counts the client price; 'paid' counts only money received. */
+export type ProfitBasis = 'billed' | 'paid';
+
+/** Net profit of a single call: income − equipment cost − crew payout. */
 export function callProfit(
   call: ServiceCall,
   fin: PrivateFinancials | null,
-  items: Items
+  items: Items,
+  basis: ProfitBasis = 'billed'
 ): number {
-  const gross = fin?.overallPrice ?? 0;
+  const gross = (basis === 'paid' ? fin?.paidAmount : fin?.overallPrice) ?? 0;
   const equip = (call.requiredItems ?? []).reduce(
     (a, id) => a + itemCostOn(call, id, items) * qtyOn(call, id),
     0
@@ -76,13 +80,14 @@ function profitByKey(
   calls: ServiceCall[],
   fins: (PrivateFinancials | null)[],
   items: InventoryItem[],
-  keyFn: (d: Date) => string
+  keyFn: (d: Date) => string,
+  basis: ProfitBasis
 ): Record<string, number> {
   const map = itemPriceMap(items); // once, not per call
   const out: Record<string, number> = {};
   calls.forEach((c, i) => {
     const key = keyFn(new Date(c.scheduledDate));
-    out[key] = (out[key] ?? 0) + callProfit(c, fins[i], map);
+    out[key] = (out[key] ?? 0) + callProfit(c, fins[i], map, basis);
   });
   return out;
 }
@@ -91,18 +96,20 @@ function profitByKey(
 export function monthlyProfit(
   calls: ServiceCall[],
   fins: (PrivateFinancials | null)[],
-  items: InventoryItem[]
+  items: InventoryItem[],
+  basis: ProfitBasis = 'billed'
 ): Record<string, number> {
-  return profitByKey(calls, fins, items, monthKey);
+  return profitByKey(calls, fins, items, monthKey, basis);
 }
 
 /** Profit per day (key "YYYY-MM-DD"). */
 export function dailyProfit(
   calls: ServiceCall[],
   fins: (PrivateFinancials | null)[],
-  items: InventoryItem[]
+  items: InventoryItem[],
+  basis: ProfitBasis = 'billed'
 ): Record<string, number> {
-  return profitByKey(calls, fins, items, dayKey);
+  return profitByKey(calls, fins, items, dayKey, basis);
 }
 
 /** Aggregate financial totals across calls; fins[i] is the financials for calls[i]. */
