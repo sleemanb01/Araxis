@@ -117,10 +117,13 @@ export function DashboardScreen() {
       <View style={styles.segment}>
         <TouchableOpacity
           style={[styles.segBtn, tab === 'schedule' && styles.segBtnOn]}
-          onPress={() => setTab('schedule')}
+          onPress={() => {
+            setTab('schedule');
+            setSelectedDay(new Date()); // "today" jumps back to today
+          }}
           activeOpacity={0.8}
         >
-          <Text style={[styles.segText, tab === 'schedule' && styles.segTextOn]}>יומן</Text>
+          <Text style={[styles.segText, tab === 'schedule' && styles.segTextOn]}>היום</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.segBtn, tab === 'months' && styles.segBtnOn]}
