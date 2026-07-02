@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity, Linking, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { AddItemModal } from '../components/AddItemModal';
+import { Calendar } from '../components/Calendar';
 import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
@@ -53,6 +54,7 @@ export function ServiceCallDetailScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [payOpen, setPayOpen] = useState(false);
+  const [reschedOpen, setReschedOpen] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToCall(callId, setFetchedCall);
@@ -149,6 +151,25 @@ export function ServiceCallDetailScreen() {
     } catch {
       Alert.alert('שגיאה', 'שמירת הכספים נכשלה.');
     }
+  }
+
+  // Move the job to another day. An active job goes back to "pending" (it is
+  // scheduled again), and the day-before reminder re-arms for the new date.
+  function onPickNewDate(d: Date) {
+    Alert.alert('קביעת תאריך אחר', `להעביר את העבודה ל-${d.toLocaleDateString('he-IL')}?`, [
+      { text: 'ביטול', style: 'cancel' },
+      {
+        text: 'אישור',
+        onPress: () =>
+          updateServiceCall(callId, {
+            scheduledDate: d.toISOString(),
+            ...(call!.status === 'active' ? { status: 'pending' } : {}),
+            reminderSentAt: '',
+          })
+            .then(() => setReschedOpen(false))
+            .catch(() => Alert.alert('שגיאה', 'עדכון התאריך נכשל.')),
+      },
+    ]);
   }
 
   function assignCrew(crew: Crew) {
@@ -469,6 +490,14 @@ export function ServiceCallDetailScreen() {
             />
           </>
         )}
+        {canEdit && call.status !== 'completed' && (
+          <CustomButton
+            label="קבע תאריך אחר"
+            variant="secondary"
+            onPress={() => setReschedOpen(true)}
+            style={styles.btnFin}
+          />
+        )}
       </ScrollView>
 
       <AddItemModal
@@ -483,6 +512,17 @@ export function ServiceCallDetailScreen() {
         callId={callId}
         balance={priceN > 0 ? Math.max(0, priceN - reserved) : undefined}
       />
+
+      <Modal visible={reschedOpen} transparent animationType="fade" onRequestClose={() => setReschedOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>קביעת תאריך אחר</Text>
+            <Text style={styles.modalSub}>בחר את היום החדש לעבודה.</Text>
+            <Calendar selected={new Date(call.scheduledDate)} onSelect={onPickNewDate} />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setReschedOpen(false)} />
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
