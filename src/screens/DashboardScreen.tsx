@@ -83,18 +83,23 @@ export function DashboardScreen() {
       );
   }, [mine, selectedDay]);
 
-  // "Months" → one row per month with its profit. Live months are merged with
-  // the archived monthly totals, so recycled months still show after the wipe.
+  // "Months" → one row per month with its profit + how many jobs are still
+  // OPEN (unfinished, or finished but not fully paid). Live months are merged
+  // with the archived monthly totals, so recycled months still show.
   const months = useMemo(() => {
     const priceMap = itemPriceMap(items);
     const m: Record<string, number> = { ...archive.monthlyProfit };
+    const open: Record<string, number> = {};
     mine.forEach((c) => {
       const k = monthKey(new Date(c.scheduledDate));
-      m[k] = (m[k] ?? 0) + callProfit(c, fins[c.id] ?? null, priceMap);
+      const f = fins[c.id] ?? null;
+      m[k] = (m[k] ?? 0) + callProfit(c, f, priceMap);
+      const isOpen = c.status !== 'completed' || (!!f && f.overallPrice - f.paidAmount > 0.005);
+      if (isOpen) open[k] = (open[k] ?? 0) + 1;
     });
     return Object.entries(m)
       .sort((a, b) => b[0].localeCompare(a[0])) // most recent first
-      .map(([month, profit]) => ({ month, profit }));
+      .map(([month, profit]) => ({ month, profit, open: open[month] ?? 0 }));
   }, [mine, fins, items, archive]);
 
   const subtitleFor = (c: ServiceCall) =>
@@ -201,14 +206,24 @@ export function DashboardScreen() {
           data={months}
           keyExtractor={(m) => m.month}
           renderItem={({ item }) => (
-            <View style={styles.monthRow}>
+            <TouchableOpacity
+              style={styles.monthRow}
+              onPress={() => navigation.navigate('MonthJobs', { month: item.month })}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.chevMonth}>‹</Text>
               {caps.viewFinancials && (
                 <Text style={[styles.monthProfit, item.profit < 0 && styles.monthProfitNeg]}>
                   ₪{Math.round(item.profit).toLocaleString('he-IL')}
                 </Text>
               )}
-              <Text style={styles.monthName}>{formatMonthLabel(item.month)}</Text>
-            </View>
+              <View style={styles.monthInfo}>
+                <Text style={styles.monthName}>{formatMonthLabel(item.month)}</Text>
+                <Text style={styles.monthMeta}>
+                  {item.open > 0 ? `${item.open} עבודות פתוחות` : 'אין עבודות פתוחות'}
+                </Text>
+              </View>
+            </TouchableOpacity>
           )}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
@@ -286,8 +301,11 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
   },
+  chevMonth: { fontSize: 24, color: Colors.textSecondary, marginEnd: 8 },
   monthProfit: { fontSize: 16, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr', marginEnd: 12 },
   monthProfitNeg: { color: Colors.danger },
-  monthName: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  monthInfo: { flex: 1, alignItems: 'flex-end' },
+  monthName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  monthMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
   empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });
