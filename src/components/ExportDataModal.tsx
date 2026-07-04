@@ -44,9 +44,17 @@ export function ExportDataModal({ visible, onClose, calls, fins, items, onErased
       'העבודות שהושלמו יימחקו. עבודות פתוחות (הממתינות לביקור נוסף) יישמרו, וסכומי הרווח החודשיים יישמרו לגרפים. פעולה זו אינה ניתנת לביטול.',
       [
         { text: 'ביטול', style: 'cancel' },
-        { text: 'מחק', style: 'destructive', onPress: erase },
+        { text: 'מחק', style: 'destructive', onPress: confirmEraseAgain },
       ]
     );
+  }
+
+  // Second safety gate — erasing is final, so ask one more time.
+  function confirmEraseAgain() {
+    Alert.alert('האם אתה בטוח?', 'המחיקה סופית ולא ניתנת לשחזור.', [
+      { text: 'ביטול', style: 'cancel' },
+      { text: 'כן, מחק', style: 'destructive', onPress: erase },
+    ]);
   }
 
   async function erase() {
