@@ -3,7 +3,8 @@
  * לוח כספים, jobs months). One flight at a time, cached briefly, so navigating
  * between screens doesn't re-read the whole collection every time.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { getAllCalls, getAllFinancialsByCallId } from '../services/serviceCallService';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 
@@ -66,6 +67,26 @@ export function useFinancialData(enabled: boolean): FinancialData & { loading: b
       listeners.delete(load);
     };
   }, [enabled]);
+
+  // Tab screens stay mounted forever — also refresh whenever the screen gains
+  // focus (the TTL keeps rapid tab-switching from re-reading the collection).
+  useFocusEffect(
+    useCallback(() => {
+      if (!enabled) return;
+      let on = true;
+      fetchFinancialData()
+        .then((d) => {
+          if (on) {
+            setData(d);
+            setLoading(false);
+          }
+        })
+        .catch(() => {});
+      return () => {
+        on = false;
+      };
+    }, [enabled])
+  );
 
   return { calls: data?.calls ?? [], fins: data?.fins ?? [], finsById: data?.finsById ?? {}, loading };
 }

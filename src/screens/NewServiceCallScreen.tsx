@@ -10,6 +10,7 @@ import { Calendar } from '../components/Calendar';
 import { AddItemModal } from '../components/AddItemModal';
 import { getUsersByIds } from '../services/userService';
 import { createServiceCall, setFinancials } from '../services/serviceCallService';
+import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
 import { UserProfile } from '../types/user';
@@ -163,6 +164,7 @@ export function NewServiceCallScreen() {
           paidAmount: Math.max(0, parseFloat(paid) || 0),
         });
       }
+      invalidateFinancialData(); // new job -> dashboards re-read
       navigation.goBack();
     } catch {
       Alert.alert('שגיאה', 'יצירת הקריאה נכשלה.');

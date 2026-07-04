@@ -13,6 +13,7 @@ import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { subscribeToCall, subscribeToFinancials, setFinancials, updateServiceCall } from '../services/serviceCallService';
 import { subscribeToPayments, issuePaymentDocument } from '../services/paymentService';
+import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { Payment, PAYMENT_METHOD_HE, PAYMENT_STATUS_HE, DOC_KIND_HE } from '../types/payment';
 import { financialStatus, FINANCIAL_STATUS_HE } from '../utils/finance';
@@ -136,7 +137,9 @@ export function ServiceCallDetailScreen() {
       });
       patch.itemPrices = snap;
     }
-    updateServiceCall(callId, patch).catch(() => Alert.alert('שגיאה', 'עדכון הסטטוס נכשל.'));
+    updateServiceCall(callId, patch)
+      .then(invalidateFinancialData) // dashboards re-read money data
+      .catch(() => Alert.alert('שגיאה', 'עדכון הסטטוס נכשל.'));
   }
 
   async function saveFinancials() {
@@ -147,6 +150,7 @@ export function ServiceCallDetailScreen() {
       if (caps.viewTeamPayouts && canEdit) {
         await updateServiceCall(callId, { payouts: { totalTechPayout: payoutN, splits: call!.payouts.splits } });
       }
+      invalidateFinancialData();
       Alert.alert('נשמר', 'הכספים עודכנו.');
     } catch {
       Alert.alert('שגיאה', 'שמירת הכספים נכשלה.');
@@ -166,7 +170,10 @@ export function ServiceCallDetailScreen() {
             ...(call!.status === 'active' ? { status: 'pending' } : {}),
             reminderSentAt: '',
           })
-            .then(() => setReschedOpen(false))
+            .then(() => {
+              invalidateFinancialData(); // day/month grouping moved
+              setReschedOpen(false);
+            })
             .catch(() => Alert.alert('שגיאה', 'עדכון התאריך נכשל.')),
       },
     ]);
@@ -176,7 +183,9 @@ export function ServiceCallDetailScreen() {
     updateServiceCall(callId, {
       crewId: crew.id,
       teamAssignment: { leadTech: crew.manager, assistants: crew.memberIds.filter((u) => u !== crew.manager) },
-    }).catch(() => Alert.alert('שגיאה', 'הקצאת הצוות נכשלה.'));
+    })
+      .then(invalidateFinancialData)
+      .catch(() => Alert.alert('שגיאה', 'הקצאת הצוות נכשלה.'));
   }
 
   // The crew's manager (lead) or a call manager can pull the crew off the job.
@@ -187,9 +196,9 @@ export function ServiceCallDetailScreen() {
         text: 'הסר',
         style: 'destructive',
         onPress: () =>
-          updateServiceCall(callId, { crewId: '', teamAssignment: { leadTech: '', assistants: [] } }).catch(() =>
-            Alert.alert('שגיאה', 'ההסרה נכשלה.')
-          ),
+          updateServiceCall(callId, { crewId: '', teamAssignment: { leadTech: '', assistants: [] } })
+            .then(invalidateFinancialData)
+            .catch(() => Alert.alert('שגיאה', 'ההסרה נכשלה.')),
       },
     ]);
   }
@@ -236,6 +245,7 @@ export function ServiceCallDetailScreen() {
     // Checked ⇒ its full quantity is consumed from the crew stock: a newly
     // checked item consumes everything, an already-checked one just the delta.
     moveStock(itemId, -(wasChecked ? qty : newQty));
+    invalidateFinancialData(); // equipment cost changed
   }
 
   return (

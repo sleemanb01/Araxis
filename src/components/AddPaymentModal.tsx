@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, Alert, Keyboar
 import { CustomButton } from './CustomButton';
 import { TextField } from './TextField';
 import { addJobPayment, MORNING_ENABLED } from '../services/paymentService';
+import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { PaymentMethod, DocKind, PAYMENT_METHOD_HE, DOC_KIND_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -46,6 +47,7 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
         issueNow: MORNING_ENABLED && issueNow,
         docKind,
       });
+      invalidateFinancialData(); // paid amounts changed
       setSaving(false);
       setAmount('');
       setNote('');
