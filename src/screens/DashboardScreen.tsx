@@ -8,6 +8,7 @@ import { ServiceCallCard } from '../components/ServiceCallCard';
 import { SectionHeader } from '../components/SectionHeader';
 import { CustomButton } from '../components/CustomButton';
 import { Calendar } from '../components/Calendar';
+import { FAB } from '../components/FAB';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
@@ -129,13 +130,6 @@ export function DashboardScreen() {
   const header = (
     <View>
       <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
-      {caps.createCalls && (
-        <CustomButton
-          label="+ קריאה חדשה"
-          onPress={() => navigation.navigate('NewServiceCall')}
-          style={styles.newBtn}
-        />
-      )}
       <SectionHeader
         title="הקריאות שלי"
         count={searchResults ? searchResults.length : tab === 'schedule' ? dayJobs.length : mine.length}
@@ -286,6 +280,10 @@ export function DashboardScreen() {
         />
       )}
 
+      {caps.createCalls && (
+        <FAB onPress={() => navigation.navigate('NewServiceCall')} bottomOffset={Layout.tabBarHeight} />
+      )}
+
       <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalCard}>
@@ -310,7 +308,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', paddingTop: 10 },
-  newBtn: { marginTop: 14 },
   segment: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 2 },
   segBtn: {
     flex: 1,

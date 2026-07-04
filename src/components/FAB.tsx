@@ -6,14 +6,16 @@ import { Colors } from '../constants/colors';
 interface Props {
   onPress: () => void;
   label?: string;
+  /** Extra bottom clearance, e.g. the tab-bar height on tab screens. */
+  bottomOffset?: number;
 }
 
 /** Floating action button, bottom-trailing (RTL-aware), safe-area inset. */
-export function FAB({ onPress, label = '+' }: Props) {
+export function FAB({ onPress, label = '+', bottomOffset = 0 }: Props) {
   const insets = useSafeAreaInsets();
   return (
     <TouchableOpacity
-      style={[styles.fab, { bottom: Math.max(insets.bottom, 16) + 16 }]}
+      style={[styles.fab, { bottom: Math.max(insets.bottom, 16) + 16 + bottomOffset }]}
       onPress={onPress}
       activeOpacity={0.85}
     >
