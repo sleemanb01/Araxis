@@ -41,7 +41,7 @@ export function ExportDataModal({ visible, onClose, calls, fins, items, onErased
   function confirmErase() {
     Alert.alert(
       'מחיקת נתונים',
-      'למחוק את כל הנתונים? סכומי הרווח החודשיים יישמרו לגרפים. פעולה זו אינה ניתנת לביטול.',
+      'העבודות שהושלמו יימחקו. עבודות פתוחות (הממתינות לביקור נוסף) יישמרו, וסכומי הרווח החודשיים יישמרו לגרפים. פעולה זו אינה ניתנת לביטול.',
       [
         { text: 'ביטול', style: 'cancel' },
         { text: 'מחק', style: 'destructive', onPress: erase },
@@ -52,11 +52,18 @@ export function ExportDataModal({ visible, onClose, calls, fins, items, onErased
   async function erase() {
     try {
       setBusy(true);
-      await archiveAndErase(monthlyProfit(calls, fins, items));
+      // Archive only the profit of the jobs being erased (completed); open
+      // jobs stay live and get archived in the cycle where they complete.
+      const done = calls
+        .map((c, i) => [c, fins[i]] as const)
+        .filter(([c]) => c.status === 'completed');
+      await archiveAndErase(
+        monthlyProfit(done.map(([c]) => c), done.map(([, f]) => f), items)
+      );
       setDownloaded(false);
       onErased();
       onClose();
-      Alert.alert('הושלם', 'הנתונים נמחקו. סכומי הרווח החודשיים נשמרו.');
+      Alert.alert('הושלם', 'העבודות שהושלמו נמחקו. עבודות פתוחות וסכומי הרווח החודשיים נשמרו.');
     } catch (e: any) {
       Alert.alert('שגיאה', e?.message ?? 'המחיקה נכשלה.');
     } finally {
@@ -70,7 +77,8 @@ export function ExportDataModal({ visible, onClose, calls, fins, items, onErased
         <View style={styles.card}>
           <Text style={styles.title}>ייצוא ומחיקת נתונים</Text>
           <Text style={styles.text}>
-            הורד את דוח הרווח היומי. רק לאחר ההורדה ניתן למחוק את הנתונים. סכומי הרווח החודשיים יישמרו לגרפים.
+            הורד את דוח הרווח היומי. רק לאחר ההורדה ניתן למחוק את הנתונים. נמחקות רק עבודות שהושלמו —
+            עבודות פתוחות (הממתינות לביקור נוסף) וסכומי הרווח החודשיים יישמרו.
           </Text>
           <CustomButton
             label={downloaded ? 'הורד שוב' : 'הורד דוח'}

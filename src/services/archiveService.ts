@@ -14,7 +14,9 @@ import {
   onSnapshot,
   query,
   setDoc,
+  where,
   writeBatch,
+  type FirebaseFirestoreTypes,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 
@@ -71,31 +73,45 @@ export async function archiveAndErase(monthlyDelta: Record<string, number>): Pro
   });
   await setDoc(ref, { monthlyProfit: merged, lastExportAt: new Date().toISOString() }, { merge: true });
 
-  // Chunked deletes — pages of docs, one batch per page, never the whole
-  // collection in memory. Deleted docs drop out of the next page query.
+  // Only CLOSED jobs are erased. Jobs still awaiting another visit (pending /
+  // active) SURVIVE the recycle together with their financials and payments —
+  // their profit is archived only in the cycle where they complete.
+
+  // Payment refs grouped by call in ONE collection-group query (no per-call
+  // subcollection fetches).
+  const paymentsByCall = new Map<string, FirebaseFirestoreTypes.DocumentReference[]>();
+  (await getDocs(collectionGroup(db, 'payments'))).docs.forEach((p) => {
+    const callId = p.ref.parent.parent?.id;
+    if (!callId) return;
+    const arr = paymentsByCall.get(callId) ?? [];
+    arr.push(p.ref);
+    paymentsByCall.set(callId, arr);
+  });
+
+  // Completed calls in pages; each page deletes call + financials + payments.
+  // Deleted docs drop out of the next page query.
   const PAGE = 150;
-
-  // 1) All payment records in ONE collection-group query per page (no per-call
-  //    subcollection fetches).
   for (;;) {
-    const snap = await getDocs(query(collectionGroup(db, 'payments'), limit(PAGE)));
+    const snap = await getDocs(
+      query(collection(db, CALLS), where('status', '==', 'completed'), limit(PAGE))
+    );
     if (snap.empty) break;
-    const batch = writeBatch(db);
-    snap.docs.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
-    if (snap.size < PAGE) break;
-  }
-
-  // 2) The calls + their financials doc, paged (2 deletes per call ≤ 300/batch).
-  for (;;) {
-    const snap = await getDocs(query(collection(db, CALLS), limit(PAGE)));
-    if (snap.empty) break;
-    const batch = writeBatch(db);
-    snap.docs.forEach((d) => {
-      batch.delete(doc(db, CALLS, d.id, 'privateData', FINANCIALS));
-      batch.delete(d.ref);
-    });
-    await batch.commit();
+    let batch = writeBatch(db);
+    let n = 0;
+    const push = async (ref: FirebaseFirestoreTypes.DocumentReference) => {
+      batch.delete(ref);
+      if (++n >= 450) {
+        await batch.commit();
+        batch = writeBatch(db);
+        n = 0;
+      }
+    };
+    for (const d of snap.docs) {
+      for (const pRef of paymentsByCall.get(d.id) ?? []) await push(pRef);
+      await push(doc(db, CALLS, d.id, 'privateData', FINANCIALS));
+      await push(d.ref);
+    }
+    if (n > 0) await batch.commit();
     if (snap.size < PAGE) break;
   }
 }
