@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -46,6 +46,8 @@ export function DashboardScreen() {
   const [tab, setTab] = useState<'schedule' | 'months'>('schedule');
   const [selectedDay, setSelectedDay] = useState(() => new Date());
   const [calOpen, setCalOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
   const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
 
   useEffect(() => {
@@ -70,6 +72,17 @@ export function DashboardScreen() {
       (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i)
     );
   }, []);
+
+  // Search across ALL jobs by customer name or phone (any date, any status).
+  const searchResults = useMemo(() => {
+    const q = search.trim();
+    if (!searchOpen || !q) return null;
+    const qDigits = q.replace(/\D/g, '').replace(/^972/, '0');
+    const phoneOf = (c: ServiceCall) => (c.contactPhone ?? '').replace(/\D/g, '').replace(/^972/, '0');
+    return mine
+      .filter((c) => c.clientName.includes(q) || (!!qDigits && phoneOf(c).includes(qDigits)))
+      .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
+  }, [mine, search, searchOpen]);
 
   const dayJobs = useMemo(() => {
     const k = dayKey(selectedDay);
@@ -123,8 +136,21 @@ export function DashboardScreen() {
           style={styles.newBtn}
         />
       )}
-      <SectionHeader title="הקריאות שלי" count={tab === 'schedule' ? dayJobs.length : mine.length} />
+      <SectionHeader
+        title="הקריאות שלי"
+        count={searchResults ? searchResults.length : tab === 'schedule' ? dayJobs.length : mine.length}
+      />
       <View style={styles.segment}>
+        <TouchableOpacity
+          style={styles.searchToggle}
+          onPress={() => {
+            setSearchOpen((o) => !o);
+            setSearch('');
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={searchOpen ? 'close' : 'search'} size={18} color={Colors.textPrimary} />
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.segBtn, tab === 'schedule' && styles.segBtnOn]}
           onPress={() => {
@@ -144,7 +170,22 @@ export function DashboardScreen() {
         </TouchableOpacity>
       </View>
 
-      {tab === 'schedule' && (
+      {searchOpen && (
+        <View style={styles.searchRow}>
+          <Ionicons name="search" size={17} color={Colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="חיפוש לפי שם לקוח או טלפון…"
+            placeholderTextColor={Colors.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+            textAlign="right"
+            autoFocus
+          />
+        </View>
+      )}
+
+      {tab === 'schedule' && !searchOpen && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -189,7 +230,20 @@ export function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {tab === 'schedule' ? (
+      {searchResults ? (
+        <FlatList
+          data={searchResults}
+          keyExtractor={(c) => c.id}
+          renderItem={({ item }) => (
+            <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
+          )}
+          ListHeaderComponent={header}
+          ListEmptyComponent={<Text style={styles.empty}>לא נמצאו עבודות.</Text>}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+      ) : tab === 'schedule' ? (
         <FlatList
           data={dayJobs}
           keyExtractor={(c) => c.id}
@@ -270,6 +324,28 @@ const styles = StyleSheet.create({
   segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   segTextOn: { color: '#FFFFFF' },
+  searchToggle: {
+    width: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: Colors.textPrimary },
   strip: { height: 74, marginTop: 12, marginBottom: 4 },
   stripRow: { gap: 8, alignItems: 'center' },
   dayChip: {
