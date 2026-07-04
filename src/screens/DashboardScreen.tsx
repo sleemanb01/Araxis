@@ -129,7 +129,6 @@ export function DashboardScreen() {
   const selectedKey = dayKey(selectedDay);
   const header = (
     <View>
-      <Text style={styles.title}>שלום, {profile?.name ?? ''}</Text>
       <SectionHeader
         title="הקריאות שלי"
         count={searchResults ? searchResults.length : tab === 'schedule' ? dayJobs.length : mine.length}
@@ -307,7 +306,6 @@ export function DashboardScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', paddingTop: 10 },
   segment: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 2 },
   segBtn: {
     flex: 1,
