@@ -16,8 +16,10 @@ import {
   setDoc,
   where,
   writeBatch,
-  type FirebaseFirestoreTypes,
 } from '@react-native-firebase/firestore';
+
+/** Modular-API document reference (what doc()/snapshot.ref return). */
+type DocRef = ReturnType<typeof doc>;
 import { db } from './firebase';
 
 const ARCHIVES = 'archives';
@@ -79,7 +81,7 @@ export async function archiveAndErase(monthlyDelta: Record<string, number>): Pro
 
   // Payment refs grouped by call in ONE collection-group query (no per-call
   // subcollection fetches).
-  const paymentsByCall = new Map<string, FirebaseFirestoreTypes.DocumentReference[]>();
+  const paymentsByCall = new Map<string, DocRef[]>();
   (await getDocs(collectionGroup(db, 'payments'))).docs.forEach((p) => {
     const callId = p.ref.parent.parent?.id;
     if (!callId) return;
@@ -98,7 +100,7 @@ export async function archiveAndErase(monthlyDelta: Record<string, number>): Pro
     if (snap.empty) break;
     let batch = writeBatch(db);
     let n = 0;
-    const push = async (ref: FirebaseFirestoreTypes.DocumentReference) => {
+    const push = async (ref: DocRef) => {
       batch.delete(ref);
       if (++n >= 450) {
         await batch.commit();
