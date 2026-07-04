@@ -11,6 +11,7 @@ import { subscribeToAuth, signOutUser } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
 import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
+import { withTimeout } from '../utils/promise';
 import { UserProfile, Capabilities, NO_CAPS, toCaps } from '../types/user';
 import { Crew } from '../types/crew';
 
@@ -27,6 +28,8 @@ interface UserContextValue {
   confirmation: FirebaseAuthTypes.ConfirmationResult | null;
   setConfirmation: (c: FirebaseAuthTypes.ConfirmationResult | null) => void;
   signOut: () => Promise<void>;
+  /** Re-run the boot fetches (profile/claim) after a network stall. */
+  retryBootstrap: () => void;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -42,6 +45,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [claimLoaded, setClaimLoaded] = useState(false);
   const [confirmation, setConfirmation] =
     useState<FirebaseAuthTypes.ConfirmationResult | null>(null);
+  const [bootRetry, setBootRetry] = useState(0);
 
   useEffect(() => {
     initAppCheck().catch((e) => console.warn('App Check init failed:', e));
@@ -70,7 +74,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       () => setProfileLoaded(true)
     );
     return unsub;
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, bootRetry]);
 
   // Crews the user belongs to (drives the crew screens).
   useEffect(() => {
@@ -90,24 +95,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     const force = !!profile && !provisioned;
     setClaimLoaded(false);
-    getIdTokenResult(user, force)
-      .then((res) => {
-        if (cancelled) return;
-        const rawCaps = (res.claims as any).caps;
-        setProvisioned(rawCaps != null);
-        setCaps(toCaps(rawCaps));
-        setClaimLoaded(true);
-      })
+    const apply = (res: FirebaseAuthTypes.IdTokenResult) => {
+      if (cancelled) return;
+      const rawCaps = (res.claims as any).caps;
+      setProvisioned(rawCaps != null);
+      setCaps(toCaps(rawCaps));
+      setClaimLoaded(true);
+    };
+    // A force refresh hits the network; on a stalled connection fall back to
+    // the cached token (local) so boot never hangs on this gate.
+    withTimeout(getIdTokenResult(user, force), 15000)
+      .then(apply)
       .catch(() => {
-        if (cancelled) return;
-        setCaps(NO_CAPS);
-        setProvisioned(false);
-        setClaimLoaded(true);
+        getIdTokenResult(user, false)
+          .then(apply)
+          .catch(() => {
+            if (cancelled) return;
+            setCaps(NO_CAPS);
+            setProvisioned(false);
+            setClaimLoaded(true);
+          });
       });
     return () => {
       cancelled = true;
     };
-  }, [user, profile, provisioned]);
+  }, [user, profile, provisioned, bootRetry]);
 
   const value = useMemo<UserContextValue>(
     () => ({
@@ -126,6 +138,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setConfirmation(null);
         await signOutUser();
       },
+      retryBootstrap: () => setBootRetry((n) => n + 1),
     }),
     [user, profile, caps, crews, provisioned, initializing, profileLoaded, claimLoaded, confirmation]
   );

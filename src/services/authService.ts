@@ -16,6 +16,7 @@ import {
   onAuthStateChanged,
   type FirebaseAuthTypes,
 } from '@react-native-firebase/auth';
+import { withTimeout } from '../utils/promise';
 
 const auth = getAuth();
 
@@ -35,30 +36,6 @@ export function toE164(input: string): string {
   if (digits.startsWith('972')) return '+' + digits; // country code without +
   if (digits.startsWith('0')) return '+972' + digits.slice(1); // local leading 0
   return '+972' + digits; // bare subscriber number
-}
-
-/**
- * Reject after `ms` so a stalled native verification flow can never hang the
- * UI forever (a silent, spinner-only hang reads as "app not responding").
- */
-function withTimeout<T>(p: Promise<T>, ms = 30000): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const t = setTimeout(() => {
-      const e: any = new Error('Operation timed out.');
-      e.code = 'auth/timeout';
-      reject(e);
-    }, ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (err) => {
-        clearTimeout(t);
-        reject(err);
-      }
-    );
-  });
 }
 
 export async function sendOtp(
