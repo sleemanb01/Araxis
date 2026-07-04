@@ -40,7 +40,8 @@ export function PhoneLoginScreen() {
       navigation.navigate('Otp', { phone: toE164(phone) });
     } catch (e: any) {
       if (__DEV__) console.log('[sendOtp] failed:', e?.code, e);
-      setError(translateError(e?.code) ?? 'שליחת הקוד נכשלה. נסה שוב.');
+      // Show the raw code too — a reviewer/user screenshot then tells us the exact failure.
+      setError(translateError(e?.code) ?? `שליחת הקוד נכשלה. נסה שוב. (${e?.code ?? 'unknown'})`);
     } finally {
       setLoading(false);
     }
@@ -99,6 +100,8 @@ function translateError(code?: string): string | null {
       return 'יותר מדי ניסיונות. נסה שוב מאוחר יותר.';
     case 'auth/network-request-failed':
       return 'בעיית רשת. בדוק את החיבור לאינטרנט.';
+    case 'auth/timeout':
+      return 'הפעולה נמשכה זמן רב מדי. בדוק את החיבור ונסה שוב.';
     default:
       return null;
   }

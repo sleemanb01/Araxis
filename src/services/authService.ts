@@ -37,6 +37,30 @@ export function toE164(input: string): string {
   return '+972' + digits; // bare subscriber number
 }
 
+/**
+ * Reject after `ms` so a stalled native verification flow can never hang the
+ * UI forever (a silent, spinner-only hang reads as "app not responding").
+ */
+function withTimeout<T>(p: Promise<T>, ms = 30000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => {
+      const e: any = new Error('Operation timed out.');
+      e.code = 'auth/timeout';
+      reject(e);
+    }, ms);
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (err) => {
+        clearTimeout(t);
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function sendOtp(
   phone: string
 ): Promise<FirebaseAuthTypes.ConfirmationResult> {
@@ -45,14 +69,14 @@ export async function sendOtp(
   // or APNs silent push). Do NOT set appVerificationDisabledForTesting — with a
   // non-whitelisted number it makes the request omit the verification token and
   // the server rejects it with "does not contain a client identifier".
-  return signInWithPhoneNumber(auth, e164);
+  return withTimeout(signInWithPhoneNumber(auth, e164));
 }
 
 export async function confirmOtp(
   confirmation: FirebaseAuthTypes.ConfirmationResult,
   code: string
 ): Promise<FirebaseAuthTypes.User> {
-  const credential = await confirmation.confirm(code);
+  const credential = await withTimeout(confirmation.confirm(code));
   if (!credential?.user) {
     throw new Error('Verification failed — no user returned.');
   }

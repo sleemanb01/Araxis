@@ -51,7 +51,7 @@ export function OtpScreen() {
       await confirmOtp(confirmation, code);
       // Auth listener in App.tsx will swap to the main app automatically.
     } catch (e: any) {
-      setError(translateError(e?.code) ?? 'הקוד שגוי. נסה שוב.');
+      setError(translateError(e?.code) ?? `הקוד שגוי. נסה שוב. (${e?.code ?? 'unknown'})`);
       setLoading(false);
     }
   }
@@ -127,6 +127,10 @@ function translateError(code?: string): string | null {
       return 'הקוד פג תוקף. שלח קוד חדש.';
     case 'auth/session-expired':
       return 'פג תוקף ההפעלה. שלח קוד חדש.';
+    case 'auth/timeout':
+      return 'הפעולה נמשכה זמן רב מדי. בדוק את החיבור ונסה שוב.';
+    case 'auth/network-request-failed':
+      return 'בעיית רשת. בדוק את החיבור לאינטרנט.';
     default:
       return null;
   }
