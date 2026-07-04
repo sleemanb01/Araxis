@@ -227,6 +227,7 @@ export function DashboardScreen() {
                 setCalOpen(false);
               }}
               markedDays={jobDays}
+              allowPast
             />
             <CustomButton label="סגור" variant="ghost" onPress={() => setCalOpen(false)} />
           </View>

@@ -24,11 +24,14 @@ export function Calendar({
   onSelect,
   availableWeekdays,
   markedDays,
+  allowPast,
 }: {
   selected: Date;
   onSelect: (d: Date) => void;
   availableWeekdays?: number[];
   markedDays?: ReadonlySet<string>;
+  /** Allow picking days before today (e.g. browsing job history). */
+  allowPast?: boolean;
 }) {
   const [view, setView] = useState(() => new Date(selected.getFullYear(), selected.getMonth(), 1));
   const today = new Date();
@@ -65,7 +68,7 @@ export function Calendar({
         {cells.map((d, i) => {
           if (d == null) return <View key={i} style={styles.cell} />;
           const cellDate = new Date(year, month, d);
-          const isPast = cellDate < today;
+          const blocked = cellDate < today && !allowPast;
           const isSel = sameDay(cellDate, selected);
           const key = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
           const isAvail =
@@ -74,15 +77,15 @@ export function Calendar({
             <TouchableOpacity
               key={i}
               style={styles.cell}
-              disabled={isPast}
+              disabled={blocked}
               onPress={() => onSelect(new Date(year, month, d, 9, 0, 0, 0))}
               activeOpacity={0.7}
             >
               <View style={[styles.day, isSel && styles.daySel]}>
-                <Text style={[styles.dayText, isSel && styles.dayTextSel, isPast && styles.dayTextPast]}>
+                <Text style={[styles.dayText, isSel && styles.dayTextSel, blocked && styles.dayTextPast]}>
                   {d}
                 </Text>
-                {isAvail && !isSel && !isPast && <View style={styles.dot} />}
+                {isAvail && !isSel && !blocked && <View style={styles.dot} />}
               </View>
             </TouchableOpacity>
           );

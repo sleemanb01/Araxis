@@ -13,8 +13,6 @@ import {
   updateDoc,
   setDoc,
   onSnapshot,
-  query,
-  where,
   getDocs,
   getDoc,
 } from '@react-native-firebase/firestore';
@@ -29,12 +27,6 @@ import {
 const CALLS = 'serviceCalls';
 const FINANCIALS = 'financials';
 
-/** Local midnight as an ISO string (scheduledDate is stored ISO, which sorts chronologically). */
-export function startOfTodayISO(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
 
 function toCall(snap: { id: string; data: () => any }): ServiceCall {
   const d = snap.data();
@@ -68,16 +60,17 @@ function toCall(snap: { id: string; data: () => any }): ServiceCall {
 }
 
 /**
- * Realtime subscription to upcoming calls (scheduled today onward). Security
- * rules further restrict reads to the crew assigned to each call (or admins).
+ * Realtime subscription to service calls — past and upcoming. The collection
+ * stays small because the bi-monthly export-and-erase clears history, so an
+ * unbounded listener is still a bounded amount of data. Security rules further
+ * restrict reads to the crew assigned to each call (or admins).
  */
 export function subscribeToUpcomingCalls(
   onChange: (calls: ServiceCall[]) => void,
   onError?: (e: Error) => void
 ): () => void {
-  const q = query(collection(db, CALLS), where('scheduledDate', '>=', startOfTodayISO()));
   return onSnapshot(
-    q,
+    collection(db, CALLS),
     (snap) => onChange(snap.docs.map(toCall)),
     (err) => {
       console.warn('[serviceCalls] listener error:', err);
