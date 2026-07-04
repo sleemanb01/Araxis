@@ -75,7 +75,12 @@ export function DashboardScreen() {
     const k = dayKey(selectedDay);
     return mine
       .filter((c) => dayKey(new Date(c.scheduledDate)) === k)
-      .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
+      .sort(
+        (a, b) =>
+          // finished jobs sink to the bottom; within each group, by time
+          (a.status === 'completed' ? 1 : 0) - (b.status === 'completed' ? 1 : 0) ||
+          a.scheduledDate.localeCompare(b.scheduledDate)
+      );
   }, [mine, selectedDay]);
 
   // "Months" → one row per month with its profit. Live months are merged with
