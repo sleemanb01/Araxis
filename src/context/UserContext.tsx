@@ -7,12 +7,15 @@ import React, {
 } from 'react';
 import { getIdTokenResult } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { subscribeToAuth, signOutUser } from '../services/authService';
+import { subscribeToAuth, signOutUser, getCurrentUser } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
 import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
+import { isDemo, setDemoMode } from '../services/demoMode';
+import { resetDemo, DEMO_UID } from '../services/demoStore';
+import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { withTimeout } from '../utils/promise';
-import { UserProfile, Capabilities, NO_CAPS, toCaps } from '../types/user';
+import { UserProfile, Capabilities, NO_CAPS, ALL_CAPS, toCaps } from '../types/user';
 import { Crew } from '../types/crew';
 
 interface UserContextValue {
@@ -30,6 +33,8 @@ interface UserContextValue {
   signOut: () => Promise<void>;
   /** Re-run the boot fetches (profile/claim) after a network stall. */
   retryBootstrap: () => void;
+  /** Enter viewer/demo mode — full app on an in-memory sandbox, no DB writes. */
+  enterDemo: () => void;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -92,6 +97,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // picks them up without re-logging in.
   useEffect(() => {
     if (!user) return;
+    if (isDemo()) {
+      // Viewer mode: full capabilities, no token round-trip.
+      setCaps(ALL_CAPS);
+      setProvisioned(true);
+      setClaimLoaded(true);
+      return;
+    }
     let cancelled = false;
     const force = !!profile && !provisioned;
     setClaimLoaded(false);
@@ -135,10 +147,23 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       confirmation,
       setConfirmation,
       signOut: async () => {
+        if (isDemo()) {
+          // Leave the sandbox: back to the real (still signed-in) auth state.
+          setDemoMode(false);
+          invalidateFinancialData();
+          setUser(getCurrentUser());
+          return;
+        }
         setConfirmation(null);
         await signOutUser();
       },
       retryBootstrap: () => setBootRetry((n) => n + 1),
+      enterDemo: () => {
+        resetDemo();
+        setDemoMode(true);
+        invalidateFinancialData();
+        setUser({ uid: DEMO_UID } as any); // fake auth user drives the existing effects
+      },
     }),
     [user, profile, caps, crews, provisioned, initializing, profileLoaded, claimLoaded, confirmation]
   );

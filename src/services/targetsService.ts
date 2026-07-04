@@ -6,6 +6,8 @@
 
 import { doc, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
+import { isDemo } from './demoMode';
+import { demoSubscribe, demoTargets, demoSetTarget } from './demoStore';
 
 const TARGETS = 'targets';
 const DOC = 'monthly';
@@ -15,6 +17,7 @@ export function subscribeToTargets(
   onChange: (targets: Record<string, number>) => void,
   onError?: (e: Error) => void
 ): () => void {
+  if (isDemo()) return demoSubscribe(demoTargets, onChange);
   return onSnapshot(
     doc(db, TARGETS, DOC),
     (snap) => {
@@ -34,5 +37,6 @@ export function subscribeToTargets(
 
 /** Set the target for a month ("YYYY-MM"). */
 export async function setMonthTarget(month: string, amount: number): Promise<void> {
+  if (isDemo()) return demoSetTarget(month, amount);
   await setDoc(doc(db, TARGETS, DOC), { [month]: amount }, { merge: true });
 }

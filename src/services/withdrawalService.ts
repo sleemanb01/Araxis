@@ -6,6 +6,8 @@
 
 import { collection, onSnapshot, query, where } from '@react-native-firebase/firestore';
 import { db } from './firebase';
+import { isDemo } from './demoMode';
+import { demoSubscribe, demoWithdrawals } from './demoStore';
 import { Withdrawal } from '../types/withdrawal';
 
 const WITHDRAWALS = 'withdrawals';
@@ -30,6 +32,7 @@ export function subscribeToCrewWithdrawals(
   onChange: (withdrawals: Withdrawal[]) => void,
   onError?: (e: Error) => void
 ): () => void {
+  if (isDemo()) return demoSubscribe(() => demoWithdrawals(crewId), onChange);
   return onSnapshot(
     query(collection(db, WITHDRAWALS), where('crewId', '==', crewId)),
     (snap) => {

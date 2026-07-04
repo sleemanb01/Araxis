@@ -21,6 +21,8 @@ import {
 /** Modular-API document reference (what doc()/snapshot.ref return). */
 type DocRef = ReturnType<typeof doc>;
 import { db } from './firebase';
+import { isDemo } from './demoMode';
+import { demoSubscribe, demoArchive, demoArchiveAndErase } from './demoStore';
 
 const ARCHIVES = 'archives';
 const SUMMARY = 'summary';
@@ -36,6 +38,7 @@ export function subscribeToArchive(
   onChange: (a: ArchiveSummary) => void,
   onError?: (e: Error) => void
 ): () => void {
+  if (isDemo()) return demoSubscribe(demoArchive, onChange);
   return onSnapshot(
     doc(db, ARCHIVES, SUMMARY),
     (snap) => {
@@ -54,6 +57,7 @@ export function subscribeToArchive(
 
 /** Stamp lastExportAt = now if the cycle hasn't started yet. */
 export async function initArchiveIfMissing(): Promise<void> {
+  if (isDemo()) return;
   const ref = doc(db, ARCHIVES, SUMMARY);
   const d = (await getDoc(ref)).data();
   if (!d || typeof d.lastExportAt !== 'string') {
@@ -67,6 +71,7 @@ export async function initArchiveIfMissing(): Promise<void> {
  * survive; everything else is erased.
  */
 export async function archiveAndErase(monthlyDelta: Record<string, number>): Promise<void> {
+  if (isDemo()) return demoArchiveAndErase(monthlyDelta);
   const ref = doc(db, ARCHIVES, SUMMARY);
   const cur = (await getDoc(ref)).data() ?? {};
   const merged: Record<string, number> = { ...(cur.monthlyProfit ?? {}) };

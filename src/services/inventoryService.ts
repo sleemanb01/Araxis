@@ -16,6 +16,16 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
+import { isDemo } from './demoMode';
+import {
+  demoSubscribe,
+  demoItems,
+  demoAdjustQty,
+  demoCreateItem,
+  demoUpdateItem,
+  demoDeleteItem,
+  demoMoveStock,
+} from './demoStore';
 import { InventoryItem, CreateInventoryPayload, WAREHOUSE, crewLocation } from '../types/inventory';
 
 const INVENTORY = 'inventory';
@@ -39,6 +49,7 @@ export function subscribeToInventory(
   onChange: (items: InventoryItem[]) => void,
   onError?: (e: Error) => void
 ): () => void {
+  if (isDemo()) return demoSubscribe(demoItems, onChange);
   return onSnapshot(
     collection(db, INVENTORY),
     (snap) => onChange(snap.docs.map(toItem)),
@@ -55,6 +66,7 @@ export async function adjustQuantity(
   location: string,
   delta: number
 ): Promise<void> {
+  if (isDemo()) return demoAdjustQty(id, location, delta);
   await updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) });
 }
 
@@ -69,6 +81,7 @@ export async function withdrawToCrew(
   withdrawerId: string
 ): Promise<void> {
   if (qty <= 0) return;
+  if (isDemo()) return demoMoveStock(item, qty, crewId, withdrawerId, 'withdraw');
   const batch = writeBatch(db);
   batch.update(doc(db, INVENTORY, item.id), {
     [`locations.${WAREHOUSE}`]: increment(-qty),
@@ -97,6 +110,7 @@ export async function returnToWarehouse(
   returnerId: string
 ): Promise<void> {
   if (qty <= 0) return;
+  if (isDemo()) return demoMoveStock(item, qty, crewId, returnerId, 'return');
   const batch = writeBatch(db);
   batch.update(doc(db, INVENTORY, item.id), {
     [`locations.${crewLocation(crewId)}`]: increment(-qty),
@@ -115,6 +129,7 @@ export async function returnToWarehouse(
 }
 
 export async function createInventoryItem(payload: CreateInventoryPayload): Promise<string> {
+  if (isDemo()) return demoCreateItem(payload);
   const ref = await addDoc(collection(db, INVENTORY), payload);
   return ref.id;
 }
@@ -123,9 +138,11 @@ export async function updateInventoryItem(
   id: string,
   patch: Partial<InventoryItem>
 ): Promise<void> {
+  if (isDemo()) return demoUpdateItem(id, patch);
   await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
+  if (isDemo()) return demoDeleteItem(id);
   await deleteDoc(doc(db, INVENTORY, id));
 }
