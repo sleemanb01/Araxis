@@ -93,7 +93,10 @@ export function ServiceCallDetailScreen() {
     );
   }
 
-  const canEdit = !readOnly && (caps.createCalls || call.teamAssignment.leadTech === uid);
+  // A finished job is locked — no crew/items/financials edits. The only thing
+  // still allowed on it is collecting money that wasn't paid yet (payments).
+  const isDone = call.status === 'completed';
+  const canEdit = !readOnly && !isDone && (caps.createCalls || call.teamAssignment.leadTech === uid);
   const next = NEXT_STATUS[call.status];
 
   const assignedCrew =
@@ -372,7 +375,7 @@ export function ServiceCallDetailScreen() {
         {showFinance && (
           <>
             <Text style={styles.section}>כספים</Text>
-            {readOnly ? (
+            {readOnly || isDone ? (
               <>
                 {caps.viewTeamPayouts && (
                   <Text style={styles.line}>תשלום צוות: ₪{payoutN.toLocaleString('he-IL')}</Text>
@@ -408,7 +411,7 @@ export function ServiceCallDetailScreen() {
             {caps.viewFinancials && (
               <Text style={styles.line}>עלות ציוד: ₪{equipmentCost.toLocaleString('he-IL')}</Text>
             )}
-            {!readOnly && (
+            {!readOnly && !isDone && (
               <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
             )}
 
@@ -416,7 +419,7 @@ export function ServiceCallDetailScreen() {
               <>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionInline}>תשלומים</Text>
-                  {!readOnly && (
+                  {!readOnly && (!isDone || balance > 0) && (
                     <TouchableOpacity style={styles.addBtn} onPress={() => setPayOpen(true)} activeOpacity={0.85}>
                       <Ionicons name="add" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
