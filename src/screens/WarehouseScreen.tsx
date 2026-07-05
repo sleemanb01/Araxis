@@ -180,18 +180,13 @@ function InventoryRow({
           {showPrice && typeof item.customerPrice === 'number' && (item.price ?? 0) > 0 && (
             <Text style={styles.profitPct}>{Math.round((item.customerPrice / item.price!) * 100)}%</Text>
           )}
-          {item.lacks && (
-            <View style={styles.lacksTag}>
-              <Text style={styles.lacksText}>חסר</Text>
-            </View>
-          )}
           {low && (
             <View style={styles.lowTag}>
               <Ionicons name="alert-circle-outline" size={12} color="#A32D2D" />
               <Text style={styles.lowText}>מלאי נמוך</Text>
             </View>
           )}
-          <Text style={styles.split}>{breakdown || 'אין מלאי'}</Text>
+          {!!breakdown && <Text style={styles.split}>{breakdown}</Text>}
         </View>
       </TouchableOpacity>
 
@@ -303,8 +298,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   lowText: { fontSize: 11, color: '#A32D2D', fontWeight: '500' },
-  lacksTag: { backgroundColor: Colors.danger, borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  lacksText: { fontSize: 11, color: '#FFFFFF', fontWeight: '700' },
   split: { fontSize: 12, color: Colors.textSecondary },
   customerPrice: { fontSize: 12, fontWeight: '700', color: '#1E9E5A' },
   profitPct: { fontSize: 12, fontWeight: '700', color: '#2563EB' },
