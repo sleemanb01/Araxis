@@ -42,6 +42,7 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
     lacks: d.lacks === true ? true : undefined,
     priority: d.priority === true ? true : undefined,
     criticalQty: typeof d.criticalQty === 'number' ? d.criticalQty : undefined,
+    category: d.category === 'white' ? 'white' : undefined,
     locations: d.locations && typeof d.locations === 'object' ? d.locations : {},
   };
 }

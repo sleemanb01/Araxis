@@ -9,7 +9,7 @@ import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
 import { createInventoryItem, updateInventoryItem, deleteInventoryItem } from '../services/inventoryService';
-import { qtyAt, WAREHOUSE } from '../types/inventory';
+import { qtyAt, WAREHOUSE, ItemCategory, CATEGORY_HE } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -31,6 +31,7 @@ export function ItemEditorScreen() {
   const [customerPrice, setCustomerPrice] = useState(
     existing?.customerPrice != null ? String(existing.customerPrice) : ''
   );
+  const [category, setCategory] = useState<ItemCategory>(existing?.category ?? 'items');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [warehouseQty, setWarehouseQty] = useState(
     String(existing ? qtyAt(existing, WAREHOUSE) : 0)
@@ -52,6 +53,7 @@ export function ItemEditorScreen() {
         await updateInventoryItem(existing.id, {
           itemName: name.trim(),
           barcode: code, // '' clears it
+          category,
           locations: { ...existing.locations, [WAREHOUSE]: qty },
           ...(existing.lacks && qty > 0 ? { lacks: false } : {}), // restocked → clear "lacks"
           ...(caps.viewFinancials ? { price: priceN, customerPrice: customerPriceN } : {}),
@@ -59,6 +61,7 @@ export function ItemEditorScreen() {
       } else {
         await createInventoryItem({
           itemName: name.trim(),
+          category,
           locations: { [WAREHOUSE]: qty },
           ...(code ? { barcode: code } : {}), // omit empty on create
           ...(caps.viewFinancials ? { price: priceN, customerPrice: customerPriceN } : {}),
@@ -105,6 +108,19 @@ export function ItemEditorScreen() {
         <Text style={styles.title}>{existing ? 'עריכת פריט' : 'פריט חדש'}</Text>
         <TextField label="שם הפריט" value={name} onChange={setName} placeholder="לדוגמה: מצלמת Dahua PTZ 4MP" />
 
+        <View style={styles.catRow}>
+          {(Object.keys(CATEGORY_HE) as ItemCategory[]).map((c) => (
+            <TouchableOpacity
+              key={c}
+              style={[styles.catChip, category === c && styles.catChipOn]}
+              onPress={() => setCategory(c)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.catText, category === c && styles.catTextOn]}>{CATEGORY_HE[c]}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TextField label="ברקוד" value={barcode} onChange={setBarcode} placeholder="סרוק או הזן ידנית" />
         <CustomButton
           label="סרוק ברקוד"
@@ -150,6 +166,19 @@ const styles = StyleSheet.create({
   scanBtn: { marginTop: -6, marginBottom: 18 },
   profitRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: -4, marginBottom: 12 },
   customerHint: { fontSize: 13, color: '#1E9E5A', fontWeight: '700' },
+  catRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  catChip: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+  },
+  catChipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  catText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  catTextOn: { color: '#FFFFFF' },
   profitPct: { fontSize: 13, color: '#2563EB', fontWeight: '700' },
   btn: { marginTop: 12 },
   deleteBtn: { marginTop: 24 },

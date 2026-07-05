@@ -9,7 +9,7 @@ import { useUser } from '../context/UserContext';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { StockRulesModal } from '../components/StockRulesModal';
 import { adjustQuantity } from '../services/inventoryService';
-import { InventoryItem, isLowStock, qtyAt, WAREHOUSE } from '../types/inventory';
+import { InventoryItem, isLowStock, qtyAt, WAREHOUSE, ItemCategory, CATEGORY_HE } from '../types/inventory';
 import { locationLabel } from '../utils/locationLabel';
 import { Crew } from '../types/crew';
 import { Colors } from '../constants/colors';
@@ -26,13 +26,19 @@ export function WarehouseScreen() {
   const [query, setQuery] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [category, setCategory] = useState<ItemCategory>('items');
 
-  const lowCount = useMemo(() => items.filter(isLowStock).length, [items]);
+  // Category first, then search within it; the metrics follow the category.
+  const catItems = useMemo(
+    () => items.filter((i) => (i.category ?? 'items') === category),
+    [items, category]
+  );
+  const lowCount = useMemo(() => catItems.filter(isLowStock).length, [catItems]);
   const visible = useMemo(() => {
     const q = query.trim();
-    if (!q) return items;
-    return items.filter((i) => i.itemName.includes(q) || (i.barcode ?? '').includes(q));
-  }, [items, query]);
+    if (!q) return catItems;
+    return catItems.filter((i) => i.itemName.includes(q) || (i.barcode ?? '').includes(q));
+  }, [catItems, query]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -51,10 +57,26 @@ export function WarehouseScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>מחסן וציוד</Text>
+
+            <View style={styles.catTabs}>
+              {(Object.keys(CATEGORY_HE) as ItemCategory[]).map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.catTab, category === c && styles.catTabOn]}
+                  onPress={() => setCategory(c)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.catTabText, category === c && styles.catTabTextOn]}>
+                    {CATEGORY_HE[c]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <View style={styles.metrics}>
               <View style={styles.metric}>
                 <Text style={styles.metricLabel}>סה״כ פריטים</Text>
-                <Text style={styles.metricValue}>{items.length}</Text>
+                <Text style={styles.metricValue}>{catItems.length}</Text>
               </View>
               <View style={[styles.metric, styles.metricWarn]}>
                 <Text style={[styles.metricLabel, styles.metricWarnText]}>מלאי נמוך</Text>
@@ -186,6 +208,19 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
   title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', paddingTop: 10, paddingBottom: 12 },
+  catTabs: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  catTab: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+  },
+  catTabOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  catTabText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  catTabTextOn: { color: '#FFFFFF' },
   metrics: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   metric: { flex: 1, backgroundColor: Colors.surface, borderRadius: 10, padding: 12 },
   metricWarn: { backgroundColor: '#FAEEDA' },

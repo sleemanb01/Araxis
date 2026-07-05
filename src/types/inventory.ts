@@ -12,8 +12,16 @@ export interface InventoryItem {
   lacks?: boolean;                    // flagged as missing/needed (added from a job)
   priority?: boolean;                 // high-priority item (stock rules)
   criticalQty?: number;               // per-item critical threshold (below = low stock)
+  category?: ItemCategory;            // undefined = regular item
   locations: Record<string, number>; // location key -> quantity on hand
 }
+
+/** Inventory categories: regular items vs. white goods (appliances). */
+export type ItemCategory = 'items' | 'white';
+export const CATEGORY_HE: Record<ItemCategory, string> = {
+  items: 'פריטים',
+  white: 'מוצרים לבנים',
+};
 
 export type CreateInventoryPayload = Omit<InventoryItem, 'id'>;
 
