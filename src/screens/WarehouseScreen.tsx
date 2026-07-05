@@ -28,12 +28,20 @@ export function WarehouseScreen() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [category, setCategory] = useState<ItemCategory>('items');
 
-  // Category first, then search within it; the metrics follow the category.
+  // The list shows the selected category; the metrics are fixed by rule:
+  // "סה״כ פריטים" counts ONLY regular items, "מלאי נמוך" ONLY white goods.
   const catItems = useMemo(
     () => items.filter((i) => (i.category ?? 'items') === category),
     [items, category]
   );
-  const lowCount = useMemo(() => catItems.filter(isLowStock).length, [catItems]);
+  const itemsCount = useMemo(
+    () => items.filter((i) => (i.category ?? 'items') === 'items').length,
+    [items]
+  );
+  const lowCount = useMemo(
+    () => items.filter((i) => i.category === 'white' && isLowStock(i)).length,
+    [items]
+  );
   const visible = useMemo(() => {
     const q = query.trim();
     if (!q) return catItems;
@@ -61,7 +69,7 @@ export function WarehouseScreen() {
             <View style={styles.metrics}>
               <View style={styles.metric}>
                 <Text style={styles.metricLabel}>סה״כ פריטים</Text>
-                <Text style={styles.metricValue}>{catItems.length}</Text>
+                <Text style={styles.metricValue}>{itemsCount}</Text>
               </View>
               <View style={[styles.metric, styles.metricWarn]}>
                 <Text style={[styles.metricLabel, styles.metricWarnText]}>מלאי נמוך</Text>
