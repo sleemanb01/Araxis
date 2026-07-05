@@ -6,7 +6,7 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
 import { useFinancialData } from '../hooks/useFinancialData';
 import { dialPhone, openWhatsapp } from '../utils/contact';
-import { aggregateTotals, dayKey } from '../utils/finance';
+import { aggregateTotals, dayKey, qtyOn } from '../utils/finance';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
@@ -47,6 +47,29 @@ export function FinancialDashboardScreen() {
         .sort((a, b) => b.balance - a.balance),
     [calls, fins, day]
   );
+
+  // Stock still needed by OPEN jobs: unchecked required items summed per item,
+  // compared with what's on hand anywhere (warehouse + crews). Shortest first.
+  const [stockOpen, setStockOpen] = useState(false);
+  const stockNeeds = useMemo(() => {
+    const need = new Map<string, number>();
+    calls.forEach((c) => {
+      if (c.status === 'completed') return;
+      const checked = new Set(c.checkedItems ?? []);
+      (c.requiredItems ?? []).forEach((id) => {
+        if (checked.has(id)) return; // already pulled for the job
+        need.set(id, (need.get(id) ?? 0) + qtyOn(c, id));
+      });
+    });
+    return Array.from(need.entries())
+      .map(([id, qty]) => {
+        const item = items.find((i) => i.id === id);
+        const stock = item ? Object.values(item.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
+        return { id, name: item?.itemName ?? '—', qty, stock };
+      })
+      .sort((a, b) => a.stock - a.qty - (b.stock - b.qty));
+  }, [calls, items]);
+  const stockNeedTotal = stockNeeds.reduce((s, n) => s + n.qty, 0);
 
   // Totals of the jobs scheduled on `day` (revenue = client price; costs/profit
   // per the dashboard formula: profit = revenue − equipment − crew).
@@ -180,10 +203,43 @@ export function FinancialDashboardScreen() {
           <Metric label="עלות ציוד" value={ils(t.equipment)} tone="orange" />
           <Metric label="עלות צוות" value={ils(t.payouts)} tone="orange" />
         </View>
+        <View style={styles.row}>
+          <TouchableOpacity style={styles.flexTouch} onPress={() => setStockOpen(true)} activeOpacity={0.8}>
+            <Metric label="ציוד נדרש" value={`${stockNeedTotal}`} tone="blue" />
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות</Text>
       </ScrollView>
       {unpaidModal}
+
+      <Modal visible={stockOpen} transparent animationType="fade" onRequestClose={() => setStockOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>ציוד נדרש לעבודות פתוחות</Text>
+            <ScrollView style={styles.unpaidList}>
+              {stockNeeds.length === 0 && <Text style={styles.note}>אין ציוד נדרש לעבודות פתוחות.</Text>}
+              {stockNeeds.map((n) => (
+                <View key={n.id} style={styles.payRow}>
+                  <Text style={[styles.stockCount, n.stock < n.qty && styles.stockShort]}>
+                    {n.stock}/{n.qty}
+                  </Text>
+                  <View style={styles.payInfo}>
+                    <Text style={styles.payClient} numberOfLines={1}>{n.name}</Text>
+                    <Text style={styles.payMeta}>
+                      נדרש {n.qty} · במלאי {n.stock}
+                      {n.stock < n.qty ? ` · חסר ${n.qty - n.stock}` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setStockOpen(false)} style={styles.closeBtn} activeOpacity={0.8}>
+              <Text style={styles.closeText}>סגור</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -192,9 +248,10 @@ const TONES = {
   green: { card: { backgroundColor: '#E8F6EE', borderColor: '#BBE5CC' }, value: { color: '#1E7E47' } },
   red: { card: { backgroundColor: '#FCEBEB', borderColor: '#F3C9C9' }, value: { color: '#B91C1C' } },
   orange: { card: { backgroundColor: '#FBF0DC', borderColor: '#F0D9A8' }, value: { color: '#B45309' } },
+  blue: { card: { backgroundColor: '#E8F0FE', borderColor: '#C3D4FA' }, value: { color: '#2563EB' } },
 };
 
-function Metric({ label, value, tone }: { label: string; value: string; tone: 'green' | 'red' | 'orange' }) {
+function Metric({ label, value, tone }: { label: string; value: string; tone: 'green' | 'red' | 'orange' | 'blue' }) {
   const tc = TONES[tone];
   return (
     <View style={[styles.card, tc.card]}>
@@ -261,4 +318,6 @@ const styles = StyleSheet.create({
   unpaidAmount: { fontSize: 14, fontWeight: '800', color: '#B91C1C', writingDirection: 'ltr', marginTop: 2 },
   closeBtn: { alignSelf: 'center', marginTop: 12, paddingVertical: 8, paddingHorizontal: 28 },
   closeText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
+  stockCount: { fontSize: 15, fontWeight: '800', color: '#1E7E47', writingDirection: 'ltr' },
+  stockShort: { color: '#B91C1C' },
 });
