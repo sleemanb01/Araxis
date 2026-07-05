@@ -96,6 +96,7 @@ export function FinancialDashboardScreen() {
                 </View>
                 <View style={styles.payInfo}>
                   <Text style={styles.payClient} numberOfLines={1}>{call.clientName}</Text>
+                  <Text style={styles.payMeta}>{new Date(call.scheduledDate).toLocaleDateString('he-IL')}</Text>
                   <Text style={styles.unpaidAmount}>{ils(balance)}</Text>
                 </View>
               </View>
