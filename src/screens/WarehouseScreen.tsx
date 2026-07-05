@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
+import { StockRulesModal } from '../components/StockRulesModal';
 import { adjustQuantity } from '../services/inventoryService';
 import { InventoryItem, isLowStock, qtyAt, WAREHOUSE } from '../types/inventory';
 import { locationLabel } from '../utils/locationLabel';
@@ -24,6 +25,7 @@ export function WarehouseScreen() {
   const canEdit = caps.manageInventory;
   const [query, setQuery] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   const lowCount = useMemo(() => items.filter(isLowStock).length, [items]);
   const visible = useMemo(() => {
@@ -70,6 +72,10 @@ export function WarehouseScreen() {
                   <Ionicons name="people-outline" size={20} color={Colors.primary} />
                   <Text style={styles.loadText}>משיכה לצוות</Text>
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.loadBtn} onPress={() => setRulesOpen(true)} activeOpacity={0.85}>
+                  <Ionicons name="options-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.loadText}>כללים</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -99,6 +105,8 @@ export function WarehouseScreen() {
         onClose={() => setScannerOpen(false)}
         onScanned={setQuery}
       />
+
+      <StockRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} items={items} />
     </SafeAreaView>
   );
 }
@@ -125,7 +133,10 @@ function InventoryRow({
   return (
     <View style={styles.row}>
       <TouchableOpacity style={styles.rowInfo} onPress={onEdit} activeOpacity={0.7}>
-        <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
+        <View style={styles.nameRow}>
+          {item.priority && <Ionicons name="star" size={14} color="#D97706" />}
+          <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
+        </View>
         <View style={styles.rowMeta}>
           {showPrice && typeof item.customerPrice === 'number' && (
             <Text style={styles.customerPrice}>
@@ -233,7 +244,8 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   rowInfo: { flex: 1, minWidth: 0, marginEnd: 10, gap: 5 },
-  rowName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
+  rowName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right', flexShrink: 1 },
   rowMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   lowTag: {
     flexDirection: 'row',

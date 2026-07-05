@@ -10,6 +10,8 @@ export interface InventoryItem {
   price?: number;                     // unit COST price (manager-only, viewFinancials)
   customerPrice?: number;             // desired profit per unit from the customer (manager-only)
   lacks?: boolean;                    // flagged as missing/needed (added from a job)
+  priority?: boolean;                 // high-priority item (stock rules)
+  criticalQty?: number;               // per-item critical threshold (below = low stock)
   locations: Record<string, number>; // location key -> quantity on hand
 }
 
@@ -30,7 +32,7 @@ export function crewIdFromLocation(key: string): string {
   return key.slice(CREW_PREFIX.length);
 }
 
-/** Flag low stock when the total across all locations is below this. */
+/** Default low-stock threshold; items can override it via criticalQty (rules). */
 const LOW_STOCK_THRESHOLD = 5;
 
 function totalQty(i: InventoryItem): number {
@@ -42,5 +44,5 @@ export function qtyAt(i: InventoryItem, location: string): number {
 }
 
 export function isLowStock(i: InventoryItem): boolean {
-  return totalQty(i) < LOW_STOCK_THRESHOLD;
+  return totalQty(i) < (i.criticalQty ?? LOW_STOCK_THRESHOLD);
 }
