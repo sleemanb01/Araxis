@@ -142,7 +142,8 @@ export const demoProfile = () => users.find((u) => u.uid === DEMO_UID)!;
 export const demoFin = (callId: string) => fins[callId] ?? null;
 export const demoFins = () => ({ ...fins });
 export const demoPayments = (callId: string) => [...(payments[callId] ?? [])];
-export const demoAllPayments = () => Object.values(payments).flat();
+export const demoAllPayments = () =>
+  Object.entries(payments).flatMap(([callId, list]) => list.map((p) => ({ ...p, callId })));
 export const demoWithdrawals = (crewId: string) =>
   withdrawals.filter((w) => w.crewId === crewId).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 export const demoTargets = () => ({ ...targets });

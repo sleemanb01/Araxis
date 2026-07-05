@@ -1,23 +1,75 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
 import { useFinancialData } from '../hooks/useFinancialData';
 import { aggregateTotals } from '../utils/finance';
 import { ils } from '../utils/format';
+import { PAYMENT_METHOD_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
+import type { RootStackParamList } from '../navigation/types';
+
+type RouteP = RouteProp<RootStackParamList, 'FinancialDashboard'>;
 
 export function FinancialDashboardScreen() {
+  const route = useRoute<RouteP>();
+  const day = route.params?.day;
   const { items } = useInventory();
-  const { calls, fins, loading } = useFinancialData(true);
+  const { calls, fins, payments, loading } = useFinancialData(true);
 
   const t = useMemo(() => aggregateTotals(calls, fins, items), [calls, fins, items]);
+
+  // Day view: the payments RECEIVED on `day` (what the daily ring counts).
+  const dayPays = useMemo(
+    () =>
+      day
+        ? payments
+            .filter((p) => p.status === 'issued' && p.date === day)
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        : [],
+    [payments, day]
+  );
+  const dayTotal = dayPays.reduce((s, p) => s + p.amount, 0);
+  const clientOf = (callId?: string) => calls.find((c) => c.id === callId)?.clientName ?? 'לקוח';
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 48 }} />
+      </SafeAreaView>
+    );
+  }
+
+  if (day) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <ScrollView contentContainerStyle={styles.scroll}>
+          <Text style={styles.title}>התקבל היום</Text>
+          <Text style={styles.sub}>{new Date(day + 'T00:00:00').toLocaleDateString('he-IL')}</Text>
+
+          <View style={styles.profitWrap}>
+            <View style={styles.profitCircle}>
+              <Text style={styles.profitLabel}>סה״כ התקבל</Text>
+              <Text style={styles.profitValue}>{ils(dayTotal)}</Text>
+            </View>
+          </View>
+
+          {dayPays.length === 0 ? (
+            <Text style={styles.note}>לא התקבלו תשלומים היום.</Text>
+          ) : (
+            dayPays.map((p) => (
+              <View key={p.id} style={styles.payRow}>
+                <Text style={styles.payAmount}>{ils(p.amount)}</Text>
+                <View style={styles.payInfo}>
+                  <Text style={styles.payClient} numberOfLines={1}>{clientOf(p.callId)}</Text>
+                  <Text style={styles.payMeta}>{PAYMENT_METHOD_HE[p.method]}</Text>
+                </View>
+              </View>
+            ))
+          )}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -95,4 +147,20 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'right', marginTop: 8, writingDirection: 'ltr' },
   cardValueWarn: { color: '#854F0B' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 18 },
+  payRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  payAmount: { fontSize: 16, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr' },
+  payInfo: { flex: 1, alignItems: 'flex-end', marginStart: 10 },
+  payClient: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  payMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
 });

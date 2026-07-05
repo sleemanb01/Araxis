@@ -70,6 +70,7 @@ export async function getAllPayments(): Promise<Payment[]> {
       const p = d.data() as any;
       return {
         id: d.id,
+        callId: d.ref.parent.parent?.id,
         amount: p.amount ?? 0,
         method: (p.method ?? 'other') as PaymentMethod,
         date: p.date ?? '',

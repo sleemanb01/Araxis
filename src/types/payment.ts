@@ -7,6 +7,8 @@ export type DocKind = 'receipt' | 'taxInvoiceReceipt';
 
 export interface Payment {
   id: string;
+  /** Owning job id (set on collection-group reads). */
+  callId?: string;
   amount: number;
   method: PaymentMethod;
   date: string; // "YYYY-MM-DD"

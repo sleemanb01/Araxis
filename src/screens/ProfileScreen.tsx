@@ -163,7 +163,10 @@ export function ProfileScreen() {
         {caps.viewFinancials && (
           <>
             <View style={styles.circlesRow}>
-              <TouchableOpacity onPress={() => navigation.navigate('FinancialDashboard')} activeOpacity={0.85}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('FinancialDashboard', { day: dayKey(new Date()) })}
+                activeOpacity={0.85}
+              >
                 <ProgressRing size={150} strokeWidth={12} progress={dailyTarget > 0 ? dayPercent / 100 : 1} color={dayColor}>
                   <Text style={styles.rLabel}>{dayLabel}</Text>
                   {dailyTarget > 0 ? (
