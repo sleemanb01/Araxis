@@ -58,21 +58,6 @@ export function WarehouseScreen() {
           <View>
             <Text style={styles.title}>מחסן וציוד</Text>
 
-            <View style={styles.catTabs}>
-              {(Object.keys(CATEGORY_HE) as ItemCategory[]).map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[styles.catTab, category === c && styles.catTabOn]}
-                  onPress={() => setCategory(c)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.catTabText, category === c && styles.catTabTextOn]}>
-                    {CATEGORY_HE[c]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
             <View style={styles.metrics}>
               <View style={styles.metric}>
                 <Text style={styles.metricLabel}>סה״כ פריטים</Text>
@@ -100,6 +85,21 @@ export function WarehouseScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
+            <View style={styles.catTabs}>
+              {(Object.keys(CATEGORY_HE) as ItemCategory[]).map((c) => (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.catTab, category === c && styles.catTabOn]}
+                  onPress={() => setCategory(c)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.catTabText, category === c && styles.catTabTextOn]}>
+                    {CATEGORY_HE[c]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <View style={styles.searchRow}>
               <Ionicons name="search" size={17} color={Colors.textSecondary} />
