@@ -192,6 +192,14 @@ export function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
+            <TouchableOpacity
+              style={styles.detailsBtn}
+              onPress={() => navigation.navigate('FinancialDashboard', {})}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.detailsText}>פרטים</Text>
+            </TouchableOpacity>
+
             <View style={styles.chart}>
               <View style={styles.chartHeader}>
                 <TouchableOpacity onPress={() => setViewYear((y) => y - 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -313,6 +321,17 @@ const styles = StyleSheet.create({
   name: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
   role: { fontSize: 15, color: Colors.textSecondary, marginTop: 2 },
   circlesRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 18 },
+  detailsBtn: {
+    alignSelf: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 18,
+  },
+  detailsText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
   rLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   rValue: { fontSize: 24, fontWeight: '800', marginTop: 4, writingDirection: 'ltr' },
   rSub: { color: Colors.textSecondary, fontSize: 10, marginTop: 3, writingDirection: 'ltr' },
