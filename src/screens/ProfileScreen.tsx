@@ -69,20 +69,30 @@ export function ProfileScreen() {
     Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
     return out;
   }, [calls, fins, items, archive]);
-  // The rings track money actually RECEIVED, by PAYMENT date (day/month the
-  // money came in — whatever job it belongs to).
+  // The rings track money actually RECEIVED. Payment records count by PAYMENT
+  // date (day/month the money came in); amounts typed manually into "שולם"
+  // (no payment record) fall back to the JOB's date so older data still shows.
   const { todayCollected, monthCollected } = useMemo(() => {
     const today = dayKey(new Date());
     const month = monthKey(new Date());
     let day = 0;
     let mon = 0;
+    const paidByCall: Record<string, number> = {};
     payments.forEach((p) => {
       if (p.status !== 'issued') return;
+      if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
       if (p.date === today) day += p.amount;
       if (p.date.slice(0, 7) === month) mon += p.amount;
     });
+    calls.forEach((c, i) => {
+      const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
+      if (manual <= 0) return;
+      const d = new Date(c.scheduledDate);
+      if (dayKey(d) === today) day += manual;
+      if (monthKey(d) === month) mon += manual;
+    });
     return { todayCollected: day, monthCollected: mon };
-  }, [payments]);
+  }, [payments, calls, fins]);
   const crewProfits = useMemo(() => {
     const priceMap = itemPriceMap(items);
     const out: Record<string, number> = {};
