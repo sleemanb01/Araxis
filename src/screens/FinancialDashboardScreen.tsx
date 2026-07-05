@@ -1,9 +1,11 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Modal, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
 import { useFinancialData } from '../hooks/useFinancialData';
+import { dialPhone, openWhatsapp } from '../utils/contact';
 import { aggregateTotals, dayKey } from '../utils/finance';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
@@ -33,6 +35,17 @@ export function FinancialDashboardScreen() {
   );
   const clientOf = (callId?: string) => calls.find((c) => c.id === callId)?.clientName ?? 'לקוח';
 
+  // Collections list: every job the client still owes on, biggest debt first.
+  const [unpaidOpen, setUnpaidOpen] = useState(false);
+  const unpaidJobs = useMemo(
+    () =>
+      calls
+        .map((c, i) => ({ call: c, balance: (fins[i]?.overallPrice ?? 0) - (fins[i]?.paidAmount ?? 0) }))
+        .filter((u) => u.balance > 0.005)
+        .sort((a, b) => b.balance - a.balance),
+    [calls, fins]
+  );
+
   // Totals of the jobs scheduled on `day` (revenue = client price; costs/profit
   // per the dashboard formula: profit = revenue − equipment − crew).
   const dayT = useMemo(() => {
@@ -50,6 +63,51 @@ export function FinancialDashboardScreen() {
       </SafeAreaView>
     );
   }
+
+  const unpaidModal = (
+    <Modal visible={unpaidOpen} transparent animationType="fade" onRequestClose={() => setUnpaidOpen(false)}>
+      <View style={styles.modalBg}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>לא שולם</Text>
+          <ScrollView style={styles.unpaidList}>
+            {unpaidJobs.length === 0 && <Text style={styles.note}>אין חובות פתוחים.</Text>}
+            {unpaidJobs.map(({ call, balance }) => (
+              <View key={call.id} style={styles.payRow}>
+                <View style={styles.unpaidBtns}>
+                  {!!call.contactPhone && (
+                    <>
+                      <TouchableOpacity style={styles.cBtn} onPress={() => dialPhone(call.contactPhone!)} hitSlop={6}>
+                        <Ionicons name="call" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.cBtn, styles.waBtn]}
+                        onPress={() =>
+                          openWhatsapp(
+                            call.contactPhone!,
+                            `שלום ${call.clientName}, תזכורת ליתרת תשלום של ₪${Math.round(balance).toLocaleString('he-IL')}.`
+                          )
+                        }
+                        hitSlop={6}
+                      >
+                        <Ionicons name="logo-whatsapp" size={16} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+                <View style={styles.payInfo}>
+                  <Text style={styles.payClient} numberOfLines={1}>{call.clientName}</Text>
+                  <Text style={styles.unpaidAmount}>{ils(balance)}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity onPress={() => setUnpaidOpen(false)} style={styles.closeBtn} activeOpacity={0.8}>
+            <Text style={styles.closeText}>סגור</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   if (day && dayT) {
     return (
@@ -71,6 +129,9 @@ export function FinancialDashboardScreen() {
           </View>
           <View style={styles.row}>
             <Metric label="הכנסות" value={ils(dayT.gross)} tone="green" />
+            <TouchableOpacity style={styles.flexTouch} onPress={() => setUnpaidOpen(true)} activeOpacity={0.8}>
+              <Metric label="לא שולם" value={ils(t.outstanding)} tone="red" />
+            </TouchableOpacity>
           </View>
 
           {dayPays.length > 0 && (
@@ -88,6 +149,7 @@ export function FinancialDashboardScreen() {
             </>
           )}
         </ScrollView>
+        {unpaidModal}
       </SafeAreaView>
     );
   }
@@ -107,7 +169,9 @@ export function FinancialDashboardScreen() {
 
         <View style={styles.row}>
           <Metric label="שולם" value={ils(t.paid)} tone="green" />
-          <Metric label="לא שולם" value={ils(t.outstanding)} tone="red" />
+          <TouchableOpacity style={styles.flexTouch} onPress={() => setUnpaidOpen(true)} activeOpacity={0.8}>
+            <Metric label="לא שולם" value={ils(t.outstanding)} tone="red" />
+          </TouchableOpacity>
         </View>
         <View style={styles.row}>
           <Metric label="עלות ציוד" value={ils(t.equipment)} tone="orange" />
@@ -116,6 +180,7 @@ export function FinancialDashboardScreen() {
 
         <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות</Text>
       </ScrollView>
+      {unpaidModal}
     </SafeAreaView>
   );
 }
@@ -182,4 +247,15 @@ const styles = StyleSheet.create({
   payInfo: { flex: 1, alignItems: 'flex-end', marginStart: 10 },
   payClient: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   payMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  flexTouch: { flex: 1 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 18, maxHeight: '75%' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 12 },
+  unpaidList: { flexGrow: 0 },
+  unpaidBtns: { flexDirection: 'row', gap: 8 },
+  cBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  waBtn: { backgroundColor: '#25D366' },
+  unpaidAmount: { fontSize: 14, fontWeight: '800', color: '#B91C1C', writingDirection: 'ltr', marginTop: 2 },
+  closeBtn: { alignSelf: 'center', marginTop: 12, paddingVertical: 8, paddingHorizontal: 28 },
+  closeText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
 });
