@@ -6,13 +6,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllCalls, getAllFinancialsByCallId } from '../services/serviceCallService';
+import { getAllPayments } from '../services/paymentService';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
+import { Payment } from '../types/payment';
 
 export interface FinancialData {
   calls: ServiceCall[];
   /** fins[i] ↔ calls[i] (the shape the finance utils take). */
   fins: (PrivateFinancials | null)[];
   finsById: Record<string, PrivateFinancials | null>;
+  /** All payment records (money actually received, dated). */
+  payments: Payment[];
 }
 
 const TTL_MS = 15_000;
@@ -26,8 +30,16 @@ export async function fetchFinancialData(force = false): Promise<FinancialData> 
     inflight = (async () => {
       try {
         const calls = await getAllCalls();
-        const finsById = await getAllFinancialsByCallId(calls.map((c) => c.id));
-        const data: FinancialData = { calls, fins: calls.map((c) => finsById[c.id] ?? null), finsById };
+        const [finsById, payments] = await Promise.all([
+          getAllFinancialsByCallId(calls.map((c) => c.id)),
+          getAllPayments(),
+        ]);
+        const data: FinancialData = {
+          calls,
+          fins: calls.map((c) => finsById[c.id] ?? null),
+          finsById,
+          payments,
+        };
         cache = { at: Date.now(), data };
         return data;
       } finally {
@@ -88,5 +100,11 @@ export function useFinancialData(enabled: boolean): FinancialData & { loading: b
     }, [enabled])
   );
 
-  return { calls: data?.calls ?? [], fins: data?.fins ?? [], finsById: data?.finsById ?? {}, loading };
+  return {
+    calls: data?.calls ?? [],
+    fins: data?.fins ?? [],
+    finsById: data?.finsById ?? {},
+    payments: data?.payments ?? [],
+    loading,
+  };
 }

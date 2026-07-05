@@ -9,10 +9,10 @@
  */
 import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
-import { collection, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
+import { collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { isDemo } from './demoMode';
-import { demoSubscribe, demoPayments, demoAddPayment } from './demoStore';
+import { demoSubscribe, demoPayments, demoAllPayments, demoAddPayment } from './demoStore';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
 
 /** Flip to true once the Morning secrets are set and the callables deployed. */
@@ -56,6 +56,31 @@ export function subscribeToPayments(
       onError?.(err as Error);
     }
   );
+}
+
+/**
+ * ALL payment records in ONE collection-group query (daily collected totals).
+ * Returns [] until the collection-group rule is deployed.
+ */
+export async function getAllPayments(): Promise<Payment[]> {
+  if (isDemo()) return demoAllPayments();
+  try {
+    const snap = await getDocs(collectionGroup(db, 'payments'));
+    return snap.docs.map((d) => {
+      const p = d.data() as any;
+      return {
+        id: d.id,
+        amount: p.amount ?? 0,
+        method: (p.method ?? 'other') as PaymentMethod,
+        date: p.date ?? '',
+        docKind: (p.docKind ?? 'receipt') as DocKind,
+        status: p.status ?? 'pending',
+        createdAt: p.createdAt ?? '',
+      } as Payment;
+    });
+  } catch {
+    return [];
+  }
 }
 
 /** Record a received payment, validated against the deal's open balance. */

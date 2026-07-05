@@ -14,7 +14,7 @@ import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
 import { subscribeToArchive, initArchiveIfMissing, ArchiveSummary } from '../services/archiveService';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
-import { monthlyProfit, dailyProfit, callProfit, itemPriceMap, monthKey, dayKey } from '../utils/finance';
+import { monthlyProfit, callProfit, itemPriceMap, monthKey, dayKey } from '../utils/finance';
 import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -32,7 +32,7 @@ export function ProfileScreen() {
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const { calls, fins } = useFinancialData(caps.viewFinancials);
+  const { calls, fins, payments } = useFinancialData(caps.viewFinancials);
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [settingTarget, setSettingTarget] = useState(false);
   const [targetInput, setTargetInput] = useState('');
@@ -69,9 +69,16 @@ export function ProfileScreen() {
     Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
     return out;
   }, [calls, fins, items, archive]);
-  // The rings track money actually RECEIVED (cash basis): paid − equipment − payout.
+  // The rings track money actually RECEIVED (cash basis).
   const monthlyPaid = useMemo(() => monthlyProfit(calls, fins, items, 'paid'), [calls, fins, items]);
-  const dailyPaid = useMemo(() => dailyProfit(calls, fins, items, 'paid'), [calls, fins, items]);
+  // Daily = payments RECEIVED today (by payment date), whatever job they belong to.
+  const todayCollected = useMemo(() => {
+    const today = dayKey(new Date());
+    return payments.reduce(
+      (s, p) => s + (p.status === 'issued' && p.date === today ? p.amount : 0),
+      0
+    );
+  }, [payments]);
   const crewProfits = useMemo(() => {
     const priceMap = itemPriceMap(items);
     const out: Record<string, number> = {};
@@ -94,7 +101,7 @@ export function ProfileScreen() {
   // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dailyTarget = target > 0 ? target / daysInMonth : 0;
-  const todayProfit = dailyPaid[dayKey(now)] ?? 0;
+  const todayProfit = todayCollected;
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;

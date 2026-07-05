@@ -102,16 +102,6 @@ export function monthlyProfit(
   return profitByKey(calls, fins, items, monthKey, basis);
 }
 
-/** Profit per day (key "YYYY-MM-DD"). */
-export function dailyProfit(
-  calls: ServiceCall[],
-  fins: (PrivateFinancials | null)[],
-  items: InventoryItem[],
-  basis: ProfitBasis = 'billed'
-): Record<string, number> {
-  return profitByKey(calls, fins, items, dayKey, basis);
-}
-
 /** Aggregate financial totals across calls; fins[i] is the financials for calls[i]. */
 export function aggregateTotals(
   calls: ServiceCall[],
