@@ -7,6 +7,7 @@ import { BarcodeScannerModal } from './BarcodeScannerModal';
 import { useInventory } from '../context/InventoryContext';
 import { createInventoryItem } from '../services/inventoryService';
 import { WAREHOUSE } from '../types/inventory';
+import { containsCI, equalsCI } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
@@ -41,7 +42,7 @@ export function AddItemModal({
   const existing = useMemo(() => {
     const bc = barcode.trim();
     const nm = name.trim();
-    return items.find((i) => (!!bc && i.barcode === bc) || (!!nm && i.itemName === nm)) ?? null;
+    return items.find((i) => (!!bc && i.barcode === bc) || (!!nm && equalsCI(i.itemName, nm))) ?? null;
   }, [items, name, barcode]);
 
   const suggestions = useMemo(() => {
@@ -49,7 +50,7 @@ export function AddItemModal({
     const bc = barcode.trim();
     if (!nm && !bc) return [];
     return items
-      .filter((i) => (!!nm && i.itemName.includes(nm)) || (!!bc && (i.barcode ?? '').includes(bc)))
+      .filter((i) => (!!nm && containsCI(i.itemName, nm)) || (!!bc && containsCI(i.barcode, bc)))
       .slice(0, 6);
   }, [items, name, barcode]);
 

@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { CustomButton } from './CustomButton';
 import { updateInventoryItem } from '../services/inventoryService';
 import { InventoryItem } from '../types/inventory';
+import { containsCI } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
@@ -58,7 +59,7 @@ export function StockRulesModal({
   const suggestions = useMemo(() => {
     const q = search.trim();
     if (!q) return [];
-    return items.filter((i) => !(i.id in ruled) && i.itemName.includes(q)).slice(0, 6);
+    return items.filter((i) => !(i.id in ruled) && containsCI(i.itemName, q)).slice(0, 6);
   }, [items, ruled, search]);
 
   function addItem(id: string) {

@@ -11,6 +11,7 @@ import { StockRulesModal } from '../components/StockRulesModal';
 import { adjustQuantity } from '../services/inventoryService';
 import { InventoryItem, isLowStock, qtyAt, WAREHOUSE, ItemCategory, CATEGORY_HE } from '../types/inventory';
 import { locationLabel } from '../utils/locationLabel';
+import { containsCI } from '../utils/format';
 import { Crew } from '../types/crew';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -45,7 +46,7 @@ export function WarehouseScreen() {
   const visible = useMemo(() => {
     const q = query.trim();
     if (!q) return catItems;
-    return catItems.filter((i) => i.itemName.includes(q) || (i.barcode ?? '').includes(q));
+    return catItems.filter((i) => containsCI(i.itemName, q) || containsCI(i.barcode, q));
   }, [catItems, query]);
 
   return (

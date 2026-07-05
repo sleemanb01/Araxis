@@ -17,6 +17,7 @@ import { useFinancialData } from '../hooks/useFinancialData';
 import { ServiceCall } from '../types/serviceCall';
 import { dayKey, monthKey, callProfit, itemPriceMap } from '../utils/finance';
 import { formatMonthLabel } from '../utils/date';
+import { containsCI } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -81,7 +82,7 @@ export function DashboardScreen() {
     const qDigits = q.replace(/\D/g, '').replace(/^972/, '0');
     const phoneOf = (c: ServiceCall) => (c.contactPhone ?? '').replace(/\D/g, '').replace(/^972/, '0');
     return mine
-      .filter((c) => c.clientName.includes(q) || (!!qDigits && phoneOf(c).includes(qDigits)))
+      .filter((c) => containsCI(c.clientName, q) || (!!qDigits && phoneOf(c).includes(qDigits)))
       .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
   }, [mine, search, searchOpen]);
 
