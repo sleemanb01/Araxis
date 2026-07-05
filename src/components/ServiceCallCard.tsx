@@ -4,7 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { ServiceCall } from '../types/serviceCall';
 import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
 import { useUser } from '../context/UserContext';
+import { useInventory } from '../context/InventoryContext';
 import { updateProfile } from '../services/userService';
+import { qtyOn } from '../utils/finance';
+import { ils } from '../utils/format';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 
 interface Props {
@@ -16,9 +19,25 @@ interface Props {
 /** A service-call row with a status-colored edge bar. Memoized — list rows
  *  re-render only when their call/subtitle/handler actually change. */
 export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subtitle, onPress }: Props) {
-  const { profile, user } = useUser();
+  const { profile, user, caps } = useUser();
+  const { items } = useInventory();
   const color = CallStatusColors[call.status];
   const date = new Date(call.scheduledDate).toLocaleDateString('he-IL');
+
+  // What this job still needs to BUY (unchecked required items beyond stock).
+  let buyUnits = 0;
+  let buyCost = 0;
+  if (caps.viewFinancials && call.status !== 'completed') {
+    const checked = new Set(call.checkedItems ?? []);
+    (call.requiredItems ?? []).forEach((id) => {
+      if (checked.has(id)) return;
+      const it = items.find((i) => i.id === id);
+      const stock = it ? Object.values(it.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
+      const buy = Math.max(0, qtyOn(call, id) - stock);
+      buyUnits += buy;
+      buyCost += buy * (it?.price ?? 0);
+    });
+  }
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(call)} activeOpacity={0.8}>
@@ -31,6 +50,11 @@ export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subti
           </View>
         </View>
         <Text style={styles.date}>{date}</Text>
+        {buyUnits > 0 && (
+          <View style={styles.buyPill}>
+            <Text style={styles.buyPillText}>לקנייה {buyUnits} · {ils(buyCost)}</Text>
+          </View>
+        )}
         {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         {(!!call.contactPhone || !!call.address) && (
           <View style={styles.actions}>
@@ -90,4 +114,15 @@ const styles = StyleSheet.create({
   callBtn: { backgroundColor: Colors.primary },
   waBtn: { backgroundColor: '#25D366' },
   navBtn: { backgroundColor: '#0F766E' },
+  buyPill: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#E8F0FE',
+    borderWidth: 1,
+    borderColor: '#C3D4FA',
+    borderRadius: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
+    marginTop: 4,
+  },
+  buyPillText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
 });
