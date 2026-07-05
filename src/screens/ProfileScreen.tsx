@@ -69,15 +69,19 @@ export function ProfileScreen() {
     Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
     return out;
   }, [calls, fins, items, archive]);
-  // The rings track money actually RECEIVED (cash basis).
-  const monthlyPaid = useMemo(() => monthlyProfit(calls, fins, items, 'paid'), [calls, fins, items]);
-  // Daily = payments RECEIVED today (by payment date), whatever job they belong to.
-  const todayCollected = useMemo(() => {
+  // The rings track money actually RECEIVED, by PAYMENT date (day/month the
+  // money came in — whatever job it belongs to).
+  const { todayCollected, monthCollected } = useMemo(() => {
     const today = dayKey(new Date());
-    return payments.reduce(
-      (s, p) => s + (p.status === 'issued' && p.date === today ? p.amount : 0),
-      0
-    );
+    const month = monthKey(new Date());
+    let day = 0;
+    let mon = 0;
+    payments.forEach((p) => {
+      if (p.status !== 'issued') return;
+      if (p.date === today) day += p.amount;
+      if (p.date.slice(0, 7) === month) mon += p.amount;
+    });
+    return { todayCollected: day, monthCollected: mon };
   }, [payments]);
   const crewProfits = useMemo(() => {
     const priceMap = itemPriceMap(items);
@@ -92,7 +96,7 @@ export function ProfileScreen() {
   const curKey = monthKey(now);
   const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
   const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
-  const monthProfit = monthlyPaid[curKey] ?? 0;
+  const monthProfit = monthCollected;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
