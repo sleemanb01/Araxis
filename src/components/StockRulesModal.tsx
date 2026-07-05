@@ -104,7 +104,7 @@ export function StockRulesModal({
             <Text style={styles.title}>כללי מלאי</Text>
           </View>
           <Text style={styles.sub}>
-            פריטים בעדיפות גבוהה. קבע לכל פריט כמות קריטית — מתחתיה הוא יסומן כמלאי נמוך.
+            מוצרים לבנים בעדיפות גבוהה. קבע לכל מוצר כמות קריטית — מתחתיה הוא יסומן כמלאי נמוך.
           </Text>
 
           {adding && (

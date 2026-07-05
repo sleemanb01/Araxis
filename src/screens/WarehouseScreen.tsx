@@ -136,7 +136,12 @@ export function WarehouseScreen() {
         onScanned={setQuery}
       />
 
-      <StockRulesModal visible={rulesOpen} onClose={() => setRulesOpen(false)} items={items} />
+      {/* Stock rules apply to white goods only. */}
+      <StockRulesModal
+        visible={rulesOpen}
+        onClose={() => setRulesOpen(false)}
+        items={items.filter((i) => i.category === 'white')}
+      />
     </SafeAreaView>
   );
 }
