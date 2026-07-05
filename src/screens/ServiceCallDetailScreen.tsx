@@ -16,7 +16,8 @@ import { subscribeToPayments, issuePaymentDocument } from '../services/paymentSe
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { Payment, PAYMENT_METHOD_HE, PAYMENT_STATUS_HE, DOC_KIND_HE } from '../types/payment';
-import { financialStatus, FINANCIAL_STATUS_HE } from '../utils/finance';
+import { financialStatus, FINANCIAL_STATUS_HE, qtyOn } from '../utils/finance';
+import { ils } from '../utils/format';
 import { adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
 import { ServiceCall, PrivateFinancials, ServiceCallStatus } from '../types/serviceCall';
@@ -56,6 +57,7 @@ export function ServiceCallDetailScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [payOpen, setPayOpen] = useState(false);
   const [reschedOpen, setReschedOpen] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToCall(callId, setFetchedCall);
@@ -111,6 +113,22 @@ export function ServiceCallDetailScreen() {
   const priceOf = (id: string): number | undefined => call.itemPrices?.[id] ?? items.find((i) => i.id === id)?.price;
   const qtyOf = (id: string): number => call!.itemQuantities?.[id] ?? 1;
   const equipmentCost = reqItems.reduce((s, id) => s + (priceOf(id) ?? 0) * qtyOf(id), 0);
+
+  // THIS job's shopping list: unchecked required items beyond on-hand stock.
+  const buyList = reqItems
+    .filter((id) => !checked.has(id))
+    .map((id) => {
+      const it = items.find((i) => i.id === id);
+      const stock = it ? Object.values(it.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
+      const qty = qtyOn(call, id);
+      const buy = Math.max(0, qty - stock);
+      const price = it?.price ?? 0;
+      return { id, name: it?.itemName ?? '—', qty, stock, buy, price, cost: buy * price };
+    })
+    .filter((n) => n.buy > 0)
+    .sort((a, b) => b.cost - a.cost);
+  const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
+  const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
   // Can't finish a job until every required item is checked off.
   const allItemsChecked = reqItems.every((id) => checked.has(id));
   const blockFinish = next === 'completed' && reqItems.length > 0 && !allItemsChecked;
@@ -334,11 +352,18 @@ export function ServiceCallDetailScreen() {
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionInline}>פריטים נדרשים</Text>
-          {canEdit && (
-            <TouchableOpacity style={styles.addBtn} onPress={() => setAddOpen(true)} activeOpacity={0.85}>
-              <Ionicons name="add" size={20} color="#FFFFFF" />
-            </TouchableOpacity>
-          )}
+          <View style={styles.sectionBtns}>
+            {caps.viewFinancials && !isDone && buyUnits > 0 && (
+              <TouchableOpacity style={styles.buyPill} onPress={() => setBuyOpen(true)} activeOpacity={0.8}>
+                <Text style={styles.buyPillText}>לקנייה {buyUnits} · {ils(buyCost)}</Text>
+              </TouchableOpacity>
+            )}
+            {canEdit && (
+              <TouchableOpacity style={styles.addBtn} onPress={() => setAddOpen(true)} activeOpacity={0.85}>
+                <Ionicons name="add" size={20} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         {reqItems.length ? (
           reqItems.map((id) => {
@@ -526,6 +551,27 @@ export function ServiceCallDetailScreen() {
         balance={priceN > 0 ? Math.max(0, priceN - reserved) : undefined}
       />
 
+      <Modal visible={buyOpen} transparent animationType="fade" onRequestClose={() => setBuyOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>ציוד לקנייה לעבודה זו</Text>
+            <Text style={styles.modalSub}>סה״כ {buyUnits} יחידות · {ils(buyCost)}</Text>
+            {buyList.map((n) => (
+              <View key={n.id} style={styles.buyRow}>
+                <Text style={styles.buyCost}>{ils(n.cost)}</Text>
+                <View style={styles.buyInfo}>
+                  <Text style={styles.buyName} numberOfLines={1}>{n.name}</Text>
+                  <Text style={styles.buyMeta}>
+                    לקנייה {n.buy} × {ils(n.price)} · נדרש {n.qty} · במלאי {n.stock}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            <CustomButton label="סגור" variant="ghost" onPress={() => setBuyOpen(false)} />
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={reschedOpen} transparent animationType="fade" onRequestClose={() => setReschedOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalCard}>
@@ -560,6 +606,32 @@ const styles = StyleSheet.create({
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 6 },
   sectionInline: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
   addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  sectionBtns: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  buyPill: {
+    backgroundColor: '#E8F0FE',
+    borderWidth: 1,
+    borderColor: '#C3D4FA',
+    borderRadius: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  buyPillText: { fontSize: 12, fontWeight: '700', color: '#2563EB' },
+  buyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  buyCost: { fontSize: 15, fontWeight: '800', color: '#B91C1C', writingDirection: 'ltr' },
+  buyInfo: { flex: 1, alignItems: 'flex-end', marginStart: 10 },
+  buyName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  buyMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
   line: { fontSize: 15, color: Colors.textPrimary, textAlign: 'right' },
   muted: { fontSize: 14, color: Colors.textSecondary, textAlign: 'right' },
   crewRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
