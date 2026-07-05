@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
 import { useFinancialData } from '../hooks/useFinancialData';
-import { aggregateTotals } from '../utils/finance';
+import { aggregateTotals, dayKey } from '../utils/finance';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
@@ -31,8 +31,17 @@ export function FinancialDashboardScreen() {
         : [],
     [payments, day]
   );
-  const dayTotal = dayPays.reduce((s, p) => s + p.amount, 0);
   const clientOf = (callId?: string) => calls.find((c) => c.id === callId)?.clientName ?? 'לקוח';
+
+  // Totals of the jobs scheduled on `day` (revenue = client price; costs/profit
+  // per the dashboard formula: profit = revenue − equipment − crew).
+  const dayT = useMemo(() => {
+    if (!day) return null;
+    const pairs = calls
+      .map((c, i) => [c, fins[i]] as const)
+      .filter(([c]) => dayKey(new Date(c.scheduledDate)) === day);
+    return aggregateTotals(pairs.map(([c]) => c), pairs.map(([, f]) => f), items);
+  }, [calls, fins, items, day]);
 
   if (loading) {
     return (
@@ -42,32 +51,41 @@ export function FinancialDashboardScreen() {
     );
   }
 
-  if (day) {
+  if (day && dayT) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>התקבל היום</Text>
+          <Text style={styles.title}>כספים — היום</Text>
           <Text style={styles.sub}>{new Date(day + 'T00:00:00').toLocaleDateString('he-IL')}</Text>
 
           <View style={styles.profitWrap}>
             <View style={styles.profitCircle}>
-              <Text style={styles.profitLabel}>סה״כ התקבל</Text>
-              <Text style={styles.profitValue}>{ils(dayTotal)}</Text>
+              <Text style={styles.profitLabel}>הכנסות</Text>
+              <Text style={styles.profitValue}>{ils(dayT.gross)}</Text>
             </View>
           </View>
 
-          {dayPays.length === 0 ? (
-            <Text style={styles.note}>לא התקבלו תשלומים היום.</Text>
-          ) : (
-            dayPays.map((p) => (
-              <View key={p.id} style={styles.payRow}>
-                <Text style={styles.payAmount}>{ils(p.amount)}</Text>
-                <View style={styles.payInfo}>
-                  <Text style={styles.payClient} numberOfLines={1}>{clientOf(p.callId)}</Text>
-                  <Text style={styles.payMeta}>{PAYMENT_METHOD_HE[p.method]}</Text>
+          <View style={styles.row}>
+            <Metric label="עלות ציוד" value={ils(dayT.equipment)} tone="orange" />
+            <Metric label="עלות צוות" value={ils(dayT.payouts)} tone="orange" />
+          </View>
+          <View style={styles.row}>
+            <Metric label="רווח" value={ils(dayT.profit)} tone={dayT.profit < 0 ? 'red' : 'green'} />
+          </View>
+
+          {dayPays.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>תשלומים שהתקבלו היום</Text>
+              {dayPays.map((p) => (
+                <View key={p.id} style={styles.payRow}>
+                  <Text style={styles.payAmount}>{ils(p.amount)}</Text>
+                  <View style={styles.payInfo}>
+                    <Text style={styles.payClient} numberOfLines={1}>{clientOf(p.callId)}</Text>
+                    <Text style={styles.payMeta}>{PAYMENT_METHOD_HE[p.method]}</Text>
+                  </View>
                 </View>
-              </View>
-            ))
+              ))}
+            </>
           )}
         </ScrollView>
       </SafeAreaView>
@@ -147,6 +165,7 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 22, fontWeight: '800', color: Colors.textPrimary, textAlign: 'right', marginTop: 8, writingDirection: 'ltr' },
   cardValueWarn: { color: '#854F0B' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 18 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginTop: 16, marginBottom: 8 },
   payRow: {
     flexDirection: 'row',
     alignItems: 'center',
