@@ -88,16 +88,6 @@ export function ProfileScreen() {
     return day;
   }, [payments, calls, fins]);
 
-  // Monthly ring: REVENUE — the client price billed on this month's jobs
-  // (regardless of what was collected yet).
-  const monthRevenue = useMemo(() => {
-    const month = monthKey(new Date());
-    let s = 0;
-    calls.forEach((c, i) => {
-      if (monthKey(new Date(c.scheduledDate)) === month) s += fins[i]?.overallPrice ?? 0;
-    });
-    return s;
-  }, [calls, fins]);
   const crewProfits = useMemo(() => {
     const priceMap = itemPriceMap(items);
     const out: Record<string, number> = {};
@@ -111,7 +101,9 @@ export function ProfileScreen() {
   const curKey = monthKey(now);
   const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
   const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
-  const monthProfit = monthRevenue;
+  // Monthly ring: what's actually MADE this month after all costs —
+  // profit = revenue − equipment cost − crew cost (merged with archive).
+  const monthProfit = monthly[curKey] ?? 0;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
