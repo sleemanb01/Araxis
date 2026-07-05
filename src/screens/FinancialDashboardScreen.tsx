@@ -48,10 +48,10 @@ export function FinancialDashboardScreen() {
     [calls, fins, day]
   );
 
-  // Stock still needed by OPEN jobs: unchecked required items summed per item,
-  // compared with what's on hand anywhere (warehouse + crews). Shortest first.
+  // Shopping list: what OPEN jobs need beyond what's on hand (warehouse +
+  // crews). Per item: units to BUY and their cost at the actual (cost) price.
   const [stockOpen, setStockOpen] = useState(false);
-  const stockNeeds = useMemo(() => {
+  const buyList = useMemo(() => {
     const need = new Map<string, number>();
     calls.forEach((c) => {
       if (c.status === 'completed') return;
@@ -65,11 +65,15 @@ export function FinancialDashboardScreen() {
       .map(([id, qty]) => {
         const item = items.find((i) => i.id === id);
         const stock = item ? Object.values(item.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
-        return { id, name: item?.itemName ?? '—', qty, stock };
+        const buy = Math.max(0, qty - stock);
+        const price = item?.price ?? 0;
+        return { id, name: item?.itemName ?? '—', qty, stock, buy, price, cost: buy * price };
       })
-      .sort((a, b) => a.stock - a.qty - (b.stock - b.qty));
+      .filter((n) => n.buy > 0)
+      .sort((a, b) => b.cost - a.cost);
   }, [calls, items]);
-  const stockNeedTotal = stockNeeds.reduce((s, n) => s + n.qty, 0);
+  const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
+  const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
   // Totals of the jobs scheduled on `day` (revenue = client price; costs/profit
   // per the dashboard formula: profit = revenue − equipment − crew).
@@ -205,7 +209,7 @@ export function FinancialDashboardScreen() {
         </View>
         <View style={styles.row}>
           <TouchableOpacity style={styles.flexTouch} onPress={() => setStockOpen(true)} activeOpacity={0.8}>
-            <Metric label="ציוד נדרש" value={`${stockNeedTotal}`} tone="blue" />
+            <Metric label="ציוד לקנייה" value={`${buyUnits} · ${ils(buyCost)}`} tone="blue" />
           </TouchableOpacity>
         </View>
 
@@ -216,19 +220,19 @@ export function FinancialDashboardScreen() {
       <Modal visible={stockOpen} transparent animationType="fade" onRequestClose={() => setStockOpen(false)}>
         <View style={styles.modalBg}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>ציוד נדרש לעבודות פתוחות</Text>
+            <Text style={styles.modalTitle}>ציוד לקנייה</Text>
+            {buyList.length > 0 && (
+              <Text style={styles.buyTotal}>סה״כ {buyUnits} יחידות · {ils(buyCost)}</Text>
+            )}
             <ScrollView style={styles.unpaidList}>
-              {stockNeeds.length === 0 && <Text style={styles.note}>אין ציוד נדרש לעבודות פתוחות.</Text>}
-              {stockNeeds.map((n) => (
+              {buyList.length === 0 && <Text style={styles.note}>אין ציוד שחסר לעבודות הפתוחות.</Text>}
+              {buyList.map((n) => (
                 <View key={n.id} style={styles.payRow}>
-                  <Text style={[styles.stockCount, n.stock < n.qty && styles.stockShort]}>
-                    {n.stock}/{n.qty}
-                  </Text>
+                  <Text style={[styles.stockCount, styles.stockShort]}>{ils(n.cost)}</Text>
                   <View style={styles.payInfo}>
                     <Text style={styles.payClient} numberOfLines={1}>{n.name}</Text>
                     <Text style={styles.payMeta}>
-                      נדרש {n.qty} · במלאי {n.stock}
-                      {n.stock < n.qty ? ` · חסר ${n.qty - n.stock}` : ''}
+                      לקנייה {n.buy} × {ils(n.price)} · נדרש {n.qty} · במלאי {n.stock}
                     </Text>
                   </View>
                 </View>
@@ -320,4 +324,5 @@ const styles = StyleSheet.create({
   closeText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
   stockCount: { fontSize: 15, fontWeight: '800', color: '#1E7E47', writingDirection: 'ltr' },
   stockShort: { color: '#B91C1C' },
+  buyTotal: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 10 },
 });
