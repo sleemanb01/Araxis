@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ServiceCall } from '../types/serviceCall';
 import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
@@ -25,19 +25,24 @@ export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subti
   const date = new Date(call.scheduledDate).toLocaleDateString('he-IL');
 
   // What this job still needs to BUY (unchecked required items beyond stock).
-  let buyUnits = 0;
-  let buyCost = 0;
+  const [buyOpen, setBuyOpen] = useState(false);
+  const buyList: { id: string; name: string; qty: number; stock: number; buy: number; price: number; cost: number }[] = [];
   if (caps.viewFinancials && call.status !== 'completed') {
     const checked = new Set(call.checkedItems ?? []);
     (call.requiredItems ?? []).forEach((id) => {
       if (checked.has(id)) return;
       const it = items.find((i) => i.id === id);
       const stock = it ? Object.values(it.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
-      const buy = Math.max(0, qtyOn(call, id) - stock);
-      buyUnits += buy;
-      buyCost += buy * (it?.price ?? 0);
+      const qty = qtyOn(call, id);
+      const buy = Math.max(0, qty - stock);
+      if (buy <= 0) return;
+      const price = it?.price ?? 0;
+      buyList.push({ id, name: it?.itemName ?? '—', qty, stock, buy, price, cost: buy * price });
     });
+    buyList.sort((a, b) => b.cost - a.cost);
   }
+  const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
+  const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => onPress(call)} activeOpacity={0.8}>
@@ -51,9 +56,9 @@ export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subti
         </View>
         <Text style={styles.date}>{date}</Text>
         {buyUnits > 0 && (
-          <View style={styles.buyPill}>
+          <TouchableOpacity style={styles.buyPill} onPress={() => setBuyOpen(true)} hitSlop={6} activeOpacity={0.8}>
             <Text style={styles.buyPillText}>לקנייה {buyUnits} · {ils(buyCost)}</Text>
-          </View>
+          </TouchableOpacity>
         )}
         {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         {(!!call.contactPhone || !!call.address) && (
@@ -84,6 +89,29 @@ export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subti
           </View>
         )}
       </View>
+
+      <Modal visible={buyOpen} transparent animationType="fade" onRequestClose={() => setBuyOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>ציוד לקנייה — {call.clientName}</Text>
+            <Text style={styles.modalSub}>סה״כ {buyUnits} יחידות · {ils(buyCost)}</Text>
+            {buyList.map((n) => (
+              <View key={n.id} style={styles.buyRow}>
+                <Text style={styles.buyCost}>{ils(n.cost)}</Text>
+                <View style={styles.buyInfo}>
+                  <Text style={styles.buyName} numberOfLines={1}>{n.name}</Text>
+                  <Text style={styles.buyMeta}>
+                    לקנייה {n.buy} × {ils(n.price)} · נדרש {n.qty} · במלאי {n.stock}
+                  </Text>
+                </View>
+              </View>
+            ))}
+            <TouchableOpacity onPress={() => setBuyOpen(false)} style={styles.closeBtn} activeOpacity={0.8}>
+              <Text style={styles.closeText}>סגור</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </TouchableOpacity>
   );
 });
@@ -125,4 +153,26 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buyPillText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 18, maxHeight: '75%' },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  modalSub: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginTop: 3, marginBottom: 12 },
+  buyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  buyCost: { fontSize: 15, fontWeight: '800', color: '#B91C1C', writingDirection: 'ltr' },
+  buyInfo: { flex: 1, alignItems: 'flex-end', marginStart: 10 },
+  buyName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  buyMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  closeBtn: { alignSelf: 'center', marginTop: 10, paddingVertical: 8, paddingHorizontal: 28 },
+  closeText: { fontSize: 15, fontWeight: '600', color: Colors.primary },
 });
