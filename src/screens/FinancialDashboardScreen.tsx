@@ -59,9 +59,9 @@ export function FinancialDashboardScreen() {
           <Text style={styles.sub}>{new Date(day + 'T00:00:00').toLocaleDateString('he-IL')}</Text>
 
           <View style={styles.profitWrap}>
-            <View style={styles.profitCircle}>
-              <Text style={styles.profitLabel}>הכנסות</Text>
-              <Text style={styles.profitValue}>{ils(dayT.gross)}</Text>
+            <View style={[styles.profitCircle, dayT.profit < 0 && styles.profitNeg]}>
+              <Text style={styles.profitLabel}>רווח</Text>
+              <Text style={styles.profitValue}>{ils(dayT.profit)}</Text>
             </View>
           </View>
 
@@ -70,7 +70,7 @@ export function FinancialDashboardScreen() {
             <Metric label="עלות צוות" value={ils(dayT.payouts)} tone="orange" />
           </View>
           <View style={styles.row}>
-            <Metric label="רווח" value={ils(dayT.profit)} tone={dayT.profit < 0 ? 'red' : 'green'} />
+            <Metric label="הכנסות" value={ils(dayT.gross)} tone="green" />
           </View>
 
           {dayPays.length > 0 && (
