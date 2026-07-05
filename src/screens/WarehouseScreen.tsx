@@ -45,8 +45,10 @@ export function WarehouseScreen() {
   );
   const visible = useMemo(() => {
     const q = query.trim();
-    if (!q) return catItems;
-    return catItems.filter((i) => containsCI(i.itemName, q) || containsCI(i.barcode, q));
+    const list = q
+      ? catItems.filter((i) => containsCI(i.itemName, q) || containsCI(i.barcode, q))
+      : [...catItems];
+    return list.sort((a, b) => a.itemName.localeCompare(b.itemName, 'he'));
   }, [catItems, query]);
 
   return (
