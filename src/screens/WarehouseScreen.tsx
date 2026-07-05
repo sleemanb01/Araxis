@@ -160,7 +160,8 @@ function InventoryRow({
   showPrice: boolean;
   onEdit: () => void;
 }) {
-  const low = isLowStock(item);
+  // Low-stock signals apply to white goods only (per the stock rules).
+  const low = item.category === 'white' && isLowStock(item);
   const breakdown = Object.entries(item.locations)
     .filter(([, n]) => n > 0)
     .map(([loc, n]) => `${locationLabel(loc, crews)} ${n}`)
@@ -169,10 +170,7 @@ function InventoryRow({
   return (
     <View style={styles.row}>
       <TouchableOpacity style={styles.rowInfo} onPress={onEdit} activeOpacity={0.7}>
-        <View style={styles.nameRow}>
-          {item.priority && <Ionicons name="star" size={14} color="#D97706" />}
-          <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
-        </View>
+        <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
         <View style={styles.rowMeta}>
           {showPrice && typeof item.customerPrice === 'number' && (
             <Text style={styles.customerPrice}>
@@ -293,8 +291,7 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   rowInfo: { flex: 1, minWidth: 0, marginEnd: 10, gap: 5 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
-  rowName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right', flexShrink: 1 },
+  rowName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   rowMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   lowTag: {
     flexDirection: 'row',
