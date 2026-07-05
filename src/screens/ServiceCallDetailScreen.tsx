@@ -250,6 +250,34 @@ export function ServiceCallDetailScreen() {
     ]);
   }
 
+  // Remove a required item from the job. If it was checked (stock consumed),
+  // ask whether to return its quantity to the crew stock first.
+  function doRemoveReqItem(id: string, returnToStock: boolean) {
+    const req = (call!.requiredItems ?? []).filter((x) => x !== id);
+    const chk = (call!.checkedItems ?? []).filter((x) => x !== id);
+    const qtys = { ...(call!.itemQuantities ?? {}) };
+    delete qtys[id];
+    if (returnToStock) moveStock(id, qtyOf(id));
+    updateServiceCall(callId, { requiredItems: req, checkedItems: chk, itemQuantities: qtys })
+      .then(invalidateFinancialData)
+      .catch(() => Alert.alert('שגיאה', 'הסרת הפריט נכשלה.'));
+  }
+
+  function removeReqItem(id: string) {
+    if (checked.has(id)) {
+      Alert.alert('הסרת פריט', 'הפריט מסומן — להחזיר את הכמות למלאי הצוות?', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'הסר בלי החזרה', onPress: () => doRemoveReqItem(id, false) },
+        { text: 'החזר והסר', onPress: () => doRemoveReqItem(id, true) },
+      ]);
+    } else {
+      Alert.alert('הסרת פריט', 'להסיר את הפריט מהעבודה?', [
+        { text: 'ביטול', style: 'cancel' },
+        { text: 'הסר', style: 'destructive', onPress: () => doRemoveReqItem(id, false) },
+      ]);
+    }
+  }
+
   // Adding an item ensures it's in the checklist AND checks it off (you've got it).
   async function addItemToCall(itemId: string, qty = 1) {
     const reqCur = call!.requiredItems ?? [];
@@ -390,6 +418,11 @@ export function ServiceCallDetailScreen() {
                   {it?.itemName ?? id}
                   {qtyOf(id) > 1 ? ` ×${qtyOf(id)}` : ''}
                 </Text>
+                {canEdit && (
+                  <TouchableOpacity onPress={() => removeReqItem(id)} hitSlop={8}>
+                    <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                  </TouchableOpacity>
+                )}
               </TouchableOpacity>
             );
           })
