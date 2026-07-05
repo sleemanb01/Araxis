@@ -17,7 +17,7 @@ import type { RootStackParamList } from '../navigation/types';
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type RouteP = RouteProp<RootStackParamList, 'MonthJobs'>;
 
-/** A month's OPEN jobs: unfinished, plus finished ones the client still owes on. */
+/** ALL of a month's jobs — finished included; unpaid ones flag their balance. */
 export function MonthJobsScreen() {
   const route = useRoute<RouteP>();
   const navigation = useNavigation<Nav>();
@@ -32,14 +32,9 @@ export function MonthJobsScreen() {
       ? calls
       : calls.filter((c) => c.teamAssignment.leadTech === uid || c.teamAssignment.assistants.includes(uid));
     return mine
-      .filter((c) => {
-        if (monthKey(new Date(c.scheduledDate)) !== route.params.month) return false;
-        if (c.status !== 'completed') return true; // unfinished
-        const f = finsById[c.id];
-        return !!f && f.overallPrice - f.paidAmount > 0.005; // finished but unpaid
-      })
+      .filter((c) => monthKey(new Date(c.scheduledDate)) === route.params.month)
       .sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
-  }, [calls, caps.viewAllCalls, uid, route.params.month, finsById]);
+  }, [calls, caps.viewAllCalls, uid, route.params.month]);
 
   const subtitleFor = (c: ServiceCall) => {
     const f = finsById[c.id];
@@ -67,10 +62,10 @@ export function MonthJobsScreen() {
         ListHeaderComponent={
           <View>
             <Text style={styles.title}>{formatMonthLabel(route.params.month)}</Text>
-            <Text style={styles.sub}>{jobs.length} עבודות פתוחות או לא משולמות</Text>
+            <Text style={styles.sub}>{jobs.length} עבודות</Text>
           </View>
         }
-        ListEmptyComponent={<Text style={styles.empty}>אין עבודות פתוחות בחודש זה.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>אין עבודות בחודש זה.</Text>}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
       />
