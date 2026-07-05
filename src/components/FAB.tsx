@@ -29,7 +29,7 @@ export function FAB({ onPress, label = '+', bottomOffset = 0 }: Props) {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    right: 20, // physical right-bottom corner (RTL-independent)
+    left: 20, // physical bottom-left corner (RTL-independent)
     width: 56,
     height: 56,
     borderRadius: 28,
