@@ -35,15 +35,17 @@ export function FinancialDashboardScreen() {
   );
   const clientOf = (callId?: string) => calls.find((c) => c.id === callId)?.clientName ?? 'לקוח';
 
-  // Collections list: every job the client still owes on, biggest debt first.
+  // Collections list: jobs the client still owes on, biggest debt first.
+  // In the day view only that day's jobs; in the all-time view, everything.
   const [unpaidOpen, setUnpaidOpen] = useState(false);
   const unpaidJobs = useMemo(
     () =>
       calls
         .map((c, i) => ({ call: c, balance: (fins[i]?.overallPrice ?? 0) - (fins[i]?.paidAmount ?? 0) }))
         .filter((u) => u.balance > 0.005)
+        .filter((u) => !day || dayKey(new Date(u.call.scheduledDate)) === day)
         .sort((a, b) => b.balance - a.balance),
-    [calls, fins]
+    [calls, fins, day]
   );
 
   // Totals of the jobs scheduled on `day` (revenue = client price; costs/profit
@@ -131,7 +133,7 @@ export function FinancialDashboardScreen() {
           <View style={styles.row}>
             <Metric label="הכנסות" value={ils(dayT.gross)} tone="green" />
             <TouchableOpacity style={styles.flexTouch} onPress={() => setUnpaidOpen(true)} activeOpacity={0.8}>
-              <Metric label="לא שולם" value={ils(t.outstanding)} tone="red" />
+              <Metric label="לא שולם" value={ils(dayT.outstanding)} tone="red" />
             </TouchableOpacity>
           </View>
 
