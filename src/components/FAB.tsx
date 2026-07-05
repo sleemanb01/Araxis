@@ -10,12 +10,14 @@ interface Props {
   bottomOffset?: number;
 }
 
-/** Floating action button, bottom-trailing (RTL-aware), safe-area inset. */
+/** Floating action button, bottom-right, safe-area aware. On tab screens the
+ *  tab bar already covers the safe area, so only a small gap above it is added. */
 export function FAB({ onPress, label = '+', bottomOffset = 0 }: Props) {
   const insets = useSafeAreaInsets();
+  const bottom = bottomOffset > 0 ? bottomOffset + 12 : Math.max(insets.bottom, 16) + 16;
   return (
     <TouchableOpacity
-      style={[styles.fab, { bottom: Math.max(insets.bottom, 16) + 16 + bottomOffset }]}
+      style={[styles.fab, { bottom }]}
       onPress={onPress}
       activeOpacity={0.85}
     >
