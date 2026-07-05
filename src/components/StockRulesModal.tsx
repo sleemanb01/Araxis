@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,14 +18,10 @@ import { InventoryItem } from '../types/inventory';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
-interface Rule {
-  priority: boolean;
-  critical: string; // input text; empty = default threshold
-}
-
 /**
- * Stock rules: mark items as high priority and set the per-item critical
- * quantity (below it the item counts as low stock).
+ * Stock rules: a hand-picked list of HIGH-PRIORITY items, each with a critical
+ * quantity — below it the item counts as low stock. Add items with the +
+ * (search by name); everything on the list is high priority by definition.
  */
 export function StockRulesModal({
   visible,
@@ -36,43 +32,59 @@ export function StockRulesModal({
   onClose: () => void;
   items: InventoryItem[];
 }) {
-  const [rules, setRules] = useState<Record<string, Rule>>({});
+  const [ruled, setRuled] = useState<Record<string, string>>({}); // id -> critical qty text
+  const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!visible) return;
-    setRules(
+  // Snapshot existing rules when the modal opens.
+  const [wasOpen, setWasOpen] = useState(false);
+  if (visible && !wasOpen) {
+    setWasOpen(true);
+    setRuled(
       Object.fromEntries(
-        items.map((i) => [
-          i.id,
-          { priority: i.priority === true, critical: i.criticalQty != null ? String(i.criticalQty) : '' },
-        ])
+        items
+          .filter((i) => i.priority === true)
+          .map((i) => [i.id, i.criticalQty != null ? String(i.criticalQty) : ''])
       )
     );
-    // Snapshot on open only — edits shouldn't be clobbered by live item updates.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible]);
+    setAdding(false);
+    setSearch('');
+  } else if (!visible && wasOpen) {
+    setWasOpen(false);
+  }
 
-  function setRule(id: string, patch: Partial<Rule>) {
-    setRules((r) => ({ ...r, [id]: { ...r[id], ...patch } }));
+  const ruledItems = items.filter((i) => i.id in ruled);
+  const suggestions = useMemo(() => {
+    const q = search.trim();
+    if (!q) return [];
+    return items.filter((i) => !(i.id in ruled) && i.itemName.includes(q)).slice(0, 6);
+  }, [items, ruled, search]);
+
+  function addItem(id: string) {
+    setRuled((r) => ({ ...r, [id]: '' }));
+    setSearch('');
+    setAdding(false);
+  }
+
+  function removeItem(id: string) {
+    setRuled(({ [id]: _gone, ...rest }) => rest);
   }
 
   async function save() {
     setSaving(true);
     try {
-      const changed = items.filter((i) => {
-        const r = rules[i.id];
-        if (!r) return false;
-        const critical = r.critical.trim() === '' ? null : Math.max(0, parseInt(r.critical, 10) || 0);
-        return r.priority !== (i.priority === true) || critical !== (i.criticalQty ?? null);
+      const updates: Promise<void>[] = [];
+      items.forEach((i) => {
+        const inList = i.id in ruled;
+        const critical = inList && ruled[i.id].trim() !== '' ? Math.max(0, parseInt(ruled[i.id], 10) || 0) : null;
+        const changed = inList !== (i.priority === true) || critical !== (i.criticalQty ?? null);
+        if (!changed) return;
+        updates.push(
+          updateInventoryItem(i.id, { priority: inList, criticalQty: critical as any })
+        );
       });
-      await Promise.all(
-        changed.map((i) => {
-          const r = rules[i.id];
-          const critical = r.critical.trim() === '' ? null : Math.max(0, parseInt(r.critical, 10) || 0);
-          return updateInventoryItem(i.id, { priority: r.priority, criticalQty: critical as any });
-        })
-      );
+      await Promise.all(updates);
       setSaving(false);
       onClose();
     } catch {
@@ -85,38 +97,65 @@ export function StockRulesModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.bg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.card}>
-          <Text style={styles.title}>כללי מלאי</Text>
-          <Text style={styles.sub}>סמן עדיפות גבוהה (⭐) וקבע כמות קריטית לכל פריט — מתחתיה הפריט יסומן כמלאי נמוך.</Text>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.addBtn} onPress={() => setAdding((a) => !a)} activeOpacity={0.85}>
+              <Ionicons name={adding ? 'close' : 'add'} size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.title}>כללי מלאי</Text>
+          </View>
+          <Text style={styles.sub}>
+            פריטים בעדיפות גבוהה. קבע לכל פריט כמות קריטית — מתחתיה הוא יסומן כמלאי נמוך.
+          </Text>
+
+          {adding && (
+            <View>
+              <View style={styles.searchRow}>
+                <Ionicons name="search" size={16} color={Colors.textSecondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="חפש פריט להוספה…"
+                  placeholderTextColor={Colors.textSecondary}
+                  value={search}
+                  onChangeText={setSearch}
+                  textAlign="right"
+                  autoFocus
+                />
+              </View>
+              {suggestions.map((s) => (
+                <TouchableOpacity key={s.id} style={styles.suggRow} onPress={() => addItem(s.id)} activeOpacity={0.8}>
+                  <Ionicons name="add-circle-outline" size={18} color={Colors.primary} />
+                  <Text style={styles.suggText} numberOfLines={1}>{s.itemName}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           <FlatList
-            data={items}
+            data={ruledItems}
             keyExtractor={(i) => i.id}
             style={styles.list}
             keyboardShouldPersistTaps="handled"
-            renderItem={({ item }) => {
-              const r = rules[item.id] ?? { priority: false, critical: '' };
-              return (
-                <View style={styles.row}>
-                  <TextInput
-                    style={styles.qtyInput}
-                    value={r.critical}
-                    onChangeText={(v) => setRule(item.id, { critical: v.replace(/\D/g, '') })}
-                    placeholder="5"
-                    placeholderTextColor={Colors.textSecondary}
-                    keyboardType="number-pad"
-                    maxLength={4}
-                    textAlign="center"
-                  />
-                  <TouchableOpacity onPress={() => setRule(item.id, { priority: !r.priority })} hitSlop={8}>
-                    <Ionicons
-                      name={r.priority ? 'star' : 'star-outline'}
-                      size={22}
-                      color={r.priority ? '#D97706' : Colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                  <Text style={styles.name} numberOfLines={1}>{item.itemName}</Text>
-                </View>
-              );
-            }}
+            ListEmptyComponent={<Text style={styles.empty}>אין כללים עדיין — הוסף פריט עם ה-+.</Text>}
+            renderItem={({ item }) => (
+              <View style={styles.row}>
+                <TouchableOpacity onPress={() => removeItem(item.id)} hitSlop={8}>
+                  <Ionicons name="trash-outline" size={19} color={Colors.danger} />
+                </TouchableOpacity>
+                <TextInput
+                  style={styles.qtyInput}
+                  value={ruled[item.id]}
+                  onChangeText={(v) =>
+                    setRuled((r) => ({ ...r, [item.id]: v.replace(/\D/g, '') }))
+                  }
+                  placeholder="5"
+                  placeholderTextColor={Colors.textSecondary}
+                  keyboardType="number-pad"
+                  maxLength={4}
+                  textAlign="center"
+                />
+                <Text style={styles.name} numberOfLines={1}>{item.itemName}</Text>
+              </View>
+            )}
           />
           <CustomButton label="שמור כללים" onPress={save} loading={saving} style={styles.btn} />
           <CustomButton label="ביטול" variant="ghost" onPress={onClose} />
@@ -129,9 +168,34 @@ export function StockRulesModal({
 const styles = StyleSheet.create({
   bg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
   card: { backgroundColor: Colors.background, borderRadius: 14, padding: 18, maxHeight: '82%' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  sub: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 4, marginBottom: 12, lineHeight: 17 },
-  list: { flexGrow: 0, marginBottom: 8 },
+  sub: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 6, marginBottom: 12, lineHeight: 17 },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    marginBottom: 6,
+  },
+  searchInput: { flex: 1, paddingVertical: 9, fontSize: 14, color: Colors.textPrimary },
+  suggRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  suggText: { flex: 1, fontSize: 14, color: Colors.textPrimary, textAlign: 'right' },
+  list: { flexGrow: 0, marginTop: 8, marginBottom: 8 },
+  empty: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', marginVertical: 16 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
