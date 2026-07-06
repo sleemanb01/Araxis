@@ -41,10 +41,6 @@ export function WarehouseScreen() {
     () => items.filter((i) => (i.category ?? 'items') === 'items').length,
     [items]
   );
-  const lowCount = useMemo(
-    () => items.filter((i) => i.category === 'white' && isLowStock(i)).length,
-    [items]
-  );
   const visible = useMemo(() => {
     const q = query.trim();
     const list = q
@@ -76,10 +72,14 @@ export function WarehouseScreen() {
                 <Text style={styles.metricLabel}>סה״כ פריטים</Text>
                 <Text style={styles.metricValue}>{itemsCount}</Text>
               </View>
-              <View style={[styles.metric, styles.metricWarn]}>
-                <Text style={[styles.metricLabel, styles.metricWarnText]}>מלאי נמוך</Text>
-                <Text style={[styles.metricValue, styles.metricWarnText]}>{lowCount}</Text>
-              </View>
+              <TouchableOpacity
+                style={[styles.metric, styles.suppliersCard]}
+                onPress={() => setSuppliersOpen(true)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="business-outline" size={22} color={Colors.primary} />
+                <Text style={styles.suppliersText}>ספקים</Text>
+              </TouchableOpacity>
             </View>
 
             {canEdit && (
@@ -95,10 +95,6 @@ export function WarehouseScreen() {
                 <TouchableOpacity style={styles.loadBtn} onPress={() => setRulesOpen(true)} activeOpacity={0.85}>
                   <Ionicons name="options-outline" size={20} color={Colors.primary} />
                   <Text style={styles.loadText}>כללים</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.loadBtn} onPress={() => setSuppliersOpen(true)} activeOpacity={0.85}>
-                  <Ionicons name="business-outline" size={20} color={Colors.primary} />
-                  <Text style={styles.loadText}>ספקים</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -243,10 +239,10 @@ const styles = StyleSheet.create({
   catTabTextOn: { color: '#FFFFFF' },
   metrics: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   metric: { flex: 1, backgroundColor: Colors.surface, borderRadius: 10, padding: 12 },
-  metricWarn: { backgroundColor: '#FAEEDA' },
   metricLabel: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 3 },
-  metricWarnText: { color: '#854F0B' },
   metricValue: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  suppliersCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  suppliersText: { fontSize: 16, fontWeight: '700', color: Colors.primary },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   addBtn: {
     flex: 1,
