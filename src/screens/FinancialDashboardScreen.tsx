@@ -279,7 +279,6 @@ export function FinancialDashboardScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.profitWrap}>
           <View style={[styles.profitCircle, monthTax.net < 0 && styles.profitNeg]}>
-            <Text style={styles.profitLabel}>רווח נקי — החודש</Text>
             <Text style={styles.profitValue}>{ils(monthTax.net)}</Text>
           </View>
         </View>
@@ -415,7 +414,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   profitNeg: { backgroundColor: Colors.danger, shadowColor: Colors.danger },
-  profitLabel: { color: 'rgba(255,255,255,0.9)', fontSize: 16, fontWeight: '600' },
   profitValue: { color: '#FFFFFF', fontSize: 32, fontWeight: '800', marginTop: 8, writingDirection: 'ltr' },
   row: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   card: { flex: 1, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 16 },
