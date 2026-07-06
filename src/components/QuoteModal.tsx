@@ -34,6 +34,7 @@ export function QuoteModal({ visible, onClose }: { visible: boolean; onClose: ()
   const [client, setClient] = useState('');
   const [phone, setPhone] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
+  const [labor, setLabor] = useState(''); // עבודת יד
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -52,21 +53,24 @@ export function QuoteModal({ visible, onClose }: { visible: boolean; onClose: ()
       .slice(0, 6);
   }, [items, lines, search]);
 
-  const total = lines.reduce((s, l) => s + priceOf(l.id) * qtyOf(l), 0);
+  const laborN = Math.max(0, parseFloat(labor) || 0);
+  const total = lines.reduce((s, l) => s + priceOf(l.id) * qtyOf(l), 0) + laborN;
 
   function close() {
     setClient('');
     setPhone('');
     setLines([]);
+    setLabor('');
     setAdding(false);
     setSearch('');
     onClose();
   }
 
   function sendWhatsapp() {
-    const rows = lines
-      .map((l) => `• ${nameOf(l.id)} ×${qtyOf(l)} — ${ils(priceOf(l.id) * qtyOf(l))}`)
-      .join('\n');
+    const rows = [
+      ...lines.map((l) => `• ${nameOf(l.id)} ×${qtyOf(l)} — ${ils(priceOf(l.id) * qtyOf(l))}`),
+      ...(laborN > 0 ? [`• עבודת יד — ${ils(laborN)}`] : []),
+    ].join('\n');
     const text =
       `הצעת מחיר — ${BUSINESS_NAME}\n` +
       (client.trim() ? `עבור: ${client.trim()}\n` : '') +
@@ -147,13 +151,15 @@ export function QuoteModal({ visible, onClose }: { visible: boolean; onClose: ()
               ))
             )}
 
-            {lines.length > 0 && <Text style={styles.total}>סה״כ: {ils(total)}</Text>}
+            <TextField label="עבודת יד (₪)" value={labor} onChange={setLabor} placeholder="0" keyboardType="numeric" />
+
+            {(lines.length > 0 || laborN > 0) && <Text style={styles.total}>סה״כ: {ils(total)}</Text>}
           </ScrollView>
 
           <CustomButton
             label="שלח בוואטסאפ"
             onPress={sendWhatsapp}
-            disabled={lines.length === 0 || !phone.trim()}
+            disabled={(lines.length === 0 && laborN <= 0) || !phone.trim()}
             style={styles.btn}
           />
           <CustomButton label="סגור" variant="ghost" onPress={close} />
