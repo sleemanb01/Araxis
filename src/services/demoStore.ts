@@ -29,6 +29,27 @@ let seq = 0;
 const id = (p: string) => `${p}-${++seq}`;
 
 /**
+ * Empty sandbox for the pre-auth viewer (login screen): no data — real data is
+ * off-limits without auth and there is no sample data. Everything in the app
+ * works; the viewer creates their own content, nothing is saved.
+ */
+export function clearDemo(): void {
+  seq = 0;
+  calls = [];
+  items = [];
+  crews = [];
+  withdrawals = [];
+  fins = {};
+  payments = {};
+  targets = {};
+  archiveMonthly = {};
+  users = [
+    { uid: DEMO_UID, name: 'מצב הדגמה', phone: '', teamId: 'demo', caps: ALL_CAPS, crewIds: [] } as any,
+  ];
+  emit();
+}
+
+/**
  * Hydrate the sandbox from a SNAPSHOT of the real Firestore data (owner demo:
  * real numbers, sandboxed writes). The demo viewer profile is appended so the
  * fake auth user resolves; everything else is the real data, copied.

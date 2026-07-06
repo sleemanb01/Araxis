@@ -13,7 +13,7 @@ import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
 import { Alert } from 'react-native';
 import { isDemo, setDemoMode } from '../services/demoMode';
-import { DEMO_UID } from '../services/demoStore';
+import { DEMO_UID, clearDemo } from '../services/demoStore';
 import { hydrateDemoFromReal } from '../services/demoSeed';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { withTimeout } from '../utils/promise';
@@ -162,15 +162,19 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       },
       retryBootstrap: () => setBootRetry((n) => n + 1),
       enterDemo: async () => {
-        // Snapshot the REAL Firestore data into the sandbox — real numbers,
-        // writes stay local. No sample/dummy data: if the snapshot fails we
-        // stay in the real session and say so.
-        if (!user || !provisioned) return;
-        try {
-          await hydrateDemoFromReal(crews);
-        } catch {
-          Alert.alert('שגיאה', 'טעינת הנתונים למצב צפייה נכשלה. נסה שוב.');
-          return;
+        // Signed-in owner: snapshot the REAL Firestore data into the sandbox —
+        // real numbers, writes stay local (visible error if it fails; never
+        // fake data). Unauthenticated (login screen): rules forbid reads, so
+        // the sandbox starts EMPTY and the viewer builds their own content.
+        if (user && provisioned) {
+          try {
+            await hydrateDemoFromReal(crews);
+          } catch {
+            Alert.alert('שגיאה', 'טעינת הנתונים למצב צפייה נכשלה. נסה שוב.');
+            return;
+          }
+        } else {
+          clearDemo();
         }
         setDemoMode(true);
         invalidateFinancialData();
