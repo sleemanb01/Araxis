@@ -7,15 +7,11 @@
 
 import {
   collection,
-  doc,
-  getDoc,
   onSnapshot,
   query,
   where,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
-import { demoSubscribe, demoCrews } from './demoStore';
 import { Crew } from '../types/crew';
 import { Capabilities, toCaps } from '../types/user';
 
@@ -42,7 +38,6 @@ export function subscribeToMyCrews(
   onChange: (crews: Crew[]) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(demoCrews, onChange);
   return onSnapshot(
     query(collection(db, CREWS), where('memberIds', 'array-contains', uid)),
     (snap) => onChange(snap.docs.map(toCrew)),
@@ -53,8 +48,3 @@ export function subscribeToMyCrews(
   );
 }
 
-export async function getCrew(crewId: string): Promise<Crew | null> {
-  if (isDemo()) return demoCrews().find((c) => c.id === crewId) ?? null;
-  const snap = await getDoc(doc(db, CREWS, crewId));
-  return snap.data() ? toCrew(snap) : null;
-}

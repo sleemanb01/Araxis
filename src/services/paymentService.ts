@@ -11,8 +11,7 @@ import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import { collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo, assertWritable } from './demoMode';
-import { demoSubscribe, demoPayments, demoAllPayments, demoAddPayment } from './demoStore';
+import { assertWritable } from './demoMode';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
 
 /** Flip to true once the Morning secrets are set and the callables deployed. */
@@ -27,7 +26,6 @@ export function subscribeToPayments(
   onChange: (payments: Payment[]) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(() => demoPayments(callId), onChange);
   return onSnapshot(
     collection(db, CALLS, callId, 'payments'),
     (snap) => {
@@ -63,7 +61,6 @@ export function subscribeToPayments(
  * Returns [] until the collection-group rule is deployed.
  */
 export async function getAllPayments(): Promise<Payment[]> {
-  if (isDemo()) return demoAllPayments();
   try {
     const snap = await getDocs(collectionGroup(db, 'payments'));
     return snap.docs.map((d) => {
@@ -95,7 +92,6 @@ export async function addJobPayment(input: {
   docKind?: DocKind;
 }): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoAddPayment(input);
   if (MORNING_ENABLED) {
     await httpsCallable(functions, 'addJobPayment')(input);
     return;

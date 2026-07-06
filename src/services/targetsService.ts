@@ -6,8 +6,7 @@
 
 import { doc, getDoc, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo, assertWritable } from './demoMode';
-import { demoSubscribe, demoTargets, demoSetTarget } from './demoStore';
+import { assertWritable } from './demoMode';
 
 const TARGETS = 'targets';
 const DOC = 'monthly';
@@ -17,7 +16,6 @@ export function subscribeToTargets(
   onChange: (targets: Record<string, number>) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(demoTargets, onChange);
   return onSnapshot(
     doc(db, TARGETS, DOC),
     (snap) => {
@@ -37,7 +35,6 @@ export function subscribeToTargets(
 
 /** One-shot fetch of the targets map (used to hydrate viewer mode). */
 export async function getTargetsOnce(): Promise<Record<string, number>> {
-  if (isDemo()) return demoTargets();
   const d = (await getDoc(doc(db, TARGETS, DOC))).data() ?? {};
   const out: Record<string, number> = {};
   Object.keys(d).forEach((k) => {
@@ -49,6 +46,5 @@ export async function getTargetsOnce(): Promise<Record<string, number>> {
 /** Set the target for a month ("YYYY-MM"). */
 export async function setMonthTarget(month: string, amount: number): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoSetTarget(month, amount);
   await setDoc(doc(db, TARGETS, DOC), { [month]: amount }, { merge: true });
 }

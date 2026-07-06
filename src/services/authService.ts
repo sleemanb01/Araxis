@@ -70,13 +70,3 @@ export function subscribeToAuth(
   return onAuthStateChanged(auth, callback);
 }
 
-export function getCurrentUser(): FirebaseAuthTypes.User | null {
-  return auth.currentUser;
-}
-
-/** Force-refresh the ID token (use before privileged backend calls). */
-export async function getFreshIdToken(): Promise<string | null> {
-  const user = auth.currentUser;
-  if (!user) return null;
-  return user.getIdToken(true);
-}

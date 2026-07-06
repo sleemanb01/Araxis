@@ -41,8 +41,3 @@ export interface PrivateFinancials {
 }
 
 export type CreateServiceCallPayload = Omit<ServiceCall, 'id'>;
-
-/** A tech is on a call if they lead it or assist on it. */
-export function isOnCall(call: ServiceCall, uid: string): boolean {
-  return call.teamAssignment.leadTech === uid || call.teamAssignment.assistants.includes(uid);
-}

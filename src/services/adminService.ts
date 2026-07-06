@@ -5,8 +5,7 @@
  */
 import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
-import { isDemo, assertWritable } from './demoMode';
-import { demoCreateCrew, demoSetCrewCaps, demoRemoveCrewMember } from './demoStore';
+import { assertWritable } from './demoMode';
 import { Capabilities } from '../types/user';
 
 const functions = getFunctions(getApp(), 'me-west1');
@@ -14,7 +13,6 @@ const functions = getFunctions(getApp(), 'me-west1');
 /** Create a crew; the caller becomes its manager. Returns the new crew id. */
 export async function createCrew(name: string): Promise<string> {
   assertWritable();
-  if (isDemo()) return demoCreateCrew(name);
   const fn = httpsCallable(functions, 'createCrew');
   const res = await fn({ name });
   return (res.data as any)?.crewId ?? '';
@@ -27,7 +25,6 @@ export async function setCrewMemberCaps(input: {
   caps: Capabilities;
 }): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoSetCrewCaps(input.crewId, input.uid, input.caps);
   const fn = httpsCallable(functions, 'setCrewMemberCaps');
   await fn(input);
 }
@@ -38,7 +35,6 @@ export async function removeCrewFromMember(input: {
   uid: string;
 }): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoRemoveCrewMember(input.crewId, input.uid);
   const fn = httpsCallable(functions, 'removeCrewMember');
   await fn(input);
 }

@@ -17,16 +17,7 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo, assertWritable } from './demoMode';
-import {
-  demoSubscribe,
-  demoItems,
-  demoAdjustQty,
-  demoCreateItem,
-  demoUpdateItem,
-  demoDeleteItem,
-  demoMoveStock,
-} from './demoStore';
+import { assertWritable } from './demoMode';
 import { InventoryItem, CreateInventoryPayload, WAREHOUSE, crewLocation } from '../types/inventory';
 
 const INVENTORY = 'inventory';
@@ -50,7 +41,6 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
 
 /** One-shot fetch of the whole ledger (used to hydrate viewer mode). */
 export async function getAllItems(): Promise<InventoryItem[]> {
-  if (isDemo()) return demoItems();
   const snap = await getDocs(collection(db, INVENTORY));
   return snap.docs.map(toItem);
 }
@@ -60,7 +50,6 @@ export function subscribeToInventory(
   onChange: (items: InventoryItem[]) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(demoItems, onChange);
   return onSnapshot(
     collection(db, INVENTORY),
     (snap) => onChange(snap.docs.map(toItem)),
@@ -78,7 +67,6 @@ export async function adjustQuantity(
   delta: number
 ): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoAdjustQty(id, location, delta);
   await updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) });
 }
 
@@ -94,7 +82,6 @@ export async function withdrawToCrew(
 ): Promise<void> {
   assertWritable();
   if (qty <= 0) return;
-  if (isDemo()) return demoMoveStock(item, qty, crewId, withdrawerId, 'withdraw');
   const batch = writeBatch(db);
   batch.update(doc(db, INVENTORY, item.id), {
     [`locations.${WAREHOUSE}`]: increment(-qty),
@@ -124,7 +111,6 @@ export async function returnToWarehouse(
 ): Promise<void> {
   assertWritable();
   if (qty <= 0) return;
-  if (isDemo()) return demoMoveStock(item, qty, crewId, returnerId, 'return');
   const batch = writeBatch(db);
   batch.update(doc(db, INVENTORY, item.id), {
     [`locations.${crewLocation(crewId)}`]: increment(-qty),
@@ -144,7 +130,6 @@ export async function returnToWarehouse(
 
 export async function createInventoryItem(payload: CreateInventoryPayload): Promise<string> {
   assertWritable();
-  if (isDemo()) return demoCreateItem(payload);
   const ref = await addDoc(collection(db, INVENTORY), payload);
   return ref.id;
 }
@@ -154,12 +139,10 @@ export async function updateInventoryItem(
   patch: Partial<InventoryItem>
 ): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoUpdateItem(id, patch);
   await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoDeleteItem(id);
   await deleteDoc(doc(db, INVENTORY, id));
 }

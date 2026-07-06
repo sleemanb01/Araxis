@@ -7,17 +7,14 @@ import React, {
 } from 'react';
 import { getIdTokenResult } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { subscribeToAuth, signOutUser, getCurrentUser, sendOtp, confirmOtp } from '../services/authService';
+import { subscribeToAuth, signOutUser, sendOtp, confirmOtp } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
 import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
-import { Alert } from 'react-native';
-import { isDemo, setDemoMode, isViewerReadOnly, setViewerReadOnly } from '../services/demoMode';
-import { DEMO_UID, clearDemo } from '../services/demoStore';
-import { hydrateDemoFromReal } from '../services/demoSeed';
+import { isViewerReadOnly, setViewerReadOnly } from '../services/demoMode';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { withTimeout } from '../utils/promise';
-import { UserProfile, Capabilities, NO_CAPS, ALL_CAPS, toCaps } from '../types/user';
+import { UserProfile, Capabilities, NO_CAPS, toCaps } from '../types/user';
 import { Crew } from '../types/crew';
 
 interface UserContextValue {
@@ -35,8 +32,6 @@ interface UserContextValue {
   signOut: () => Promise<void>;
   /** Re-run the boot fetches (profile/claim) after a network stall. */
   retryBootstrap: () => void;
-  /** Owner demo: snapshot of the real data, changes stay in memory. */
-  enterDemo: () => Promise<void>;
   /** Pre-auth viewer: signs into the shared viewer account (fixed-code test
    *  number, no SMS) — REAL data, read-only (all writes blocked client-side). */
   enterViewer: () => Promise<void>;
@@ -102,13 +97,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // picks them up without re-logging in.
   useEffect(() => {
     if (!user) return;
-    if (isDemo()) {
-      // Viewer mode: full capabilities, no token round-trip.
-      setCaps(ALL_CAPS);
-      setProvisioned(true);
-      setClaimLoaded(true);
-      return;
-    }
     let cancelled = false;
     const force = !!profile && !provisioned;
     setClaimLoaded(false);
@@ -160,36 +148,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           await signOutUser();
           return;
         }
-        if (isDemo()) {
-          // Leave the sandbox: back to the real (still signed-in) auth state.
-          setDemoMode(false);
-          invalidateFinancialData();
-          setUser(getCurrentUser());
-          return;
-        }
         setConfirmation(null);
         await signOutUser();
       },
       retryBootstrap: () => setBootRetry((n) => n + 1),
-      enterDemo: async () => {
-        // Signed-in owner: snapshot the REAL Firestore data into the sandbox —
-        // real numbers, writes stay local (visible error if it fails; never
-        // fake data). Unauthenticated (login screen): rules forbid reads, so
-        // the sandbox starts EMPTY and the viewer builds their own content.
-        if (user && provisioned) {
-          try {
-            await hydrateDemoFromReal(crews);
-          } catch {
-            Alert.alert('שגיאה', 'טעינת הנתונים למצב צפייה נכשלה. נסה שוב.');
-            return;
-          }
-        } else {
-          clearDemo();
-        }
-        setDemoMode(true);
-        invalidateFinancialData();
-        setUser({ uid: DEMO_UID } as any); // fake auth user drives the existing effects
-      },
       enterViewer: async () => {
         // The viewer account is a Firebase TEST phone number: the fixed code
         // signs in with no SMS, the account is provisioned read-caps, and the

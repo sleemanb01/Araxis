@@ -6,8 +6,6 @@
 
 import { collection, getDocs, onSnapshot, query, where } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
-import { demoSubscribe, demoWithdrawals } from './demoStore';
 import { Withdrawal } from '../types/withdrawal';
 
 const WITHDRAWALS = 'withdrawals';
@@ -28,7 +26,6 @@ function toWithdrawal(snap: { id: string; data: () => any }): Withdrawal {
 
 /** One-shot fetch of a crew's withdrawals (used to hydrate viewer mode). */
 export async function getCrewWithdrawalsOnce(crewId: string): Promise<Withdrawal[]> {
-  if (isDemo()) return demoWithdrawals(crewId);
   const snap = await getDocs(query(collection(db, WITHDRAWALS), where('crewId', '==', crewId)));
   return snap.docs.map(toWithdrawal);
 }
@@ -39,7 +36,6 @@ export function subscribeToCrewWithdrawals(
   onChange: (withdrawals: Withdrawal[]) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(() => demoWithdrawals(crewId), onChange);
   return onSnapshot(
     query(collection(db, WITHDRAWALS), where('crewId', '==', crewId)),
     (snap) => {

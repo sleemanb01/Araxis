@@ -17,17 +17,7 @@ import {
   getDoc,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo, assertWritable } from './demoMode';
-import {
-  demoSubscribe,
-  demoCalls,
-  demoCall,
-  demoFin,
-  demoFins,
-  demoCreateCall,
-  demoUpdateCall,
-  demoSetFin,
-} from './demoStore';
+import { assertWritable } from './demoMode';
 import {
   ServiceCall,
   ServiceCallStatus,
@@ -80,7 +70,6 @@ export function subscribeToUpcomingCalls(
   onChange: (calls: ServiceCall[]) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(demoCalls, onChange);
   return onSnapshot(
     collection(db, CALLS),
     (snap) => onChange(snap.docs.map(toCall)),
@@ -97,7 +86,6 @@ export function subscribeToCall(
   onChange: (call: ServiceCall | null) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(() => demoCall(callId), onChange);
   return onSnapshot(
     doc(db, CALLS, callId),
     (snap) => {
@@ -113,14 +101,12 @@ export function subscribeToCall(
 
 /** One-shot fetch of all service calls (for the financial dashboard). */
 export async function getAllCalls(): Promise<ServiceCall[]> {
-  if (isDemo()) return demoCalls();
   const snap = await getDocs(collection(db, CALLS));
   return snap.docs.map(toCall);
 }
 
 /** One-shot fetch of a call's financials (the viewFinancials-gated subcollection). */
 export async function getFinancials(callId: string): Promise<PrivateFinancials | null> {
-  if (isDemo()) return demoFin(callId);
   const snap = await getDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS));
   const d = snap.data();
   return d ? (d as PrivateFinancials) : null;
@@ -135,11 +121,6 @@ export async function getAllFinancialsByCallId(
 ): Promise<Record<string, PrivateFinancials | null>> {
   const out: Record<string, PrivateFinancials | null> = {};
   callIds.forEach((id) => (out[id] = null));
-  if (isDemo()) {
-    const all = demoFins();
-    callIds.forEach((id) => (out[id] = all[id] ?? null));
-    return out;
-  }
   try {
     const snap = await getDocs(collectionGroup(db, 'privateData'));
     snap.docs.forEach((d) => {
@@ -159,7 +140,6 @@ export async function getAllFinancialsByCallId(
 
 export async function createServiceCall(payload: CreateServiceCallPayload): Promise<string> {
   assertWritable();
-  if (isDemo()) return demoCreateCall(payload);
   const ref = await addDoc(collection(db, CALLS), payload);
   return ref.id;
 }
@@ -169,14 +149,7 @@ export async function updateServiceCall(
   patch: Partial<ServiceCall>
 ): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoUpdateCall(id, patch);
   await updateDoc(doc(db, CALLS, id), patch as { [k: string]: any });
-}
-
-export async function setCallStatus(id: string, status: ServiceCallStatus): Promise<void> {
-  assertWritable();
-  if (isDemo()) return demoUpdateCall(id, { status });
-  await updateDoc(doc(db, CALLS, id), { status });
 }
 
 // ---- Admin-only financials (privateData subcollection) ----
@@ -186,7 +159,6 @@ export function subscribeToFinancials(
   onChange: (fin: PrivateFinancials | null) => void,
   onError?: (e: Error) => void
 ): () => void {
-  if (isDemo()) return demoSubscribe(() => demoFin(callId), onChange);
   return onSnapshot(
     doc(db, CALLS, callId, 'privateData', FINANCIALS),
     (snap) => {
@@ -205,6 +177,5 @@ export async function setFinancials(
   fin: PrivateFinancials
 ): Promise<void> {
   assertWritable();
-  if (isDemo()) return demoSetFin(callId, fin);
   await setDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS), fin, { merge: true });
 }
