@@ -17,7 +17,7 @@ import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, monthKey, dayKey } from '../utils/finance';
-import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
+import { monthlyTaxes, directTaxRate } from '../utils/tax';
 import { workDaysInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -152,10 +152,9 @@ export function ProfileScreen() {
   // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dailyTarget = target > 0 ? target / daysInMonth : 0;
-  // Daily ring: today's cash net of VAT, minus the per-workday expense share
-  // and the month's effective direct-tax rate — an honest take-home pace.
-  const todayProfit =
-    ((todayCollected - dailyExpenseShare) / (1 + VAT_RATE)) * (1 - directTaxRate(monthTax));
+  // Daily ring: today's cash minus the per-workday expense share, scaled by the
+  // month's effective direct-tax rate (same convention as רווח לפני מס).
+  const todayProfit = (todayCollected - dailyExpenseShare) * (1 - directTaxRate(monthTax));
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;

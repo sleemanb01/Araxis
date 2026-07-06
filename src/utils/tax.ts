@@ -7,8 +7,8 @@
  *    expenses); crew payouts are wages — no VAT.
  *  - VAT payable = (sales − VAT-bearing inputs) × RATE/(1+RATE)  (can be
  *    negative → input-credit month).
- *  - Taxable income (pre-tax) = VAT-stripped revenue − VAT-stripped costs −
- *    crew wages − VAT-stripped general expenses.
+ *  - Taxable income (pre-tax), per the owner's bookkeeping convention:
+ *    revenue − expenses − equipment/(1+VAT) − crew wages.
  *  - Income tax: 2025 annual brackets ÷ 12, minus the resident credit points.
  *  - National Insurance (self-employed, incl. health): reduced rate up to the
  *    lower tier, full rate up to the ceiling.
@@ -74,7 +74,9 @@ export function monthlyTaxes(input: {
   expenses: number; // general expenses (incl. VAT)
 }): TaxBreakdown {
   const vat = (input.revenue - input.equipment - input.expenses) * (VAT_RATE / (1 + VAT_RATE));
-  const preTax = exVat(input.revenue) - exVat(input.equipment) - exVat(input.expenses) - input.crew;
+  // Owner's convention: revenue and expenses at face value; only the equipment
+  // cost is VAT-stripped; crew wages carry no VAT.
+  const preTax = input.revenue - input.expenses - exVat(input.equipment) - input.crew;
   const incomeTax = incomeTaxMonthly(preTax);
   const nationalInsurance = nationalInsuranceMonthly(preTax);
   return { vat, preTax, incomeTax, nationalInsurance, net: preTax - incomeTax - nationalInsurance };
