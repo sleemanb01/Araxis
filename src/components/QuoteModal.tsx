@@ -75,7 +75,7 @@ export function QuoteModal({ visible, onClose }: { visible: boolean; onClose: ()
       `הצעת מחיר — ${BUSINESS_NAME}\n` +
       (client.trim() ? `עבור: ${client.trim()}\n` : '') +
       `\n${rows}\n\nסה״כ: ${ils(total)}`;
-    openWhatsapp(phone, text);
+    openWhatsapp('+9725' + phone, text);
   }
 
   return (
@@ -91,7 +91,21 @@ export function QuoteModal({ visible, onClose }: { visible: boolean; onClose: ()
 
           <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
             <TextField label="שם הלקוח" value={client} onChange={setClient} placeholder="לדוגמה: משפחת כהן" />
-            <TextField label="טלפון (לשליחה בוואטסאפ)" value={phone} onChange={setPhone} placeholder="050-1234567" keyboardType="phone-pad" />
+
+            <Text style={styles.phoneLabel}>טלפון (לשליחה בוואטסאפ)</Text>
+            <View style={styles.phoneRow}>
+              <Text style={styles.phonePrefix}>+972 5</Text>
+              <TextInput
+                style={styles.phoneInput}
+                value={phone}
+                onChangeText={(v) => setPhone(v.replace(/\D/g, ''))}
+                placeholder="0-123-4567"
+                placeholderTextColor={Colors.textSecondary}
+                keyboardType="phone-pad"
+                maxLength={8}
+                textAlign="right"
+              />
+            </View>
 
             {adding && (
               <View>
@@ -159,7 +173,7 @@ export function QuoteModal({ visible, onClose }: { visible: boolean; onClose: ()
           <CustomButton
             label="שלח בוואטסאפ"
             onPress={sendWhatsapp}
-            disabled={(lines.length === 0 && laborN <= 0) || !phone.trim()}
+            disabled={(lines.length === 0 && laborN <= 0) || phone.length < 7}
             style={styles.btn}
           />
           <CustomButton label="סגור" variant="ghost" onPress={close} />
@@ -176,6 +190,19 @@ const styles = StyleSheet.create({
   addBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
   body: { flexGrow: 0 },
+  phoneLabel: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 6 },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  phonePrefix: { fontSize: 15, color: Colors.textSecondary, fontWeight: '600', marginEnd: 8, writingDirection: 'ltr' },
+  phoneInput: { flex: 1, paddingVertical: 11, fontSize: 15, color: Colors.textPrimary },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
