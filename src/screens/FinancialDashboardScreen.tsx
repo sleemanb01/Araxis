@@ -11,7 +11,7 @@ import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { dialPhone, openWhatsapp } from '../utils/contact';
 import { aggregateTotals, dayKey, monthKey, qtyOn } from '../utils/finance';
-import { monthlyTaxes } from '../utils/tax';
+import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
@@ -206,6 +206,16 @@ export function FinancialDashboardScreen() {
   );
 
   if (day && dayT) {
+    // Day taxes: VAT is transactional (exact); income tax + NI use the month's
+    // effective rate, split by the month's proportions — an estimate.
+    const dayVat = (dayT.gross - dayT.equipment - dayExpenses) * (VAT_RATE / (1 + VAT_RATE));
+    const dayPreTax = (dayT.gross - dayT.equipment - dayExpenses) / (1 + VAT_RATE) - dayT.payouts;
+    const mDirect = monthTax.incomeTax + monthTax.nationalInsurance;
+    const dayDirect = dayPreTax > 0 ? dayPreTax * directTaxRate(monthTax) : 0;
+    const dayIT = mDirect > 0 ? dayDirect * (monthTax.incomeTax / mDirect) : 0;
+    const dayNI = mDirect > 0 ? dayDirect * (monthTax.nationalInsurance / mDirect) : 0;
+    const dayNet = dayPreTax - dayIT - dayNI;
+
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scroll}>
@@ -213,9 +223,9 @@ export function FinancialDashboardScreen() {
           <Text style={styles.sub}>{new Date(day + 'T00:00:00').toLocaleDateString('he-IL')}</Text>
 
           <View style={styles.profitWrap}>
-            <View style={[styles.profitCircle, dayT.profit - dayExpenses < 0 && styles.profitNeg]}>
-              <Text style={styles.profitLabel}>רווח</Text>
-              <Text style={styles.profitValue}>{ils(dayT.profit - dayExpenses)}</Text>
+            <View style={[styles.profitCircle, dayNet < 0 && styles.profitNeg]}>
+              <Text style={styles.profitLabel}>רווח נקי — היום</Text>
+              <Text style={styles.profitValue}>{ils(dayNet)}</Text>
             </View>
           </View>
 
@@ -228,6 +238,19 @@ export function FinancialDashboardScreen() {
             <TouchableOpacity style={styles.flexTouch} onPress={() => setUnpaidOpen(true)} activeOpacity={0.8}>
               <Metric label="לא שולם" value={ils(dayT.outstanding)} tone="red" />
             </TouchableOpacity>
+          </View>
+
+          <Text style={styles.sectionTitle}>הוצאות ומסים — היום (משוער)</Text>
+          <View style={styles.row}>
+            <Metric label="הוצאות היום" value={ils(dayExpenses)} tone="orange" />
+            <Metric label="מע״מ" value={ils(dayVat)} tone="orange" />
+          </View>
+          <View style={styles.row}>
+            <Metric label="ביטוח לאומי" value={ils(dayNI)} tone="orange" />
+            <Metric label="מס הכנסה" value={ils(dayIT)} tone="orange" />
+          </View>
+          <View style={styles.row}>
+            <Metric label="רווח לפני מס" value={ils(dayPreTax)} tone={dayPreTax < 0 ? 'red' : 'green'} />
           </View>
 
           {dayPays.length > 0 && (
