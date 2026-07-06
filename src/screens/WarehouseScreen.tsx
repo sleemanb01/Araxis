@@ -9,6 +9,7 @@ import { useUser } from '../context/UserContext';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { StockRulesModal } from '../components/StockRulesModal';
 import { SuppliersModal } from '../components/SuppliersModal';
+import { SupplierOrderModal } from '../components/SupplierOrderModal';
 import { subscribeToSuppliers } from '../services/supplierService';
 import { dialPhone, openWhatsapp } from '../utils/contact';
 import { Supplier } from '../types/supplier';
@@ -33,6 +34,7 @@ export function WarehouseScreen() {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [suppliersOpen, setSuppliersOpen] = useState(false);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [orderSupplier, setOrderSupplier] = useState<Supplier | null>(null);
   const [category, setCategory] = useState<ItemCategory>('items');
 
   useEffect(() => subscribeToSuppliers(setSuppliers, () => {}), []);
@@ -41,6 +43,7 @@ export function WarehouseScreen() {
     Alert.alert(s.name, s.contact ? `איש קשר: ${s.contact}` : s.phone, [
       { text: 'התקשר', onPress: () => dialPhone(s.phone) },
       { text: 'WhatsApp', onPress: () => openWhatsapp(s.phone) },
+      { text: 'תכין לי את זה', onPress: () => setOrderSupplier(s) },
       { text: 'ביטול', style: 'cancel' },
     ]);
   }
@@ -179,6 +182,8 @@ export function WarehouseScreen() {
         canEdit={canEdit}
         suppliers={suppliers}
       />
+
+      <SupplierOrderModal supplier={orderSupplier} onClose={() => setOrderSupplier(null)} />
 
       {/* Stock rules apply to white goods only. */}
       <StockRulesModal
