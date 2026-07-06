@@ -46,10 +46,11 @@ export function FinancialDashboardScreen() {
   const [expAmount, setExpAmount] = useState('');
   const [expSaving, setExpSaving] = useState(false);
 
-  useEffect(() => {
-    if (day) return; // details (all-time) view only
-    return subscribeToExpenses(setExpenses, () => {});
-  }, [day]);
+  useEffect(() => subscribeToExpenses(setExpenses, () => {}), []);
+  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const dayExpenses = day
+    ? expenses.reduce((s, e) => s + (e.createdAt.slice(0, 10) === day ? e.amount : 0), 0)
+    : 0;
 
   async function saveExpense() {
     const amount = Math.max(0, parseFloat(expAmount) || 0);
@@ -193,9 +194,9 @@ export function FinancialDashboardScreen() {
           <Text style={styles.sub}>{new Date(day + 'T00:00:00').toLocaleDateString('he-IL')}</Text>
 
           <View style={styles.profitWrap}>
-            <View style={[styles.profitCircle, dayT.profit < 0 && styles.profitNeg]}>
+            <View style={[styles.profitCircle, dayT.profit - dayExpenses < 0 && styles.profitNeg]}>
               <Text style={styles.profitLabel}>רווח</Text>
-              <Text style={styles.profitValue}>{ils(dayT.profit)}</Text>
+              <Text style={styles.profitValue}>{ils(dayT.profit - dayExpenses)}</Text>
             </View>
           </View>
 
@@ -237,9 +238,9 @@ export function FinancialDashboardScreen() {
         <Text style={styles.sub}>על פני {calls.length} קריאות שירות</Text>
 
         <View style={styles.profitWrap}>
-          <View style={[styles.profitCircle, t.profit < 0 && styles.profitNeg]}>
+          <View style={[styles.profitCircle, t.profit - totalExpenses < 0 && styles.profitNeg]}>
             <Text style={styles.profitLabel}>רווח</Text>
-            <Text style={styles.profitValue}>{ils(t.profit)}</Text>
+            <Text style={styles.profitValue}>{ils(t.profit - totalExpenses)}</Text>
           </View>
         </View>
 
@@ -281,7 +282,7 @@ export function FinancialDashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות</Text>
+        <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות − הוצאות</Text>
       </ScrollView>
       {unpaidModal}
 

@@ -12,6 +12,8 @@ import { useInventory } from '../context/InventoryContext';
 import { createCrew } from '../services/adminService';
 import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
 import { subscribeToArchive, initArchiveIfMissing, ArchiveSummary } from '../services/archiveService';
+import { subscribeToExpenses } from '../services/expenseService';
+import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, monthKey, dayKey } from '../utils/finance';
@@ -37,6 +39,7 @@ export function ProfileScreen() {
   const [targetInput, setTargetInput] = useState('');
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
@@ -51,6 +54,11 @@ export function ProfileScreen() {
     return subscribeToArchive(setArchive, () => {});
   }, [caps.viewFinancials]);
 
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    return subscribeToExpenses(setExpenses, () => {});
+  }, [caps.viewFinancials]);
+
   // Prompt an export at each bi-monthly Israeli VAT period start — the 1st of
   // Jan / Mar / May / Jul / Sep / Nov — once per period. (erase gated on download.)
   useEffect(() => {
@@ -61,13 +69,17 @@ export function ProfileScreen() {
   }, [caps.viewFinancials, archive.lastExportAt]);
 
   // Live monthly profit merged with archived months (so the chart keeps history
-  // after old data is erased).
+  // after old data is erased), minus each month's GENERAL EXPENSES.
   const monthly = useMemo(() => {
     const live = monthlyProfit(calls, fins, items);
     const out: Record<string, number> = { ...archive.monthlyProfit };
     Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
+    expenses.forEach((e) => {
+      const k = e.createdAt.slice(0, 7);
+      out[k] = (out[k] ?? 0) - e.amount;
+    });
     return out;
-  }, [calls, fins, items, archive]);
+  }, [calls, fins, items, archive, expenses]);
   // Daily ring: money actually RECEIVED today. Payment records count by
   // PAYMENT date; amounts typed manually into "שולם" (no payment record) fall
   // back to the JOB's date so older data still shows.
@@ -100,6 +112,11 @@ export function ProfileScreen() {
   const curKey = monthKey(now);
   const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
   const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
+  // Today's general expenses reduce the daily ring too.
+  const todayExpenses = expenses.reduce(
+    (s, e) => s + (e.createdAt.slice(0, 10) === dayKey(now) ? e.amount : 0),
+    0
+  );
   // Monthly ring: what's actually MADE this month after all costs —
   // profit = revenue − equipment cost − crew cost (merged with archive).
   const monthProfit = monthly[curKey] ?? 0;
@@ -111,7 +128,7 @@ export function ProfileScreen() {
   // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dailyTarget = target > 0 ? target / daysInMonth : 0;
-  const todayProfit = todayCollected;
+  const todayProfit = todayCollected - todayExpenses;
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;
