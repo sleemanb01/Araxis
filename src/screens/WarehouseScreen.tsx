@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -9,6 +9,9 @@ import { useUser } from '../context/UserContext';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { StockRulesModal } from '../components/StockRulesModal';
 import { SuppliersModal } from '../components/SuppliersModal';
+import { subscribeToSuppliers } from '../services/supplierService';
+import { dialPhone, openWhatsapp } from '../utils/contact';
+import { Supplier } from '../types/supplier';
 import { adjustQuantity } from '../services/inventoryService';
 import { InventoryItem, isLowStock, qtyAt, WAREHOUSE, ItemCategory, CATEGORY_HE } from '../types/inventory';
 import { locationLabel } from '../utils/locationLabel';
@@ -29,7 +32,18 @@ export function WarehouseScreen() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [suppliersOpen, setSuppliersOpen] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [category, setCategory] = useState<ItemCategory>('items');
+
+  useEffect(() => subscribeToSuppliers(setSuppliers, () => {}), []);
+
+  function supplierActions(s: Supplier) {
+    Alert.alert(s.name, s.contact ? `איש קשר: ${s.contact}` : s.phone, [
+      { text: 'התקשר', onPress: () => dialPhone(s.phone) },
+      { text: 'WhatsApp', onPress: () => openWhatsapp(s.phone) },
+      { text: 'ביטול', style: 'cancel' },
+    ]);
+  }
 
   // The list shows the selected category; the metrics are fixed by rule:
   // "סה״כ פריטים" counts ONLY regular items, "מלאי נמוך" ONLY white goods.
@@ -81,6 +95,24 @@ export function WarehouseScreen() {
                 <Text style={styles.suppliersText}>ספקים</Text>
               </TouchableOpacity>
             </View>
+
+            {suppliers.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.supStrip}
+                contentContainerStyle={styles.supStripRow}
+              >
+                {suppliers.map((s) => (
+                  <TouchableOpacity key={s.id} style={styles.supCol} onPress={() => supplierActions(s)} activeOpacity={0.8}>
+                    <View style={styles.supCircle}>
+                      <Text style={styles.supInitial}>{s.name.trim().charAt(0) || '?'}</Text>
+                    </View>
+                    <Text style={styles.supName} numberOfLines={1}>{s.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
 
             {canEdit && (
               <View style={styles.actions}>
@@ -141,7 +173,12 @@ export function WarehouseScreen() {
         onScanned={setQuery}
       />
 
-      <SuppliersModal visible={suppliersOpen} onClose={() => setSuppliersOpen(false)} canEdit={canEdit} />
+      <SuppliersModal
+        visible={suppliersOpen}
+        onClose={() => setSuppliersOpen(false)}
+        canEdit={canEdit}
+        suppliers={suppliers}
+      />
 
       {/* Stock rules apply to white goods only. */}
       <StockRulesModal
@@ -243,6 +280,21 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
   suppliersCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   suppliersText: { fontSize: 16, fontWeight: '700', color: Colors.primary },
+  supStrip: { height: 78, marginBottom: 12 },
+  supStripRow: { gap: 12, alignItems: 'center' },
+  supCol: { alignItems: 'center', width: 64 },
+  supCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supInitial: { fontSize: 20, fontWeight: '700', color: Colors.primary },
+  supName: { fontSize: 11, color: Colors.textSecondary, marginTop: 4, maxWidth: 64, textAlign: 'center' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   addBtn: {
     flex: 1,

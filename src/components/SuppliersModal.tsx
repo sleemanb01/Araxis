@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CustomButton } from './CustomButton';
 import { TextField } from './TextField';
-import { subscribeToSuppliers, addSupplier, deleteSupplier } from '../services/supplierService';
+import { addSupplier, deleteSupplier } from '../services/supplierService';
 import { dialPhone, openWhatsapp } from '../utils/contact';
 import { toE164 } from '../services/authService';
 import { Supplier } from '../types/supplier';
@@ -25,22 +25,18 @@ export function SuppliersModal({
   visible,
   onClose,
   canEdit,
+  suppliers,
 }: {
   visible: boolean;
   onClose: () => void;
   canEdit: boolean;
+  suppliers: Supplier[];
 }) {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!visible) return;
-    return subscribeToSuppliers(setSuppliers, () => {});
-  }, [visible]);
 
   async function save() {
     if (!name.trim() || phone.replace(/\D/g, '').length < 9) {
