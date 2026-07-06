@@ -234,9 +234,6 @@ export function FinancialDashboardScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>לוח כספים</Text>
-        <Text style={styles.sub}>על פני {calls.length} קריאות שירות</Text>
-
         <View style={styles.profitWrap}>
           <View style={[styles.profitCircle, t.profit - totalExpenses < 0 && styles.profitNeg]}>
             <Text style={styles.profitLabel}>רווח</Text>
