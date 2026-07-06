@@ -48,7 +48,6 @@ export function FinancialDashboardScreen() {
   const [expSaving, setExpSaving] = useState(false);
 
   useEffect(() => subscribeToExpenses(setExpenses, () => {}), []);
-  const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const monthExpenses = expenses.reduce(
     (s, e) => s + (e.createdAt.slice(0, 7) === new Date().toISOString().slice(0, 7) ? e.amount : 0),
     0
@@ -255,9 +254,9 @@ export function FinancialDashboardScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.profitWrap}>
-          <View style={[styles.profitCircle, t.profit - totalExpenses < 0 && styles.profitNeg]}>
-            <Text style={styles.profitLabel}>רווח</Text>
-            <Text style={styles.profitValue}>{ils(t.profit - totalExpenses)}</Text>
+          <View style={[styles.profitCircle, monthTax.net < 0 && styles.profitNeg]}>
+            <Text style={styles.profitLabel}>רווח נקי — החודש</Text>
+            <Text style={styles.profitValue}>{ils(monthTax.net)}</Text>
           </View>
         </View>
 
@@ -306,7 +305,7 @@ export function FinancialDashboardScreen() {
         </View>
         <View style={styles.row}>
           <Metric label="מס הכנסה" value={ils(monthTax.incomeTax)} tone="orange" />
-          <Metric label="רווח נקי" value={ils(monthTax.net)} tone={monthTax.net < 0 ? 'red' : 'green'} />
+          <Metric label="רווח לפני מס" value={ils(monthTax.preTax)} tone={monthTax.preTax < 0 ? 'red' : 'green'} />
         </View>
 
       </ScrollView>
