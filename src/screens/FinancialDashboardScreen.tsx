@@ -253,14 +253,14 @@ export function FinancialDashboardScreen() {
         >
           <TouchableOpacity style={styles.expCol} onPress={() => setExpAddOpen(true)} activeOpacity={0.8}>
             <View style={[styles.expCircle, styles.expAddCircle]}>
-              <Text style={styles.expAddAmount} numberOfLines={1}>{ils(monthExpenses)}</Text>
+              <Text style={styles.expAddAmount}>{ils(monthExpenses)}</Text>
             </View>
             <Text style={styles.expName}>הוצאות החודש</Text>
           </TouchableOpacity>
           {expenses.map((e) => (
             <TouchableOpacity key={e.id} style={styles.expCol} onPress={() => expenseActions(e)} activeOpacity={0.8}>
               <View style={styles.expCircle}>
-                <Text style={styles.expAmount} numberOfLines={1}>{ils(e.amount)}</Text>
+                <Text style={styles.expAmount}>{ils(e.amount)}</Text>
               </View>
               <Text style={styles.expName} numberOfLines={1}>{e.name}</Text>
             </TouchableOpacity>
@@ -408,9 +408,10 @@ const styles = StyleSheet.create({
   buyTotal: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 10 },
   expStrip: { height: 84, marginBottom: 12 },
   expStripRow: { gap: 12, alignItems: 'center' },
-  expCol: { alignItems: 'center', width: 68 },
+  // The circle stretches into a pill so the FULL amount always fits.
+  expCol: { alignItems: 'center', minWidth: 68 },
   expCircle: {
-    width: 56,
+    minWidth: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#FBF0DC',
@@ -418,10 +419,10 @@ const styles = StyleSheet.create({
     borderColor: '#F0D9A8',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 12,
   },
   expAddCircle: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  expAddAmount: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', writingDirection: 'ltr' },
-  expAmount: { fontSize: 12, fontWeight: '800', color: '#B45309', writingDirection: 'ltr' },
-  expName: { fontSize: 11, color: Colors.textSecondary, marginTop: 4, maxWidth: 68, textAlign: 'center' },
+  expAddAmount: { fontSize: 13, fontWeight: '800', color: '#FFFFFF', writingDirection: 'ltr' },
+  expAmount: { fontSize: 13, fontWeight: '800', color: '#B45309', writingDirection: 'ltr' },
+  expName: { fontSize: 11, color: Colors.textSecondary, marginTop: 4, maxWidth: 96, textAlign: 'center' },
 });
