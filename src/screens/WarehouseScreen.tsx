@@ -8,6 +8,7 @@ import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
 import { BarcodeScannerModal } from '../components/BarcodeScannerModal';
 import { StockRulesModal } from '../components/StockRulesModal';
+import { SuppliersModal } from '../components/SuppliersModal';
 import { adjustQuantity } from '../services/inventoryService';
 import { InventoryItem, isLowStock, qtyAt, WAREHOUSE, ItemCategory, CATEGORY_HE } from '../types/inventory';
 import { locationLabel } from '../utils/locationLabel';
@@ -27,6 +28,7 @@ export function WarehouseScreen() {
   const [query, setQuery] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [suppliersOpen, setSuppliersOpen] = useState(false);
   const [category, setCategory] = useState<ItemCategory>('items');
 
   // The list shows the selected category; the metrics are fixed by rule:
@@ -94,6 +96,10 @@ export function WarehouseScreen() {
                   <Ionicons name="options-outline" size={20} color={Colors.primary} />
                   <Text style={styles.loadText}>כללים</Text>
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.loadBtn} onPress={() => setSuppliersOpen(true)} activeOpacity={0.85}>
+                  <Ionicons name="business-outline" size={20} color={Colors.primary} />
+                  <Text style={styles.loadText}>ספקים</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -138,6 +144,8 @@ export function WarehouseScreen() {
         onClose={() => setScannerOpen(false)}
         onScanned={setQuery}
       />
+
+      <SuppliersModal visible={suppliersOpen} onClose={() => setSuppliersOpen(false)} canEdit={canEdit} />
 
       {/* Stock rules apply to white goods only. */}
       <StockRulesModal
@@ -239,7 +247,7 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 3 },
   metricWarnText: { color: '#854F0B' },
   metricValue: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  actions: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   addBtn: {
     flex: 1,
     flexDirection: 'row',
