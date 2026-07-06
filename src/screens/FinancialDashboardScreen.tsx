@@ -221,12 +221,10 @@ export function FinancialDashboardScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title}>כספים — היום</Text>
           <Text style={styles.sub}>{new Date(day + 'T00:00:00').toLocaleDateString('he-IL')}</Text>
 
           <View style={styles.profitWrap}>
             <View style={[styles.profitCircle, dayNet < 0 && styles.profitNeg]}>
-              <Text style={styles.profitLabel}>רווח נקי — היום</Text>
               <Text style={styles.profitValue}>{ils(dayNet)}</Text>
             </View>
           </View>
