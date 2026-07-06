@@ -21,7 +21,7 @@ import {
 /** Modular-API document reference (what doc()/snapshot.ref return). */
 type DocRef = ReturnType<typeof doc>;
 import { db } from './firebase';
-import { isDemo } from './demoMode';
+import { isDemo, assertWritable } from './demoMode';
 import { demoSubscribe, demoArchive, demoArchiveAndErase } from './demoStore';
 
 const ARCHIVES = 'archives';
@@ -81,6 +81,7 @@ export async function initArchiveIfMissing(): Promise<void> {
  * survive; everything else is erased.
  */
 export async function archiveAndErase(monthlyDelta: Record<string, number>): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoArchiveAndErase(monthlyDelta);
   const ref = doc(db, ARCHIVES, SUMMARY);
   const cur = (await getDoc(ref)).data() ?? {};

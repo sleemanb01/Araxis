@@ -17,7 +17,7 @@ import {
   writeBatch,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
+import { isDemo, assertWritable } from './demoMode';
 import {
   demoSubscribe,
   demoItems,
@@ -77,6 +77,7 @@ export async function adjustQuantity(
   location: string,
   delta: number
 ): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoAdjustQty(id, location, delta);
   await updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) });
 }
@@ -91,6 +92,7 @@ export async function withdrawToCrew(
   crewId: string,
   withdrawerId: string
 ): Promise<void> {
+  assertWritable();
   if (qty <= 0) return;
   if (isDemo()) return demoMoveStock(item, qty, crewId, withdrawerId, 'withdraw');
   const batch = writeBatch(db);
@@ -120,6 +122,7 @@ export async function returnToWarehouse(
   crewId: string,
   returnerId: string
 ): Promise<void> {
+  assertWritable();
   if (qty <= 0) return;
   if (isDemo()) return demoMoveStock(item, qty, crewId, returnerId, 'return');
   const batch = writeBatch(db);
@@ -140,6 +143,7 @@ export async function returnToWarehouse(
 }
 
 export async function createInventoryItem(payload: CreateInventoryPayload): Promise<string> {
+  assertWritable();
   if (isDemo()) return demoCreateItem(payload);
   const ref = await addDoc(collection(db, INVENTORY), payload);
   return ref.id;
@@ -149,11 +153,13 @@ export async function updateInventoryItem(
   id: string,
   patch: Partial<InventoryItem>
 ): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoUpdateItem(id, patch);
   await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoDeleteItem(id);
   await deleteDoc(doc(db, INVENTORY, id));
 }

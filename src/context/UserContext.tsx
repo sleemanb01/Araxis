@@ -7,12 +7,12 @@ import React, {
 } from 'react';
 import { getIdTokenResult } from '@react-native-firebase/auth';
 import type { FirebaseAuthTypes } from '@react-native-firebase/auth';
-import { subscribeToAuth, signOutUser, getCurrentUser } from '../services/authService';
+import { subscribeToAuth, signOutUser, getCurrentUser, sendOtp, confirmOtp } from '../services/authService';
 import { subscribeToProfile } from '../services/userService';
 import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
 import { Alert } from 'react-native';
-import { isDemo, setDemoMode } from '../services/demoMode';
+import { isDemo, setDemoMode, isViewerReadOnly, setViewerReadOnly } from '../services/demoMode';
 import { DEMO_UID, clearDemo } from '../services/demoStore';
 import { hydrateDemoFromReal } from '../services/demoSeed';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
@@ -35,9 +35,11 @@ interface UserContextValue {
   signOut: () => Promise<void>;
   /** Re-run the boot fetches (profile/claim) after a network stall. */
   retryBootstrap: () => void;
-  /** Enter viewer/demo mode — real data snapshot when signed in (sample data
-   *  otherwise); every change stays in memory, nothing touches the DB. */
+  /** Owner demo: snapshot of the real data, changes stay in memory. */
   enterDemo: () => Promise<void>;
+  /** Pre-auth viewer: signs into the shared viewer account (fixed-code test
+   *  number, no SMS) — REAL data, read-only (all writes blocked client-side). */
+  enterViewer: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -150,6 +152,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       confirmation,
       setConfirmation,
       signOut: async () => {
+        if (isViewerReadOnly()) {
+          // Leave the read-only viewer: sign the shared account out fully.
+          setViewerReadOnly(false);
+          invalidateFinancialData();
+          setConfirmation(null);
+          await signOutUser();
+          return;
+        }
         if (isDemo()) {
           // Leave the sandbox: back to the real (still signed-in) auth state.
           setDemoMode(false);
@@ -179,6 +189,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setDemoMode(true);
         invalidateFinancialData();
         setUser({ uid: DEMO_UID } as any); // fake auth user drives the existing effects
+      },
+      enterViewer: async () => {
+        // The viewer account is a Firebase TEST phone number: the fixed code
+        // signs in with no SMS, the account is provisioned read-caps, and the
+        // read-only flag blocks every mutating service call client-side.
+        setViewerReadOnly(true);
+        try {
+          const conf = await sendOtp('+972500123456');
+          await confirmOtp(conf, '000000');
+          invalidateFinancialData();
+        } catch (e) {
+          setViewerReadOnly(false);
+          throw e;
+        }
       },
     }),
     [user, profile, caps, crews, provisioned, initializing, profileLoaded, claimLoaded, confirmation]

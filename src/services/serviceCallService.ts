@@ -17,7 +17,7 @@ import {
   getDoc,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
+import { isDemo, assertWritable } from './demoMode';
 import {
   demoSubscribe,
   demoCalls,
@@ -158,6 +158,7 @@ export async function getAllFinancialsByCallId(
 }
 
 export async function createServiceCall(payload: CreateServiceCallPayload): Promise<string> {
+  assertWritable();
   if (isDemo()) return demoCreateCall(payload);
   const ref = await addDoc(collection(db, CALLS), payload);
   return ref.id;
@@ -167,11 +168,13 @@ export async function updateServiceCall(
   id: string,
   patch: Partial<ServiceCall>
 ): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoUpdateCall(id, patch);
   await updateDoc(doc(db, CALLS, id), patch as { [k: string]: any });
 }
 
 export async function setCallStatus(id: string, status: ServiceCallStatus): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoUpdateCall(id, { status });
   await updateDoc(doc(db, CALLS, id), { status });
 }
@@ -201,6 +204,7 @@ export async function setFinancials(
   callId: string,
   fin: PrivateFinancials
 ): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoSetFin(callId, fin);
   await setDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS), fin, { merge: true });
 }

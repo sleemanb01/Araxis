@@ -6,7 +6,7 @@
 
 import { doc, getDoc, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
+import { isDemo, assertWritable } from './demoMode';
 import { demoSubscribe, demoTargets, demoSetTarget } from './demoStore';
 
 const TARGETS = 'targets';
@@ -48,6 +48,7 @@ export async function getTargetsOnce(): Promise<Record<string, number>> {
 
 /** Set the target for a month ("YYYY-MM"). */
 export async function setMonthTarget(month: string, amount: number): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoSetTarget(month, amount);
   await setDoc(doc(db, TARGETS, DOC), { [month]: amount }, { merge: true });
 }

@@ -11,7 +11,7 @@ import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import { collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
+import { isDemo, assertWritable } from './demoMode';
 import { demoSubscribe, demoPayments, demoAllPayments, demoAddPayment } from './demoStore';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
 
@@ -94,6 +94,7 @@ export async function addJobPayment(input: {
   issueNow?: boolean;
   docKind?: DocKind;
 }): Promise<void> {
+  assertWritable();
   if (isDemo()) return demoAddPayment(input);
   if (MORNING_ENABLED) {
     await httpsCallable(functions, 'addJobPayment')(input);
@@ -137,6 +138,7 @@ export async function addJobPayment(input: {
 
 /** Issue (or retry) the Morning document for a payment (Morning mode only). */
 export async function issuePaymentDocument(callId: string, paymentId: string): Promise<void> {
+  assertWritable();
   if (!MORNING_ENABLED) throw new Error('חיבור Morning עדיין לא הופעל.');
   await httpsCallable(functions, 'issuePaymentDocument')({ callId, paymentId });
 }

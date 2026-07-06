@@ -23,10 +23,11 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'PhoneLogin'>;
 
 export function PhoneLoginScreen() {
   const navigation = useNavigation<Nav>();
-  const { setConfirmation, enterDemo } = useUser();
+  const { setConfirmation, enterViewer } = useUser();
 
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [viewerLoading, setViewerLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isValid = phone.replace(/\D/g, '').length >= 9;
@@ -87,9 +88,24 @@ export function PhoneLoginScreen() {
             בלחיצה על "שלח קוד" ישלח אליך קוד אימות חד-פעמי ב-SMS.
           </Text>
 
-          <CustomButton label="כניסה כצופה (הדגמה)" variant="secondary" onPress={enterDemo} style={styles.demoBtn} />
+          <CustomButton
+            label="כניסה כצופה (לקריאה בלבד)"
+            variant="secondary"
+            loading={viewerLoading}
+            onPress={async () => {
+              setError(null);
+              setViewerLoading(true);
+              try {
+                await enterViewer(); // auth listener swaps to the app on success
+              } catch {
+                setError('כניסת צופה נכשלה. נסה שוב.');
+                setViewerLoading(false);
+              }
+            }}
+            style={styles.demoBtn}
+          />
           <Text style={styles.demoHint}>
-            מצב הדגמה: אפליקציה ריקה להתנסות — צרו עבודות, פריטים וצוותים. שום דבר לא נשמר.
+            מצב צפייה: הנתונים האמיתיים, לקריאה בלבד — לא ניתן לשנות דבר.
           </Text>
         </View>
       </KeyboardAvoidingView>

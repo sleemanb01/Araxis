@@ -18,7 +18,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { isDemo } from './demoMode';
+import { isDemo, assertWritable } from './demoMode';
 import { demoSubscribe, demoProfile, demoUsers, demoUserByPhone, DEMO_UID } from './demoStore';
 import { UserProfile, Availability, toCaps, NO_CAPS } from '../types/user';
 
@@ -72,6 +72,7 @@ export async function updateProfile(
   uid: string,
   data: Partial<UserProfile>
 ): Promise<void> {
+  assertWritable();
   if (isDemo()) return; // viewer prefs are throwaway
   await updateDoc(doc(db, USERS, uid), data as { [k: string]: any });
 }
@@ -86,6 +87,7 @@ export async function createPendingProfile(
   name: string,
   opts?: { phone?: string; services?: string[]; availability?: Availability }
 ): Promise<void> {
+  assertWritable();
   await setDoc(doc(db, USERS, uid), {
     uid,
     name,
