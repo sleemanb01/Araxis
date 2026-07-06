@@ -4,7 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
+import { useUser } from '../context/UserContext';
 import { useFinancialData } from '../hooks/useFinancialData';
+import { workDaysInMonth } from '../utils/date';
 import { subscribeToExpenses, addExpense, deleteExpense } from '../services/expenseService';
 import { Expense } from '../types/expense';
 import { CustomButton } from '../components/CustomButton';
@@ -24,6 +26,7 @@ export function FinancialDashboardScreen() {
   const route = useRoute<RouteP>();
   const day = route.params?.day;
   const { items } = useInventory();
+  const { profile } = useUser();
   const { calls, fins, payments, loading } = useFinancialData(true);
 
   const t = useMemo(() => aggregateTotals(calls, fins, items), [calls, fins, items]);
@@ -67,9 +70,8 @@ export function FinancialDashboardScreen() {
       expenses: monthExpenses,
     });
   }, [calls, fins, items, monthExpenses]);
-  const dayExpenses = day
-    ? expenses.reduce((s, e) => s + (e.createdAt.slice(0, 10) === day ? e.amount : 0), 0)
-    : 0;
+  // A day carries the month's expenses divided by the owner's WORK days.
+  const dayExpenses = monthExpenses / workDaysInMonth(profile?.availability?.days);
 
   async function saveExpense() {
     const amount = Math.max(0, parseFloat(expAmount) || 0);
@@ -242,7 +244,7 @@ export function FinancialDashboardScreen() {
 
           <Text style={styles.sectionTitle}>הוצאות ומסים — היום (משוער)</Text>
           <View style={styles.row}>
-            <Metric label="הוצאות היום" value={ils(dayExpenses)} tone="orange" />
+            <Metric label="הוצאות (חלק יומי)" value={ils(dayExpenses)} tone="orange" />
             <Metric label="מע״מ" value={ils(dayVat)} tone="orange" />
           </View>
           <View style={styles.row}>

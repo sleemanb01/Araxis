@@ -18,6 +18,7 @@ import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, monthKey, dayKey } from '../utils/finance';
 import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
+import { workDaysInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { ils } from '../utils/format';
@@ -113,11 +114,13 @@ export function ProfileScreen() {
   const curKey = monthKey(now);
   const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
   const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
-  // Today's general expenses reduce the daily ring too.
-  const todayExpenses = expenses.reduce(
-    (s, e) => s + (e.createdAt.slice(0, 10) === dayKey(now) ? e.amount : 0),
+  // The month's general expenses spread over the days the owner WORKS —
+  // that per-workday share is what reduces the daily ring.
+  const monthExpensesNow = expenses.reduce(
+    (s, e) => s + (e.createdAt.slice(0, 7) === monthKey(now) ? e.amount : 0),
     0
   );
+  const dailyExpenseShare = monthExpensesNow / workDaysInMonth(profile?.availability?.days);
 
   // This month's Israeli taxes (VAT, income tax, national insurance) from the
   // month's billed components; the rings measure NET after-tax money.
@@ -149,10 +152,10 @@ export function ProfileScreen() {
   // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dailyTarget = target > 0 ? target / daysInMonth : 0;
-  // Daily ring: today's cash net of VAT, minus the month's effective direct-tax
-  // share (income tax + NI) — an honest "take-home today" pace.
+  // Daily ring: today's cash net of VAT, minus the per-workday expense share
+  // and the month's effective direct-tax rate — an honest take-home pace.
   const todayProfit =
-    ((todayCollected - todayExpenses) / (1 + VAT_RATE)) * (1 - directTaxRate(monthTax));
+    ((todayCollected - dailyExpenseShare) / (1 + VAT_RATE)) * (1 - directTaxRate(monthTax));
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;
