@@ -5,18 +5,15 @@
  */
 import { ServiceCall, CreateServiceCallPayload, PrivateFinancials } from '../types/serviceCall';
 import { InventoryItem, CreateInventoryPayload, WAREHOUSE, crewLocation } from '../types/inventory';
-import { UserProfile, Capabilities, ALL_CAPS, NO_CAPS } from '../types/user';
+import { UserProfile, Capabilities, ALL_CAPS } from '../types/user';
 import { Crew } from '../types/crew';
 import { Withdrawal } from '../types/withdrawal';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
-import { monthKey } from '../utils/finance';
 
 export const DEMO_UID = 'demo-viewer';
-const DEMO_CREW = 'demo-crew';
-const DEMO_TECH = 'demo-tech';
 
 // ---------------------------------------------------------------------------
-// State (reseeded on every demo entry)
+// State (hydrated from the real data on every demo entry)
 // ---------------------------------------------------------------------------
 let calls: ServiceCall[] = [];
 let items: InventoryItem[] = [];
@@ -30,87 +27,6 @@ let archiveMonthly: Record<string, number> = {};
 let seq = 0;
 
 const id = (p: string) => `${p}-${++seq}`;
-const iso = (daysFromToday: number, hour = 9) => {
-  const d = new Date();
-  d.setDate(d.getDate() + daysFromToday);
-  d.setHours(hour, 0, 0, 0);
-  return d.toISOString();
-};
-const monthAgoKey = (n: number) => {
-  const d = new Date();
-  return monthKey(new Date(d.getFullYear(), d.getMonth() - n, 1));
-};
-
-function mkCall(p: Partial<ServiceCall> & { clientName: string; scheduledDate: string }): ServiceCall {
-  return {
-    id: id('call'),
-    status: 'pending',
-    hardwareUsed: [],
-    requiredItems: [],
-    checkedItems: [],
-    crewId: DEMO_CREW,
-    teamAssignment: { leadTech: DEMO_UID, assistants: [DEMO_TECH] },
-    payouts: { totalTechPayout: 0, splits: {} },
-    ...p,
-  };
-}
-
-export function resetDemo(): void {
-  seq = 0;
-
-  users = [
-    { uid: DEMO_UID, name: 'מצב הדגמה', phone: '', teamId: 'demo', caps: ALL_CAPS, crewIds: [DEMO_CREW] } as any,
-    { uid: DEMO_TECH, name: 'טכנאי הדגמה', phone: '+972501111111', teamId: 'demo', caps: NO_CAPS, crewIds: [DEMO_CREW] } as any,
-  ];
-  crews = [
-    {
-      id: DEMO_CREW,
-      name: 'צוות הדגמה',
-      manager: DEMO_UID,
-      members: { [DEMO_UID]: ALL_CAPS, [DEMO_TECH]: { ...NO_CAPS, viewAllCalls: true } },
-      memberIds: [DEMO_UID, DEMO_TECH],
-    },
-  ];
-
-  items = [
-    { id: id('item'), itemName: 'מצלמת אבטחה 4MP', barcode: '7290001110011', price: 450, customerPrice: 650, locations: { [WAREHOUSE]: 12, [crewLocation(DEMO_CREW)]: 2 } },
-    { id: id('item'), itemName: 'כבל רשת 20 מ׳', barcode: '7290001110028', price: 60, customerPrice: 110, locations: { [WAREHOUSE]: 3 } },
-    { id: id('item'), itemName: 'מסך אינטרקום', barcode: '7290001110035', price: 380, customerPrice: 520, locations: { [WAREHOUSE]: 6, [crewLocation(DEMO_CREW)]: 1 } },
-    { id: id('item'), itemName: 'ספק כוח 12V', barcode: '7290001110042', price: 45, customerPrice: 80, locations: { [WAREHOUSE]: 25 } },
-    { id: id('item'), itemName: 'כונן הקלטה NVR', barcode: '7290001110059', price: 900, customerPrice: 1250, locations: { [WAREHOUSE]: 4 } },
-  ];
-  const [cam, cable, screen] = items;
-
-  calls = [
-    mkCall({ clientName: 'משפחת כהן', scheduledDate: iso(0, 9), address: 'הרצל 12, חיפה', contactPhone: '+972501234567', notes: 'התקנת 2 מצלמות בחניה', requiredItems: [cam.id, cable.id], itemQuantities: { [cam.id]: 2 }, payouts: { totalTechPayout: 400, splits: {} } }),
-    mkCall({ clientName: 'דוד לוי', scheduledDate: iso(0, 12), status: 'active', address: 'בן גוריון 8, קריית אתא', contactPhone: '+972502222333', requiredItems: [screen.id], checkedItems: [screen.id], payouts: { totalTechPayout: 350, splits: {} } }),
-    mkCall({ clientName: 'מסעדת הגן', scheduledDate: iso(1, 10), address: 'העצמאות 3, עכו', contactPhone: '+972503334444', notes: 'הצעת מחיר למערכת מלאה' }),
-    mkCall({ clientName: 'בית ספר אורנים', scheduledDate: iso(3, 8), address: 'האלון 15, נשר', contactPhone: '+972504445555' }),
-    mkCall({ clientName: 'חנות פרחים ליבי', scheduledDate: iso(-10, 11), status: 'completed', address: 'הנשיא 22, חיפה', contactPhone: '+972505556666', requiredItems: [cable.id], checkedItems: [cable.id], itemPrices: { [cable.id]: 60 }, payouts: { totalTechPayout: 300, splits: {} } }),
-    mkCall({ clientName: 'משרד עו״ד ברק', scheduledDate: iso(-35, 9), status: 'completed', address: 'הפלמ״ח 7, חיפה', contactPhone: '+972506667777', requiredItems: [cam.id], checkedItems: [cam.id], itemPrices: { [cam.id]: 450 }, payouts: { totalTechPayout: 600, splits: {} } }),
-    mkCall({ clientName: 'קפה נמל', scheduledDate: iso(-40, 13), status: 'completed', contactPhone: '+972507778888', payouts: { totalTechPayout: 250, splits: {} } }),
-  ];
-  const [c1, c2, c3, , c5, c6, c7] = calls;
-  fins = {
-    [c1.id]: { overallPrice: 2400, paidAmount: 0 },
-    [c2.id]: { overallPrice: 1800, paidAmount: 500 },
-    [c3.id]: { overallPrice: 5200, paidAmount: 1000 },
-    [c5.id]: { overallPrice: 2000, paidAmount: 2000 },
-    [c6.id]: { overallPrice: 4000, paidAmount: 1500 },
-    [c7.id]: { overallPrice: 2600, paidAmount: 2600 },
-  };
-  payments = {
-    [c5.id]: [{ id: id('pay'), amount: 2000, method: 'cash', date: iso(-10).slice(0, 10), docKind: 'receipt', status: 'issued', createdAt: iso(-10, 12) }],
-    [c6.id]: [{ id: id('pay'), amount: 1500, method: 'bank_transfer', date: iso(-35).slice(0, 10), docKind: 'receipt', status: 'issued', createdAt: iso(-35, 15) }],
-  };
-  withdrawals = [
-    { id: id('wd'), crewId: DEMO_CREW, itemId: cam.id, itemName: cam.itemName, withdrawerId: DEMO_UID, amount: 2, type: 'withdraw', createdAt: iso(-2, 8) },
-    { id: id('wd'), crewId: DEMO_CREW, itemId: screen.id, itemName: screen.itemName, withdrawerId: DEMO_TECH, amount: 1, type: 'withdraw', createdAt: iso(-1, 9) },
-  ];
-  targets = { [monthKey(new Date())]: 20000 };
-  archiveMonthly = { [monthAgoKey(2)]: 18500, [monthAgoKey(3)]: 21400 };
-  emit();
-}
 
 /**
  * Hydrate the sandbox from a SNAPSHOT of the real Firestore data (owner demo:
