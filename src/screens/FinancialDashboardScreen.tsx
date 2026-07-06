@@ -48,6 +48,10 @@ export function FinancialDashboardScreen() {
 
   useEffect(() => subscribeToExpenses(setExpenses, () => {}), []);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const monthExpenses = expenses.reduce(
+    (s, e) => s + (e.createdAt.slice(0, 7) === new Date().toISOString().slice(0, 7) ? e.amount : 0),
+    0
+  );
   const dayExpenses = day
     ? expenses.reduce((s, e) => s + (e.createdAt.slice(0, 10) === day ? e.amount : 0), 0)
     : 0;
@@ -249,9 +253,9 @@ export function FinancialDashboardScreen() {
         >
           <TouchableOpacity style={styles.expCol} onPress={() => setExpAddOpen(true)} activeOpacity={0.8}>
             <View style={[styles.expCircle, styles.expAddCircle]}>
-              <Ionicons name="add" size={24} color="#FFFFFF" />
+              <Text style={styles.expAddAmount} numberOfLines={1}>{ils(monthExpenses)}</Text>
             </View>
-            <Text style={styles.expName}>הוצאה</Text>
+            <Text style={styles.expName}>הוצאות החודש</Text>
           </TouchableOpacity>
           {expenses.map((e) => (
             <TouchableOpacity key={e.id} style={styles.expCol} onPress={() => expenseActions(e)} activeOpacity={0.8}>
@@ -417,6 +421,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   expAddCircle: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  expAddAmount: { fontSize: 12, fontWeight: '800', color: '#FFFFFF', writingDirection: 'ltr' },
   expAmount: { fontSize: 12, fontWeight: '800', color: '#B45309', writingDirection: 'ltr' },
   expName: { fontSize: 11, color: Colors.textSecondary, marginTop: 4, maxWidth: 68, textAlign: 'center' },
 });
