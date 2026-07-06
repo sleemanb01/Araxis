@@ -25,7 +25,7 @@ const DAY_LETTERS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש']; // 0=Sunday … 
  *  provide (open catalog), and their availability. They stay pending until an
  *  admin provisions their capabilities. */
 export function RegisterScreen() {
-  const { user, signOut, enterDemo } = useUser();
+  const { user, signOut } = useUser();
   const [name, setName] = useState('');
   const [catalog, setCatalog] = useState<ServiceOption[]>([]);
   const [services, setServices] = useState<string[]>([]);
@@ -161,10 +161,6 @@ export function RegisterScreen() {
             disabled={!name.trim()}
             style={styles.btn}
           />
-          <CustomButton label="כניסה כצופה (הדגמה)" variant="secondary" onPress={enterDemo} style={styles.demoBtn} />
-          <Text style={styles.demoHint}>
-            מצב הדגמה: שחקו עם עבודות, מספרים ומחסן — שום שינוי לא נשמר במסד הנתונים.
-          </Text>
           <CustomButton label="התנתק" variant="ghost" onPress={signOut} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -173,8 +169,6 @@ export function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  demoBtn: { marginTop: 14 },
-  demoHint: { fontSize: 12, color: Colors.textSecondary, textAlign: 'center', marginTop: 6, marginBottom: 10 },
   safe: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
   container: { padding: Layout.screenPadding * 1.5, paddingTop: 40, paddingBottom: 40 },

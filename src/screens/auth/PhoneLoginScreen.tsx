@@ -23,7 +23,7 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'PhoneLogin'>;
 
 export function PhoneLoginScreen() {
   const navigation = useNavigation<Nav>();
-  const { setConfirmation } = useUser();
+  const { setConfirmation, enterDemo } = useUser();
 
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
@@ -85,6 +85,11 @@ export function PhoneLoginScreen() {
 
           <Text style={styles.disclaimer}>
             בלחיצה על "שלח קוד" ישלח אליך קוד אימות חד-פעמי ב-SMS.
+          </Text>
+
+          <CustomButton label="כניסה כצופה (הדגמה)" variant="secondary" onPress={enterDemo} style={styles.demoBtn} />
+          <Text style={styles.demoHint}>
+            מצב הדגמה: שחקו עם עבודות, מספרים ומחסן — שום שינוי לא נשמר במסד הנתונים.
           </Text>
         </View>
       </KeyboardAvoidingView>
@@ -164,6 +169,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   button: { marginTop: 8 },
+  demoBtn: { marginTop: 24 },
+  demoHint: { fontSize: 11, color: Colors.textSecondary, textAlign: 'center', marginTop: 6 },
   disclaimer: {
     fontSize: 12,
     color: Colors.textSecondary,
