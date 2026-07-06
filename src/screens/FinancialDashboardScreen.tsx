@@ -10,7 +10,8 @@ import { Expense } from '../types/expense';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { dialPhone, openWhatsapp } from '../utils/contact';
-import { aggregateTotals, dayKey, qtyOn } from '../utils/finance';
+import { aggregateTotals, dayKey, monthKey, qtyOn } from '../utils/finance';
+import { monthlyTaxes } from '../utils/tax';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
@@ -52,6 +53,21 @@ export function FinancialDashboardScreen() {
     (s, e) => s + (e.createdAt.slice(0, 7) === new Date().toISOString().slice(0, 7) ? e.amount : 0),
     0
   );
+
+  // This month's Israeli taxes (VAT, income tax, national insurance).
+  const monthTax = useMemo(() => {
+    const month = monthKey(new Date());
+    const pairs = calls
+      .map((c, i) => [c, fins[i]] as const)
+      .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
+    const mt = aggregateTotals(pairs.map(([c]) => c), pairs.map(([, f]) => f), items);
+    return monthlyTaxes({
+      revenue: mt.gross,
+      equipment: mt.equipment,
+      crew: mt.payouts,
+      expenses: monthExpenses,
+    });
+  }, [calls, fins, items, monthExpenses]);
   const dayExpenses = day
     ? expenses.reduce((s, e) => s + (e.createdAt.slice(0, 10) === day ? e.amount : 0), 0)
     : 0;
@@ -281,6 +297,16 @@ export function FinancialDashboardScreen() {
           <TouchableOpacity style={styles.flexTouch} onPress={() => setStockOpen(true)} activeOpacity={0.8}>
             <Metric label="ציוד לקנייה" value={`${buyUnits} · ${ils(buyCost)}`} tone="blue" />
           </TouchableOpacity>
+        </View>
+
+        <Text style={styles.sectionTitle}>מסים — החודש</Text>
+        <View style={styles.row}>
+          <Metric label="מע״מ" value={ils(monthTax.vat)} tone="orange" />
+          <Metric label="ביטוח לאומי" value={ils(monthTax.nationalInsurance)} tone="orange" />
+        </View>
+        <View style={styles.row}>
+          <Metric label="מס הכנסה" value={ils(monthTax.incomeTax)} tone="orange" />
+          <Metric label="רווח נקי" value={ils(monthTax.net)} tone={monthTax.net < 0 ? 'red' : 'green'} />
         </View>
 
       </ScrollView>

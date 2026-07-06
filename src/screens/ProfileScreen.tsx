@@ -16,7 +16,8 @@ import { subscribeToExpenses } from '../services/expenseService';
 import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
-import { monthlyProfit, callProfit, itemPriceMap, monthKey, dayKey } from '../utils/finance';
+import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, monthKey, dayKey } from '../utils/finance';
+import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { ils } from '../utils/format';
@@ -117,9 +118,29 @@ export function ProfileScreen() {
     (s, e) => s + (e.createdAt.slice(0, 10) === dayKey(now) ? e.amount : 0),
     0
   );
-  // Monthly ring: what's actually MADE this month after all costs —
-  // profit = revenue − equipment cost − crew cost (merged with archive).
-  const monthProfit = monthly[curKey] ?? 0;
+
+  // This month's Israeli taxes (VAT, income tax, national insurance) from the
+  // month's billed components; the rings measure NET after-tax money.
+  const monthTax = useMemo(() => {
+    const month = monthKey(new Date());
+    const pairs = calls
+      .map((c, i) => [c, fins[i]] as const)
+      .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
+    const totals = aggregateTotals(pairs.map(([c]) => c), pairs.map(([, f]) => f), items);
+    const monthExp = expenses.reduce(
+      (s, e) => s + (e.createdAt.slice(0, 7) === month ? e.amount : 0),
+      0
+    );
+    return monthlyTaxes({
+      revenue: totals.gross,
+      equipment: totals.equipment,
+      crew: totals.payouts,
+      expenses: monthExp,
+    });
+  }, [calls, fins, items, expenses]);
+  // Monthly ring: NET after-tax — revenue − costs − expenses − VAT −
+  // income tax − national insurance.
+  const monthProfit = monthTax.net;
   const target = targets[curKey] ?? 0;
   const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
@@ -128,7 +149,10 @@ export function ProfileScreen() {
   // Daily target is the monthly target spread evenly across the month.
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   const dailyTarget = target > 0 ? target / daysInMonth : 0;
-  const todayProfit = todayCollected - todayExpenses;
+  // Daily ring: today's cash net of VAT, minus the month's effective direct-tax
+  // share (income tax + NI) — an honest "take-home today" pace.
+  const todayProfit =
+    ((todayCollected - todayExpenses) / (1 + VAT_RATE)) * (1 - directTaxRate(monthTax));
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
 
   if (!profile) return null;
