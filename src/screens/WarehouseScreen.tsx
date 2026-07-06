@@ -175,6 +175,9 @@ function InventoryRow({
         <Text style={styles.rowName} numberOfLines={1}>{item.itemName}</Text>
         <View style={styles.rowMeta}>
           {showPrice && typeof item.customerPrice === 'number' && (
+            <Text style={styles.custPrice}>₪{item.customerPrice.toLocaleString('he-IL')}</Text>
+          )}
+          {showPrice && typeof item.customerPrice === 'number' && (
             <Text style={styles.customerPrice}>
               ₪{(item.customerPrice - (item.price ?? 0)).toLocaleString('he-IL')}
             </Text>
@@ -301,6 +304,7 @@ const styles = StyleSheet.create({
   },
   lowText: { fontSize: 11, color: '#A32D2D', fontWeight: '500' },
   split: { fontSize: 12, color: Colors.textSecondary },
+  custPrice: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   customerPrice: { fontSize: 12, fontWeight: '700', color: '#1E9E5A' },
   profitPct: { fontSize: 12, fontWeight: '700', color: '#2563EB' },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 9 },
