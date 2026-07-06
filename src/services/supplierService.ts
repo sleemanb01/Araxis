@@ -19,7 +19,13 @@ export function subscribeToSuppliers(
     (snap) => {
       const list = snap.docs.map((d) => {
         const s = d.data() as any;
-        return { id: d.id, name: s.name ?? '', phone: s.phone ?? '', createdAt: s.createdAt } as Supplier;
+        return {
+          id: d.id,
+          name: s.name ?? '',
+          contact: s.contact || undefined,
+          phone: s.phone ?? '',
+          createdAt: s.createdAt,
+        } as Supplier;
       });
       list.sort((a, b) => a.name.localeCompare(b.name, 'he'));
       onChange(list);
@@ -31,9 +37,14 @@ export function subscribeToSuppliers(
   );
 }
 
-export async function addSupplier(name: string, phone: string): Promise<void> {
+export async function addSupplier(name: string, phone: string, contact?: string): Promise<void> {
   assertWritable();
-  await addDoc(collection(db, SUPPLIERS), { name, phone, createdAt: new Date().toISOString() });
+  await addDoc(collection(db, SUPPLIERS), {
+    name,
+    phone,
+    ...(contact ? { contact } : {}),
+    createdAt: new Date().toISOString(),
+  });
 }
 
 export async function deleteSupplier(id: string): Promise<void> {

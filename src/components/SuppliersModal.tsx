@@ -33,6 +33,7 @@ export function SuppliersModal({
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
+  const [contact, setContact] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -48,8 +49,9 @@ export function SuppliersModal({
     }
     setSaving(true);
     try {
-      await addSupplier(name.trim(), toE164(phone));
+      await addSupplier(name.trim(), toE164(phone), contact.trim() || undefined);
       setName('');
+      setContact('');
       setPhone('');
       setAdding(false);
     } catch (e: any) {
@@ -88,6 +90,7 @@ export function SuppliersModal({
           {adding && (
             <View style={styles.addBox}>
               <TextField label="שם הספק" value={name} onChange={setName} placeholder="לדוגמה: י.א. אלקטרוניקה" />
+              <TextField label="איש קשר" value={contact} onChange={setContact} placeholder="לדוגמה: יוסי" />
               <TextField label="טלפון" value={phone} onChange={setPhone} placeholder="050-1234567" keyboardType="phone-pad" />
               <CustomButton label="הוסף ספק" onPress={save} loading={saving} disabled={!name.trim()} />
             </View>
@@ -122,7 +125,9 @@ export function SuppliersModal({
                 </View>
                 <View style={styles.rowInfo}>
                   <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.rowPhone}>{item.phone}</Text>
+                  <Text style={styles.rowPhone}>
+                    {item.contact ? `${item.contact} · ` : ''}{item.phone}
+                  </Text>
                 </View>
               </View>
             )}
