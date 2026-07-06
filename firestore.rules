@@ -93,6 +93,11 @@ service cloud.firestore {
       allow create, update, delete: if can('manageInventory');
     }
 
+    // ---- General expenses ---- (financial managers only)
+    match /expenses/{expenseId} {
+      allow read, write: if can('viewFinancials');
+    }
+
     // ---- Monthly targets ---- (financial managers only)
     match /targets/{docId} {
       allow read, write: if can('viewFinancials');

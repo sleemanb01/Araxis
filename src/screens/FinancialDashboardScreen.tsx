@@ -1,10 +1,14 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Modal, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Modal, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
 import { useFinancialData } from '../hooks/useFinancialData';
+import { subscribeToExpenses, addExpense, deleteExpense } from '../services/expenseService';
+import { Expense } from '../types/expense';
+import { CustomButton } from '../components/CustomButton';
+import { TextField } from '../components/TextField';
 import { dialPhone, openWhatsapp } from '../utils/contact';
 import { aggregateTotals, dayKey, qtyOn } from '../utils/finance';
 import { ils } from '../utils/format';
@@ -34,6 +38,48 @@ export function FinancialDashboardScreen() {
     [payments, day]
   );
   const clientOf = (callId?: string) => calls.find((c) => c.id === callId)?.clientName ?? 'לקוח';
+
+  // General business expenses — circles under the profit circle.
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [expAddOpen, setExpAddOpen] = useState(false);
+  const [expName, setExpName] = useState('');
+  const [expAmount, setExpAmount] = useState('');
+  const [expSaving, setExpSaving] = useState(false);
+
+  useEffect(() => {
+    if (day) return; // details (all-time) view only
+    return subscribeToExpenses(setExpenses, () => {});
+  }, [day]);
+
+  async function saveExpense() {
+    const amount = Math.max(0, parseFloat(expAmount) || 0);
+    if (!expName.trim() || amount <= 0) {
+      Alert.alert('שגיאה', 'יש להזין שם וסכום חיובי.');
+      return;
+    }
+    setExpSaving(true);
+    try {
+      await addExpense(expName.trim(), amount);
+      setExpName('');
+      setExpAmount('');
+      setExpAddOpen(false);
+    } catch (e: any) {
+      Alert.alert('שגיאה', e?.message ?? 'הוספת ההוצאה נכשלה.');
+    } finally {
+      setExpSaving(false);
+    }
+  }
+
+  function expenseActions(e: Expense) {
+    Alert.alert(e.name, ils(e.amount), [
+      {
+        text: 'מחק',
+        style: 'destructive',
+        onPress: () => deleteExpense(e.id).catch((err: any) => Alert.alert('שגיאה', err?.message ?? 'המחיקה נכשלה.')),
+      },
+      { text: 'סגור', style: 'cancel' },
+    ]);
+  }
 
   // Collections list: jobs the client still owes on, biggest debt first.
   // In the day view only that day's jobs; in the all-time view, everything.
@@ -197,6 +243,28 @@ export function FinancialDashboardScreen() {
           </View>
         </View>
 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.expStrip}
+          contentContainerStyle={styles.expStripRow}
+        >
+          <TouchableOpacity style={styles.expCol} onPress={() => setExpAddOpen(true)} activeOpacity={0.8}>
+            <View style={[styles.expCircle, styles.expAddCircle]}>
+              <Ionicons name="add" size={24} color="#FFFFFF" />
+            </View>
+            <Text style={styles.expName}>הוצאה</Text>
+          </TouchableOpacity>
+          {expenses.map((e) => (
+            <TouchableOpacity key={e.id} style={styles.expCol} onPress={() => expenseActions(e)} activeOpacity={0.8}>
+              <View style={styles.expCircle}>
+                <Text style={styles.expAmount} numberOfLines={1}>{ils(e.amount)}</Text>
+              </View>
+              <Text style={styles.expName} numberOfLines={1}>{e.name}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
         <View style={styles.row}>
           <Metric label="שולם" value={ils(t.paid)} tone="green" />
           <TouchableOpacity style={styles.flexTouch} onPress={() => setUnpaidOpen(true)} activeOpacity={0.8}>
@@ -216,6 +284,18 @@ export function FinancialDashboardScreen() {
         <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות</Text>
       </ScrollView>
       {unpaidModal}
+
+      <Modal visible={expAddOpen} transparent animationType="fade" onRequestClose={() => setExpAddOpen(false)}>
+        <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>הוצאה חדשה</Text>
+            <TextField label="שם ההוצאה" value={expName} onChange={setExpName} placeholder="לדוגמה: דלק, שכירות" />
+            <TextField label="סכום (₪)" value={expAmount} onChange={setExpAmount} placeholder="0" keyboardType="numeric" />
+            <CustomButton label="הוסף" onPress={saveExpense} loading={expSaving} disabled={!expName.trim()} />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setExpAddOpen(false)} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <Modal visible={stockOpen} transparent animationType="fade" onRequestClose={() => setStockOpen(false)}>
         <View style={styles.modalBg}>
@@ -325,4 +405,21 @@ const styles = StyleSheet.create({
   stockCount: { fontSize: 15, fontWeight: '800', color: '#1E7E47', writingDirection: 'ltr' },
   stockShort: { color: '#B91C1C' },
   buyTotal: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary, textAlign: 'right', marginBottom: 10 },
+  expStrip: { height: 84, marginBottom: 12 },
+  expStripRow: { gap: 12, alignItems: 'center' },
+  expCol: { alignItems: 'center', width: 68 },
+  expCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FBF0DC',
+    borderWidth: 1,
+    borderColor: '#F0D9A8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  expAddCircle: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  expAmount: { fontSize: 12, fontWeight: '800', color: '#B45309', writingDirection: 'ltr' },
+  expName: { fontSize: 11, color: Colors.textSecondary, marginTop: 4, maxWidth: 68, textAlign: 'center' },
 });
