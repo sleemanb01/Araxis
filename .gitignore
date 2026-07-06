@@ -24,3 +24,7 @@ functions/lib/
 
 # App Store assets (large binaries — keep out of git)
 screenshots/
+
+# Local-only tooling — not for the public repo
+.eas/workflows/
+scripts/
