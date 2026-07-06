@@ -15,7 +15,6 @@ import { subscribeToArchive, initArchiveIfMissing, ArchiveSummary } from '../ser
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, monthKey, dayKey } from '../utils/finance';
-import { capsLabel } from '../types/user';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { ils } from '../utils/format';
@@ -164,9 +163,6 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
-        <Text style={styles.name}>{profile.name}</Text>
-        <Text style={styles.role}>{capsLabel(caps)}</Text>
-
         {caps.viewFinancials && (
           <>
             <View style={styles.circlesRow}>
@@ -325,8 +321,6 @@ export function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 28 },
-  name: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary },
-  role: { fontSize: 15, color: Colors.textSecondary, marginTop: 2 },
   circlesRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 18 },
   detailsBtn: {
     alignSelf: 'center',
