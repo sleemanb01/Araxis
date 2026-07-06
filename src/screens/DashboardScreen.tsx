@@ -9,6 +9,7 @@ import { SectionHeader } from '../components/SectionHeader';
 import { CustomButton } from '../components/CustomButton';
 import { Calendar } from '../components/Calendar';
 import { FAB } from '../components/FAB';
+import { QuoteModal } from '../components/QuoteModal';
 import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
@@ -50,6 +51,7 @@ export function DashboardScreen() {
   const [calOpen, setCalOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [quoteOpen, setQuoteOpen] = useState(false);
   const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
 
   useEffect(() => {
@@ -281,8 +283,19 @@ export function DashboardScreen() {
       )}
 
       {caps.createCalls && (
-        <FAB onPress={() => navigation.navigate('NewServiceCall')} bottomOffset={Layout.tabBarHeight} />
+        <>
+          <FAB onPress={() => navigation.navigate('NewServiceCall')} bottomOffset={Layout.tabBarHeight} />
+          <TouchableOpacity
+            style={styles.quoteFab}
+            onPress={() => setQuoteOpen(true)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="document-text-outline" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </>
       )}
+
+      <QuoteModal visible={quoteOpen} onClose={() => setQuoteOpen(false)} />
 
       <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
         <View style={styles.modalBg}>
@@ -365,6 +378,22 @@ const styles = StyleSheet.create({
   calChip: { justifyContent: 'center' },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
   modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 16 },
+  quoteFab: {
+    position: 'absolute',
+    left: 26, // centered above the 56px new-job FAB (left 20)
+    bottom: Layout.tabBarHeight + 80, // 12 gap + 56 FAB + 12 gap
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0F766E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
+  },
   monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
