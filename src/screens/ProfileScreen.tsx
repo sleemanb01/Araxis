@@ -18,7 +18,7 @@ import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, monthKey, dayKey } from '../utils/finance';
 import { monthlyTaxes, directTaxRate } from '../utils/tax';
-import { workDaysInMonth } from '../utils/date';
+import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import { ils } from '../utils/format';
@@ -149,13 +149,15 @@ export function ProfileScreen() {
   const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
   const maxAbs = Math.max(1, ...year.map((v) => Math.abs(v)));
 
-  // Daily target is the monthly target spread evenly across the month.
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dailyTarget = target > 0 ? target / daysInMonth : 0;
+  // Daily target = what's still missing from the monthly NET target, spread
+  // over the working days left in the month (today included). Once the month
+  // target is reached the day ring pins at 100%.
+  const remaining = Math.max(0, target - monthProfit);
+  const dailyTarget = target > 0 ? remaining / workDaysLeftInMonth(profile?.availability?.days) : 0;
   // Daily ring: today's cash minus the per-workday expense share, scaled by the
   // month's effective direct-tax rate (same convention as רווח לפני מס).
   const todayProfit = (todayCollected - dailyExpenseShare) * (1 - directTaxRate(monthTax));
-  const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : 0;
+  const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : target > 0 ? 100 : 0;
 
   if (!profile) return null;
 
@@ -193,7 +195,7 @@ export function ProfileScreen() {
   const monthColor =
     target <= 0 ? Colors.textSecondary : percent >= 100 ? '#1E9E5A' : percent >= 50 ? '#D97706' : Colors.danger;
   const dayColor =
-    dailyTarget <= 0
+    target <= 0
       ? todayProfit < 0
         ? Colors.danger
         : '#1E9E5A'
@@ -213,9 +215,9 @@ export function ProfileScreen() {
                 onPress={() => navigation.navigate('FinancialDashboard', { day: dayKey(new Date()) })}
                 activeOpacity={0.85}
               >
-                <ProgressRing size={150} strokeWidth={12} progress={dailyTarget > 0 ? dayPercent / 100 : 1} color={dayColor}>
+                <ProgressRing size={150} strokeWidth={12} progress={target > 0 ? dayPercent / 100 : 1} color={dayColor}>
                   <Text style={styles.rLabel}>{dayLabel}</Text>
-                  {dailyTarget > 0 ? (
+                  {target > 0 ? (
                     <>
                       <Text style={[styles.rValue, { color: dayColor }]}>{dayPercent}%</Text>
                       <Text style={styles.rSub}>{ils(dailyTarget)}</Text>
