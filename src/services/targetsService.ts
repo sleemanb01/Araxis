@@ -4,7 +4,7 @@
  * Modular RN Firebase API.
  */
 
-import { doc, onSnapshot, setDoc } from '@react-native-firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { isDemo } from './demoMode';
 import { demoSubscribe, demoTargets, demoSetTarget } from './demoStore';
@@ -33,6 +33,17 @@ export function subscribeToTargets(
       onError?.(err as Error);
     }
   );
+}
+
+/** One-shot fetch of the targets map (used to hydrate viewer mode). */
+export async function getTargetsOnce(): Promise<Record<string, number>> {
+  if (isDemo()) return demoTargets();
+  const d = (await getDoc(doc(db, TARGETS, DOC))).data() ?? {};
+  const out: Record<string, number> = {};
+  Object.keys(d).forEach((k) => {
+    if (typeof d[k] === 'number') out[k] = d[k];
+  });
+  return out;
 }
 
 /** Set the target for a month ("YYYY-MM"). */

@@ -11,6 +11,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  getDocs,
   onSnapshot,
   increment,
   writeBatch,
@@ -45,6 +46,13 @@ function toItem(snap: { id: string; data: () => any }): InventoryItem {
     category: d.category === 'white' ? 'white' : undefined,
     locations: d.locations && typeof d.locations === 'object' ? d.locations : {},
   };
+}
+
+/** One-shot fetch of the whole ledger (used to hydrate viewer mode). */
+export async function getAllItems(): Promise<InventoryItem[]> {
+  if (isDemo()) return demoItems();
+  const snap = await getDocs(collection(db, INVENTORY));
+  return snap.docs.map(toItem);
 }
 
 /** Real-time subscription to the master ledger. Returns an unsubscribe function. */

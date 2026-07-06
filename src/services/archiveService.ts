@@ -55,6 +55,16 @@ export function subscribeToArchive(
   );
 }
 
+/** One-shot fetch of the archive summary (used to hydrate viewer mode). */
+export async function getArchiveOnce(): Promise<ArchiveSummary> {
+  if (isDemo()) return demoArchive();
+  const d = (await getDoc(doc(db, ARCHIVES, SUMMARY))).data() ?? {};
+  return {
+    monthlyProfit: d.monthlyProfit && typeof d.monthlyProfit === 'object' ? d.monthlyProfit : {},
+    lastExportAt: typeof d.lastExportAt === 'string' ? d.lastExportAt : null,
+  };
+}
+
 /** Stamp lastExportAt = now if the cycle hasn't started yet. */
 export async function initArchiveIfMissing(): Promise<void> {
   if (isDemo()) return;

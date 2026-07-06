@@ -25,7 +25,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
-  const { profile, caps, crews, signOut } = useUser();
+  const { profile, caps, crews, signOut, enterDemo } = useUser();
+  const [demoLoading, setDemoLoading] = useState(false);
   const { items } = useInventory();
 
   const [creating, setCreating] = useState(false);
@@ -285,6 +286,17 @@ export function ProfileScreen() {
           />
         </View>
 
+        <CustomButton
+          label="מצב צפייה (הדגמה)"
+          variant="secondary"
+          loading={demoLoading}
+          onPress={async () => {
+            setDemoLoading(true);
+            await enterDemo();
+            setDemoLoading(false);
+          }}
+          style={styles.btn}
+        />
         <CustomButton label="התנתק" variant="danger" onPress={signOut} style={styles.btn} />
       </View>
 

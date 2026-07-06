@@ -13,6 +13,7 @@ import { subscribeToMyCrews } from '../services/crewService';
 import { initAppCheck } from '../services/appCheck';
 import { isDemo, setDemoMode } from '../services/demoMode';
 import { resetDemo, DEMO_UID } from '../services/demoStore';
+import { hydrateDemoFromReal } from '../services/demoSeed';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { withTimeout } from '../utils/promise';
 import { UserProfile, Capabilities, NO_CAPS, ALL_CAPS, toCaps } from '../types/user';
@@ -33,8 +34,9 @@ interface UserContextValue {
   signOut: () => Promise<void>;
   /** Re-run the boot fetches (profile/claim) after a network stall. */
   retryBootstrap: () => void;
-  /** Enter viewer/demo mode — full app on an in-memory sandbox, no DB writes. */
-  enterDemo: () => void;
+  /** Enter viewer/demo mode — real data snapshot when signed in (sample data
+   *  otherwise); every change stays in memory, nothing touches the DB. */
+  enterDemo: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -158,8 +160,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         await signOutUser();
       },
       retryBootstrap: () => setBootRetry((n) => n + 1),
-      enterDemo: () => {
-        resetDemo();
+      enterDemo: async () => {
+        // Signed-in owner: snapshot the REAL Firestore data into the sandbox
+        // (real numbers, writes stay local). Unauthenticated (login screen /
+        // App Review): rules forbid reads, so fall back to sample data.
+        if (user && provisioned) {
+          await hydrateDemoFromReal(crews).catch(() => resetDemo());
+        } else {
+          resetDemo();
+        }
         setDemoMode(true);
         invalidateFinancialData();
         setUser({ uid: DEMO_UID } as any); // fake auth user drives the existing effects

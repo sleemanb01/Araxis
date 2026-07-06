@@ -112,6 +112,40 @@ export function resetDemo(): void {
   emit();
 }
 
+/**
+ * Hydrate the sandbox from a SNAPSHOT of the real Firestore data (owner demo:
+ * real numbers, sandboxed writes). The demo viewer profile is appended so the
+ * fake auth user resolves; everything else is the real data, copied.
+ */
+export function seedDemoFromReal(payload: {
+  calls: ServiceCall[];
+  fins: Record<string, PrivateFinancials>;
+  payments: Record<string, Payment[]>;
+  items: InventoryItem[];
+  crews: Crew[];
+  users: UserProfile[];
+  withdrawals: Withdrawal[];
+  targets: Record<string, number>;
+  archiveMonthly: Record<string, number>;
+}): void {
+  seq = 0;
+  calls = payload.calls.map((c) => ({ ...c }));
+  fins = { ...payload.fins };
+  payments = Object.fromEntries(
+    Object.entries(payload.payments).map(([k, v]) => [k, v.map((p) => ({ ...p }))])
+  );
+  items = payload.items.map((i) => ({ ...i, locations: { ...i.locations } }));
+  crews = payload.crews.map((c) => ({ ...c, members: { ...c.members }, memberIds: [...c.memberIds] }));
+  users = [
+    { uid: DEMO_UID, name: 'מצב הדגמה', phone: '', teamId: 'demo', caps: ALL_CAPS, crewIds: crews.map((c) => c.id) } as any,
+    ...payload.users.map((u) => ({ ...u })),
+  ];
+  withdrawals = payload.withdrawals.map((w) => ({ ...w }));
+  targets = { ...payload.targets };
+  archiveMonthly = { ...payload.archiveMonthly };
+  emit();
+}
+
 // ---------------------------------------------------------------------------
 // Pub-sub: every change notifies all subscribers, each recomputing its slice
 // (the data set is tiny, so this stays trivially fast).

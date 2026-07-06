@@ -4,7 +4,7 @@
  * move). Read per crew for its history. Modular RN Firebase API.
  */
 
-import { collection, onSnapshot, query, where } from '@react-native-firebase/firestore';
+import { collection, getDocs, onSnapshot, query, where } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { isDemo } from './demoMode';
 import { demoSubscribe, demoWithdrawals } from './demoStore';
@@ -24,6 +24,13 @@ function toWithdrawal(snap: { id: string; data: () => any }): Withdrawal {
     type: d.type === 'return' ? 'return' : 'withdraw',
     createdAt: d.createdAt ?? '',
   };
+}
+
+/** One-shot fetch of a crew's withdrawals (used to hydrate viewer mode). */
+export async function getCrewWithdrawalsOnce(crewId: string): Promise<Withdrawal[]> {
+  if (isDemo()) return demoWithdrawals(crewId);
+  const snap = await getDocs(query(collection(db, WITHDRAWALS), where('crewId', '==', crewId)));
+  return snap.docs.map(toWithdrawal);
 }
 
 /** Realtime subscription to a crew's withdrawals (newest first). */
