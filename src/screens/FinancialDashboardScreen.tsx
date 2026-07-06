@@ -279,7 +279,6 @@ export function FinancialDashboardScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.note}>רווח = הכנסות − עלות ציוד − עלות צוות − הוצאות</Text>
       </ScrollView>
       {unpaidModal}
 
