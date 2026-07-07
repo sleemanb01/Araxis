@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Modal, View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { Colors } from '../constants/colors';
 
@@ -21,6 +21,14 @@ export function BarcodeScannerModal({
     if (visible) setLocked(false);
   }, [visible]);
 
+  // App Review 5.1.1: go straight to the OS permission prompt — no custom
+  // pre-prompt screen, nothing the user can press to delay it.
+  useEffect(() => {
+    if (visible && permission && !permission.granted && permission.canAskAgain) {
+      requestPermission();
+    }
+  }, [visible, permission, requestPermission]);
+
   function handleScan(result: BarcodeScanningResult) {
     if (locked || !result.data) return;
     setLocked(true); // ignore the rapid follow-up frames
@@ -31,14 +39,18 @@ export function BarcodeScannerModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.fill}>
-        {!permission ? null : !permission.granted ? (
+        {!permission || (!permission.granted && permission.canAskAgain) ? null : !permission.granted ? (
+          // Permission already denied at the OS level: the scanner can't work.
+          // Inform and link to Settings (per App Review guidance).
           <View style={styles.center}>
-            <Text style={styles.msg}>נדרשת הרשאת מצלמה כדי לסרוק ברקוד.</Text>
-            <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-              <Text style={styles.primaryText}>אפשר גישה למצלמה</Text>
+            <Text style={styles.msg}>
+              לא ניתן לסרוק ברקוד ללא גישה למצלמה. ניתן לאפשר את הגישה בהגדרות המכשיר.
+            </Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => Linking.openSettings()}>
+              <Text style={styles.primaryText}>פתיחת הגדרות</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={onClose}>
-              <Text style={styles.cancel}>ביטול</Text>
+              <Text style={styles.cancel}>סגירה</Text>
             </TouchableOpacity>
           </View>
         ) : (
