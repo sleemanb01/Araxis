@@ -208,11 +208,22 @@ export function FinancialDashboardScreen() {
   );
 
   if (day && dayT) {
+    // The day's POCKET: payments received on `day` plus manual "שולם"
+    // leftovers of jobs scheduled that day — same cash basis as the month.
+    const paidByCall: Record<string, number> = {};
+    payments.forEach((p) => {
+      if (p.status === 'issued' && p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
+    });
+    let dayCollected = dayPays.reduce((s, p) => s + p.amount, 0);
+    calls.forEach((c, i) => {
+      const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
+      if (manual > 0 && dayKey(new Date(c.scheduledDate)) === day) dayCollected += manual;
+    });
     // Day taxes: VAT is transactional (exact); income tax + NI use the month's
     // effective rate, split by the month's proportions — an estimate.
-    const dayVat = (dayT.gross - dayT.equipment - dayExpenses) * (VAT_RATE / (1 + VAT_RATE));
-    // Same convention as the book: revenue − expenses − equipment/1.18 − crew.
-    const dayPreTax = dayT.gross - dayExpenses - dayT.equipment / (1 + VAT_RATE) - dayT.payouts;
+    const dayVat = (dayCollected - dayT.equipment - dayExpenses) * (VAT_RATE / (1 + VAT_RATE));
+    // Owner's formula on the day's pocket: received − expenses − equipment/1.18 − crew.
+    const dayPreTax = dayCollected - dayExpenses - dayT.equipment / (1 + VAT_RATE) - dayT.payouts;
     const mDirect = monthTax.incomeTax + monthTax.nationalInsurance;
     const dayDirect = dayPreTax > 0 ? dayPreTax * directTaxRate(monthTax) : 0;
     const dayIT = mDirect > 0 ? dayDirect * (monthTax.incomeTax / mDirect) : 0;
@@ -235,7 +246,7 @@ export function FinancialDashboardScreen() {
             <Metric label="עלות צוות" value={ils(dayT.payouts)} tone="orange" />
           </View>
           <View style={styles.row}>
-            <Metric label="הכנסות" value={ils(dayT.gross)} tone="green" />
+            <Metric label="התקבל" value={ils(dayCollected)} tone="green" />
             <TouchableOpacity style={styles.flexTouch} onPress={() => setUnpaidOpen(true)} activeOpacity={0.8}>
               <Metric label="לא שולם" value={ils(dayT.outstanding)} tone="red" />
             </TouchableOpacity>
