@@ -146,6 +146,8 @@ export function ServiceCallDetailScreen() {
   // Legacy jobs may hold manually-entered paid money with no records behind it.
   const paidShown = hasPayments ? Math.max(paidIssued, fin?.paidAmount ?? 0) : paidN;
   const balance = Math.max(0, priceN - paidShown);
+  // Fully paid (by SAVED money, not the draft being typed) — no more payments.
+  const fullyPaid = priceN > 0 && priceN - Math.max(paidIssued, fin?.paidAmount ?? 0) <= 0.005;
 
   function advance() {
     if (!next) return;
@@ -473,9 +475,11 @@ export function ServiceCallDetailScreen() {
                     <View style={styles.financeCol}>
                       <TextField label="מחיר ללקוח ₪" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
                     </View>
-                    <View style={styles.financeCol}>
-                      <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
-                    </View>
+                    {!fullyPaid && (
+                      <View style={styles.financeCol}>
+                        <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+                      </View>
+                    )}
                   </>
                 )}
               </View>
@@ -491,7 +495,7 @@ export function ServiceCallDetailScreen() {
               <>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionInline}>תשלומים</Text>
-                  {!readOnly && (!isDone || balance > 0) && (
+                  {!readOnly && !fullyPaid && (!isDone || balance > 0) && (
                     <TouchableOpacity style={styles.addBtn} onPress={() => setPayOpen(true)} activeOpacity={0.85}>
                       <Ionicons name="add" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
@@ -566,7 +570,7 @@ export function ServiceCallDetailScreen() {
                           ₪{p.amount.toLocaleString('he-IL')} · {PAYMENT_METHOD_HE[p.method]}
                         </Text>
                         <Text style={styles.payMeta}>
-                          {p.date}
+                          {new Date((p.date || p.createdAt.slice(0, 10)) + 'T00:00:00').toLocaleDateString('he-IL')}
                           {p.morningDocumentNumber
                             ? ` · ${DOC_KIND_HE[p.docKind]} ${p.morningDocumentNumber}`
                             : p.status === 'issued'
