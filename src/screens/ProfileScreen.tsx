@@ -122,10 +122,23 @@ export function ProfileScreen() {
   );
   const dailyExpenseShare = monthExpensesNow / workDaysInMonth(profile?.availability?.days);
 
-  // This month's Israeli taxes (VAT, income tax, national insurance) from the
-  // month's billed components; the rings measure NET after-tax money.
+  // This month's Israeli taxes (VAT, income tax, national insurance). Revenue
+  // is the MONTHLY POCKET — money actually received this month by payment date
+  // (manual "שולם" leftovers fall back to the job's date) — NOT the jobs'
+  // billed prices. Costs stay per the month's jobs (owner's formula).
   const monthTax = useMemo(() => {
     const month = monthKey(new Date());
+    let pocket = 0;
+    const paidByCall: Record<string, number> = {};
+    payments.forEach((p) => {
+      if (p.status !== 'issued') return;
+      if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
+      if ((p.date || p.createdAt).slice(0, 7) === month) pocket += p.amount;
+    });
+    calls.forEach((c, i) => {
+      const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
+      if (manual > 0 && monthKey(new Date(c.scheduledDate)) === month) pocket += manual;
+    });
     const pairs = calls
       .map((c, i) => [c, fins[i]] as const)
       .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
@@ -136,13 +149,13 @@ export function ProfileScreen() {
     );
     const toBuy = buyListForOpenCalls(calls, items).reduce((s, n) => s + n.cost, 0);
     return monthlyTaxes({
-      revenue: totals.gross,
+      revenue: pocket,
       equipment: totals.equipment,
       crew: totals.payouts,
       expenses: monthExp,
       toBuy,
     });
-  }, [calls, fins, items, expenses]);
+  }, [payments, calls, fins, items, expenses]);
   // Monthly ring: NET after-tax — revenue − costs − expenses − VAT −
   // income tax − national insurance.
   const monthProfit = monthTax.net;
