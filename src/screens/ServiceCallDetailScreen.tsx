@@ -12,7 +12,7 @@ import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { subscribeToCall, subscribeToFinancials, setFinancials, updateServiceCall } from '../services/serviceCallService';
-import { subscribeToPayments, issuePaymentDocument } from '../services/paymentService';
+import { subscribeToPayments, issuePaymentDocument, addJobPayment } from '../services/paymentService';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { Payment, PAYMENT_METHOD_HE, PAYMENT_STATUS_HE, DOC_KIND_HE } from '../types/payment';
@@ -143,7 +143,8 @@ export function ServiceCallDetailScreen() {
   const hasPayments = payments.length > 0;
   const paidIssued = payments.reduce((s, p) => s + (p.status === 'issued' ? p.amount : 0), 0);
   const reserved = payments.reduce((s, p) => s + (p.status !== 'failed' ? p.amount : 0), 0);
-  const paidShown = hasPayments ? paidIssued : paidN;
+  // Legacy jobs may hold manually-entered paid money with no records behind it.
+  const paidShown = hasPayments ? Math.max(paidIssued, fin?.paidAmount ?? 0) : paidN;
   const balance = Math.max(0, priceN - paidShown);
 
   function advance() {
@@ -166,15 +167,30 @@ export function ServiceCallDetailScreen() {
   async function saveFinancials() {
     try {
       if (caps.viewFinancials) {
-        await setFinancials(callId, { overallPrice: priceN, paidAmount: hasPayments ? paidIssued : paidN });
+        // Raising "שולם" IS a charge made now: the delta becomes a payment
+        // record dated today, so every shekel lands on the day it was taken.
+        const prevPaid = Math.max(paidIssued, fin?.paidAmount ?? 0);
+        const delta = Math.round((paidN - prevPaid) * 100) / 100;
+        if (hasPayments && delta < -0.005) {
+          Alert.alert('שגיאה', 'להקטנת הסכום ששולם יש למחוק תשלום מהרשימה.');
+          return;
+        }
+        // Price first, so the payment validates against the just-typed total.
+        await setFinancials(callId, {
+          overallPrice: priceN,
+          paidAmount: delta > 0.005 ? prevPaid : paidN,
+        });
+        if (delta > 0.005) {
+          await addJobPayment({ callId, amount: delta, method: 'other', note: 'עדכון שולם' });
+        }
       }
       if (caps.viewTeamPayouts && canEdit) {
         await updateServiceCall(callId, { payouts: { totalTechPayout: payoutN, splits: call!.payouts.splits } });
       }
       invalidateFinancialData();
       Alert.alert('נשמר', 'הכספים עודכנו.');
-    } catch {
-      Alert.alert('שגיאה', 'שמירת הכספים נכשלה.');
+    } catch (e: any) {
+      Alert.alert('שגיאה', e?.message ?? 'שמירת הכספים נכשלה.');
     }
   }
 
@@ -457,11 +473,9 @@ export function ServiceCallDetailScreen() {
                     <View style={styles.financeCol}>
                       <TextField label="מחיר ללקוח ₪" value={price} onChange={setPrice} placeholder="0" keyboardType="numeric" />
                     </View>
-                    {!hasPayments && (
-                      <View style={styles.financeCol}>
-                        <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
-                      </View>
-                    )}
+                    <View style={styles.financeCol}>
+                      <TextField label="שולם ₪" value={paid} onChange={setPaid} placeholder="0" keyboardType="numeric" />
+                    </View>
                   </>
                 )}
               </View>

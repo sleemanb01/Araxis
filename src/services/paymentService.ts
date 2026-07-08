@@ -113,10 +113,15 @@ export async function addJobPayment(input: {
     if (p.status === 'issued') issued += amt;
     if (p.status !== 'failed') reserved += amt;
   });
+  // Legacy jobs may carry a manually-entered paid amount with no payment
+  // records behind it — treat it as already-collected money, not as room.
+  const storedPaid = (finSnap.data() as any)?.paidAmount ?? 0;
+  const baseIssued = Math.max(issued, storedPaid);
+  const baseReserved = Math.max(reserved, storedPaid);
   const total = (finSnap.data() as any)?.overallPrice ?? 0;
-  if (total > 0 && reserved + amount > total + 0.005) {
+  if (total > 0 && baseReserved + amount > total + 0.005) {
     throw new Error(
-      `הסכום גדול מהיתרה הפתוחה (נותרו ₪${Math.max(0, Math.round(total - reserved)).toLocaleString('he-IL')}).`
+      `הסכום גדול מהיתרה הפתוחה (נותרו ₪${Math.max(0, Math.round(total - baseReserved)).toLocaleString('he-IL')}).`
     );
   }
 
@@ -129,7 +134,7 @@ export async function addJobPayment(input: {
     status: 'issued', // counts as received; no document in local mode
     createdAt: new Date().toISOString(),
   });
-  await setDoc(finRef, { paidAmount: issued + amount }, { merge: true });
+  await setDoc(finRef, { paidAmount: baseIssued + amount }, { merge: true });
 }
 
 /** Issue (or retry) the Morning document for a payment (Morning mode only). */

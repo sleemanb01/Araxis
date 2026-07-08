@@ -6,7 +6,7 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { useInventory } from '../context/InventoryContext';
 import { useUser } from '../context/UserContext';
 import { useFinancialData } from '../hooks/useFinancialData';
-import { workDaysInMonth } from '../utils/date';
+import { workDaysInMonth, formatMonthLabel } from '../utils/date';
 import { subscribeToExpenses, addExpense, deleteExpense } from '../services/expenseService';
 import { Expense } from '../types/expense';
 import { CustomButton } from '../components/CustomButton';
@@ -42,6 +42,28 @@ export function FinancialDashboardScreen() {
     [payments, day]
   );
   const clientOf = (callId?: string) => calls.find((c) => c.id === callId)?.clientName ?? 'לקוח';
+
+  // All received payments grouped by the month they were CHARGED (p.date),
+  // newest month first — each charge lands on the day it was actually taken.
+  const payMonths = useMemo(() => {
+    const groups = new Map<string, { total: number; rows: typeof payments }>();
+    payments.forEach((p) => {
+      if (p.status !== 'issued') return;
+      const m = (p.date || p.createdAt).slice(0, 7);
+      if (!m) return;
+      const g = groups.get(m) ?? { total: 0, rows: [] };
+      g.total += p.amount;
+      g.rows.push(p);
+      groups.set(m, g);
+    });
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([month, g]) => ({
+        month,
+        total: g.total,
+        rows: g.rows.sort((a, b) => (b.date || b.createdAt).localeCompare(a.date || a.createdAt)),
+      }));
+  }, [payments]);
 
   // General business expenses — circles under the profit circle.
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -311,6 +333,33 @@ export function FinancialDashboardScreen() {
           <Metric label="רווח לפני מס" value={ils(monthTax.preTax)} tone={monthTax.preTax < 0 ? 'red' : 'green'} />
         </View>
 
+        {payMonths.length > 0 && (
+          <>
+            <Text style={styles.sectionTitle}>תשלומים שהתקבלו</Text>
+            {payMonths.map((g) => (
+              <View key={g.month}>
+                <View style={styles.payMonthRow}>
+                  <Text style={styles.payMonthTotal}>{ils(g.total)}</Text>
+                  <Text style={styles.payMonthLabel}>{formatMonthLabel(g.month)}</Text>
+                </View>
+                {g.rows.map((p) => (
+                  <View key={p.id} style={styles.payRow}>
+                    <Text style={styles.payAmount}>{ils(p.amount)}</Text>
+                    <View style={styles.payInfo}>
+                      <Text style={styles.payClient} numberOfLines={1}>{clientOf(p.callId)}</Text>
+                      <Text style={styles.payMeta}>
+                        {new Date((p.date || p.createdAt.slice(0, 10)) + 'T00:00:00').toLocaleDateString('he-IL')}
+                        {' · '}
+                        {PAYMENT_METHOD_HE[p.method]}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </>
+        )}
+
       </ScrollView>
       {unpaidModal}
 
@@ -416,6 +465,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   payAmount: { fontSize: 16, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr' },
+  payMonthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  payMonthLabel: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+  payMonthTotal: { fontSize: 14, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr' },
   payInfo: { flex: 1, alignItems: 'flex-end', marginStart: 10 },
   payClient: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
   payMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
