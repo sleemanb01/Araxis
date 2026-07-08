@@ -296,41 +296,56 @@ function requireFinancials(request: CallableRequest<any>): void {
   }
 }
 
-/** Sum of payments by status for a call. */
-async function paymentTotals(callId: string): Promise<{ issued: number; reserved: number }> {
-  const snap = await db.collection('serviceCalls').doc(callId).collection('payments').get();
+/** Sum a payments snapshot by status. */
+function sumPayments(docs: FirebaseFirestore.QueryDocumentSnapshot[]): {
+  issued: number;
+  reserved: number;
+} {
   let issued = 0;
-  let reserved = 0; // issued + pending — reserved against the open balance
-  for (const p of snap.docs) {
+  let reserved = 0; // issued + pending/issuing — reserved against the open balance
+  for (const p of docs) {
     const d = p.data();
     const amt = typeof d.amount === 'number' ? d.amount : 0;
     if (d.status === 'issued') issued += amt;
-    if (d.status === 'issued' || d.status === 'pending') reserved += amt;
+    if (d.status !== 'failed') reserved += amt;
   }
   return { issued, reserved };
 }
 
-/** Recompute financials.paidAmount from issued payments. */
+/** Recompute financials.paidAmount from issued payments. Legacy jobs may hold
+ *  a manually-entered paid amount with no records behind it — never lower
+ *  paidAmount below it (the bi-monthly recycle retires such jobs anyway). */
 async function syncPaidAmount(callId: string): Promise<void> {
-  const { issued } = await paymentTotals(callId);
-  await db
-    .collection('serviceCalls')
-    .doc(callId)
-    .collection('privateData')
-    .doc('financials')
-    .set({ paidAmount: issued }, { merge: true });
+  const callRef = db.collection('serviceCalls').doc(callId);
+  const finRef = callRef.collection('privateData').doc('financials');
+  const [paysSnap, finSnap] = await Promise.all([callRef.collection('payments').get(), finRef.get()]);
+  const { issued } = sumPayments(paysSnap.docs);
+  const stored = (finSnap.data() as any)?.paidAmount ?? 0;
+  await finRef.set({ paidAmount: Math.max(issued, stored) }, { merge: true });
 }
 
 /** Issue the Morning document for one payment doc and stamp the result. */
 async function issueForPayment(callId: string, paymentId: string): Promise<any> {
   const callRef = db.collection('serviceCalls').doc(callId);
   const payRef = callRef.collection('payments').doc(paymentId);
-  const [callSnap, paySnap] = await Promise.all([callRef.get(), payRef.get()]);
+  const callSnap = await callRef.get();
   if (!callSnap.exists) throw new HttpsError('not-found', 'Job not found.');
-  if (!paySnap.exists) throw new HttpsError('not-found', 'Payment not found.');
   const call = callSnap.data() as any;
-  const pay = paySnap.data() as any;
-  if (pay.status === 'issued') throw new HttpsError('failed-precondition', 'Document already issued.');
+
+  // Claim the payment atomically so two concurrent calls can never issue two
+  // Morning documents for the same payment: pending/failed -> issuing.
+  const pay = await db.runTransaction(async (tx) => {
+    const paySnap = await tx.get(payRef);
+    if (!paySnap.exists) throw new HttpsError('not-found', 'Payment not found.');
+    const p = paySnap.data() as any;
+    if (p.status === 'issued') throw new HttpsError('failed-precondition', 'Document already issued.');
+    // A crash mid-issue leaves 'issuing' behind — treat it as stale after 5m.
+    if (p.status === 'issuing' && Date.now() - Date.parse(p.updatedAt ?? 0) < 5 * 60_000) {
+      throw new HttpsError('failed-precondition', 'Document issue already in progress.');
+    }
+    tx.set(payRef, { status: 'issuing', updatedAt: new Date().toISOString() }, { merge: true });
+    return p;
+  });
 
   try {
     const doc = await issueDocument(
@@ -396,33 +411,42 @@ export const addJobPayment = onCall(
     }
 
     const callRef = db.collection('serviceCalls').doc(callId);
-    const [callSnap, finSnap, totals] = await Promise.all([
-      callRef.get(),
-      callRef.collection('privateData').doc('financials').get(),
-      paymentTotals(callId),
-    ]);
-    if (!callSnap.exists) throw new HttpsError('not-found', 'Job not found.');
-
-    // Never allow recording more than the open balance of the deal.
-    const total = (finSnap.data() as any)?.overallPrice ?? 0;
-    if (total > 0 && totals.reserved + amount > total + 0.005) {
-      throw new HttpsError(
-        'failed-precondition',
-        `Payment exceeds the open balance (${Math.max(0, total - totals.reserved)} ILS left).`
-      );
-    }
-
     const date = request.data?.date || new Date().toISOString().slice(0, 10);
     const payRef = callRef.collection('payments').doc();
-    await payRef.set({
-      amount,
-      method,
-      date,
-      note: note || '',
-      docKind,
-      status: 'pending',
-      createdBy: request.auth!.uid,
-      createdAt: new Date().toISOString(),
+
+    // Atomic: validate the open balance and create the payment in ONE
+    // transaction, so two concurrent payments can never over-collect a deal.
+    await db.runTransaction(async (tx) => {
+      const [callSnap, finSnap, paysSnap] = await Promise.all([
+        tx.get(callRef),
+        tx.get(callRef.collection('privateData').doc('financials')),
+        tx.get(callRef.collection('payments')),
+      ]);
+      if (!callSnap.exists) throw new HttpsError('not-found', 'Job not found.');
+
+      // Never allow recording more than the open balance of the deal. Legacy
+      // manual paid money (no records behind it) counts as already collected.
+      const fin = finSnap.data() as any;
+      const total = fin?.overallPrice ?? 0;
+      const { reserved } = sumPayments(paysSnap.docs);
+      const baseReserved = Math.max(reserved, fin?.paidAmount ?? 0);
+      if (total > 0 && baseReserved + amount > total + 0.005) {
+        throw new HttpsError(
+          'failed-precondition',
+          `Payment exceeds the open balance (${Math.max(0, total - baseReserved)} ILS left).`
+        );
+      }
+
+      tx.set(payRef, {
+        amount,
+        method,
+        date,
+        note: note || '',
+        docKind,
+        status: 'pending',
+        createdBy: request.auth!.uid,
+        createdAt: new Date().toISOString(),
+      });
     });
 
     if (issueNow) {

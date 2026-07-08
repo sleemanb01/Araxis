@@ -2,7 +2,7 @@
  *  the backend (Morning documents are issued server-side; no API key in-app). */
 
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'credit_card' | 'check' | 'bit' | 'other';
-export type PaymentStatus = 'pending' | 'issued' | 'failed';
+export type PaymentStatus = 'pending' | 'issuing' | 'issued' | 'failed';
 export type DocKind = 'receipt' | 'taxInvoiceReceipt';
 
 export interface Payment {
@@ -38,6 +38,7 @@ export const DOC_KIND_HE: Record<DocKind, string> = {
 
 export const PAYMENT_STATUS_HE: Record<PaymentStatus, string> = {
   pending: 'ממתין למסמך',
+  issuing: 'מפיק מסמך…',
   issued: 'הופק',
   failed: 'נכשל',
 };
