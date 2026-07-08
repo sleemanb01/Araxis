@@ -11,6 +11,8 @@ import { subscribeToExpenses, addExpense, deleteExpense } from '../services/expe
 import { Expense } from '../types/expense';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
+import { AddPaymentModal } from '../components/AddPaymentModal';
+import { isViewerReadOnly } from '../services/demoMode';
 import { dialPhone, openWhatsapp } from '../utils/contact';
 import { aggregateTotals, buyListForOpenCalls, dayKey } from '../utils/finance';
 import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
@@ -131,6 +133,10 @@ export function FinancialDashboardScreen() {
       { text: 'סגור', style: 'cancel' },
     ]);
   }
+
+  // Add a payment straight from the payments list: pick the owing job first.
+  const [payPickOpen, setPayPickOpen] = useState(false);
+  const [payFor, setPayFor] = useState<{ callId: string; balance: number } | null>(null);
 
   // Collections list: jobs the client still owes on, biggest debt first.
   // In the day view only that day's jobs; in the all-time view, everything.
@@ -333,34 +339,76 @@ export function FinancialDashboardScreen() {
           <Metric label="רווח לפני מס" value={ils(monthTax.preTax)} tone={monthTax.preTax < 0 ? 'red' : 'green'} />
         </View>
 
-        {payMonths.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>תשלומים שהתקבלו</Text>
-            {payMonths.map((g) => (
-              <View key={g.month}>
-                <View style={styles.payMonthRow}>
-                  <Text style={styles.payMonthTotal}>{ils(g.total)}</Text>
-                  <Text style={styles.payMonthLabel}>{formatMonthLabel(g.month)}</Text>
+        <View style={styles.sectionHeaderRow}>
+          {!isViewerReadOnly() && (
+            <TouchableOpacity style={styles.addBtn} onPress={() => setPayPickOpen(true)} activeOpacity={0.85}>
+              <Ionicons name="add" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          )}
+          <Text style={styles.sectionTitle}>תשלומים שהתקבלו</Text>
+        </View>
+        {payMonths.length === 0 && <Text style={styles.note}>אין תשלומים עדיין.</Text>}
+        {payMonths.map((g) => (
+          <View key={g.month}>
+            <View style={styles.payMonthRow}>
+              <Text style={styles.payMonthTotal}>{ils(g.total)}</Text>
+              <Text style={styles.payMonthLabel}>{formatMonthLabel(g.month)}</Text>
+            </View>
+            {g.rows.map((p) => (
+              <View key={p.id} style={styles.payRow}>
+                <Text style={styles.payAmount}>{ils(p.amount)}</Text>
+                <View style={styles.payInfo}>
+                  <Text style={styles.payClient} numberOfLines={1}>{clientOf(p.callId)}</Text>
+                  <Text style={styles.payMeta}>
+                    {new Date((p.date || p.createdAt.slice(0, 10)) + 'T00:00:00').toLocaleDateString('he-IL')}
+                    {' · '}
+                    {PAYMENT_METHOD_HE[p.method]}
+                  </Text>
                 </View>
-                {g.rows.map((p) => (
-                  <View key={p.id} style={styles.payRow}>
-                    <Text style={styles.payAmount}>{ils(p.amount)}</Text>
-                    <View style={styles.payInfo}>
-                      <Text style={styles.payClient} numberOfLines={1}>{clientOf(p.callId)}</Text>
-                      <Text style={styles.payMeta}>
-                        {new Date((p.date || p.createdAt.slice(0, 10)) + 'T00:00:00').toLocaleDateString('he-IL')}
-                        {' · '}
-                        {PAYMENT_METHOD_HE[p.method]}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
               </View>
             ))}
-          </>
-        )}
+          </View>
+        ))}
 
       </ScrollView>
+
+      <Modal visible={payPickOpen} transparent animationType="fade" onRequestClose={() => setPayPickOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>ממי התקבל התשלום?</Text>
+            <ScrollView style={styles.unpaidList}>
+              {unpaidJobs.length === 0 && <Text style={styles.note}>אין עבודות עם יתרה פתוחה.</Text>}
+              {unpaidJobs.map(({ call, balance }) => (
+                <TouchableOpacity
+                  key={call.id}
+                  style={styles.payRow}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setPayPickOpen(false);
+                    setPayFor({ callId: call.id, balance });
+                  }}
+                >
+                  <Text style={styles.unpaidAmount}>{ils(balance)}</Text>
+                  <View style={styles.payInfo}>
+                    <Text style={styles.payClient} numberOfLines={1}>{call.clientName}</Text>
+                    <Text style={styles.payMeta}>{new Date(call.scheduledDate).toLocaleDateString('he-IL')}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setPayPickOpen(false)} style={styles.closeBtn} activeOpacity={0.8}>
+              <Text style={styles.closeText}>סגור</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <AddPaymentModal
+        visible={!!payFor}
+        onClose={() => setPayFor(null)}
+        callId={payFor?.callId ?? ''}
+        balance={payFor?.balance}
+      />
       {unpaidModal}
 
       <Modal visible={expAddOpen} transparent animationType="fade" onRequestClose={() => setExpAddOpen(false)}>
@@ -452,6 +500,16 @@ const styles = StyleSheet.create({
   cardValueWarn: { color: '#854F0B' },
   note: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 18 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginTop: 16, marginBottom: 8 },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  addBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
   payRow: {
     flexDirection: 'row',
     alignItems: 'center',
