@@ -143,7 +143,9 @@ export function ServiceCallDetailScreen() {
   const hasPayments = payments.length > 0;
   const paidIssued = payments.reduce((s, p) => s + (p.status === 'issued' ? p.amount : 0), 0);
   const reserved = payments.reduce((s, p) => s + (p.status !== 'failed' ? p.amount : 0), 0);
-  // Legacy jobs may hold manually-entered paid money with no records behind it.
+  // Legacy jobs may hold manually-entered paid money with no records behind it;
+  // it shows in the list as one "רישום ידני" line (dated by the job).
+  const manualPaid = Math.max(0, (fin?.paidAmount ?? 0) - paidIssued);
   const paidShown = hasPayments ? Math.max(paidIssued, fin?.paidAmount ?? 0) : paidN;
   const balance = Math.max(0, priceN - paidShown);
   // Fully paid (by SAVED money, not the draft being typed) — no more payments.
@@ -495,7 +497,7 @@ export function ServiceCallDetailScreen() {
               <>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionInline}>תשלומים</Text>
-                  {!readOnly && !fullyPaid && (!isDone || balance > 0) && (
+                  {!fullyPaid && (!(readOnly || isDone) || balance > 0) && (
                     <TouchableOpacity style={styles.addBtn} onPress={() => setPayOpen(true)} activeOpacity={0.85}>
                       <Ionicons name="add" size={20} color="#FFFFFF" />
                     </TouchableOpacity>
@@ -508,7 +510,7 @@ export function ServiceCallDetailScreen() {
                     {FINANCIAL_STATUS_HE[financialStatus(priceN, paidShown)]}
                   </Text>
                 )}
-                {payments.length === 0 ? (
+                {payments.length === 0 && manualPaid <= 0.005 ? (
                   <Text style={styles.muted}>אין תשלומים עדיין.</Text>
                 ) : (
                   payments.map((p) => (
@@ -580,6 +582,17 @@ export function ServiceCallDetailScreen() {
                       </View>
                     </View>
                   ))
+                )}
+                {manualPaid > 0.005 && (
+                  <View style={styles.payRow}>
+                    <View style={styles.payActions} />
+                    <View style={styles.payInfo}>
+                      <Text style={styles.payAmount}>₪{Math.round(manualPaid).toLocaleString('he-IL')}</Text>
+                      <Text style={styles.payMeta}>
+                        {new Date(call.scheduledDate).toLocaleDateString('he-IL')} · רישום ידני
+                      </Text>
+                    </View>
+                  </View>
                 )}
               </>
             )}
