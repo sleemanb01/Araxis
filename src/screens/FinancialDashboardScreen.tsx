@@ -12,7 +12,7 @@ import { Expense } from '../types/expense';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { dialPhone, openWhatsapp } from '../utils/contact';
-import { aggregateTotals, buyListForOpenCalls, dayKey, monthKey } from '../utils/finance';
+import { aggregateTotals, buyListForOpenCalls, dayKey } from '../utils/finance';
 import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
@@ -63,21 +63,20 @@ export function FinancialDashboardScreen() {
   const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
   const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
-  // This month's Israeli taxes (VAT, income tax, national insurance).
-  const monthTax = useMemo(() => {
-    const month = monthKey(new Date());
-    const pairs = calls
-      .map((c, i) => [c, fins[i]] as const)
-      .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
-    const mt = aggregateTotals(pairs.map(([c]) => c), pairs.map(([, f]) => f), items);
-    return monthlyTaxes({
-      revenue: mt.gross,
-      equipment: mt.equipment,
-      crew: mt.payouts,
-      expenses: monthExpenses,
-      toBuy: buyCost,
-    });
-  }, [calls, fins, items, monthExpenses, buyCost]);
+  // Taxes over the CURRENT BOOK — the very same aggregates the cards above
+  // show, so the screen's arithmetic adds up exactly:
+  // revenue − expenses − equipment/1.18 − crew − shopping list.
+  const monthTax = useMemo(
+    () =>
+      monthlyTaxes({
+        revenue: t.gross,
+        equipment: t.equipment,
+        crew: t.payouts,
+        expenses: monthExpenses,
+        toBuy: buyCost,
+      }),
+    [t, monthExpenses, buyCost]
+  );
   // A day carries the month's expenses divided by the owner's WORK days.
   const dayExpenses = monthExpenses / workDaysInMonth(profile?.availability?.days);
 
@@ -192,8 +191,8 @@ export function FinancialDashboardScreen() {
     // Day taxes: VAT is transactional (exact); income tax + NI use the month's
     // effective rate, split by the month's proportions — an estimate.
     const dayVat = (dayT.gross - dayT.equipment - dayExpenses) * (VAT_RATE / (1 + VAT_RATE));
-    // Same convention as the month: everything at face value, VAT included.
-    const dayPreTax = dayT.gross - dayExpenses - dayT.equipment - dayT.payouts;
+    // Same convention as the book: revenue − expenses − equipment/1.18 − crew.
+    const dayPreTax = dayT.gross - dayExpenses - dayT.equipment / (1 + VAT_RATE) - dayT.payouts;
     const mDirect = monthTax.incomeTax + monthTax.nationalInsurance;
     const dayDirect = dayPreTax > 0 ? dayPreTax * directTaxRate(monthTax) : 0;
     const dayIT = mDirect > 0 ? dayDirect * (monthTax.incomeTax / mDirect) : 0;

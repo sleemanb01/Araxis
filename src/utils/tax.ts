@@ -73,10 +73,15 @@ export function monthlyTaxes(input: {
   toBuy?: number; // ציוד לקנייה — shortages open jobs still need purchased
 }): TaxBreakdown {
   const vat = (input.revenue - input.equipment - input.expenses) * (VAT_RATE / (1 + VAT_RATE));
-  // Owner's convention: EVERYTHING at face value, VAT included — revenue,
-  // expenses and equipment as billed/paid; crew wages carry no VAT anyway.
-  // The pending shopping list also comes off the pre-tax number.
-  const preTax = input.revenue - input.expenses - input.equipment - input.crew - (input.toBuy ?? 0);
+  // Owner's convention: revenue and expenses at face value; ONLY the equipment
+  // cost enters net of VAT (÷1.18); crew wages carry no VAT. The pending
+  // shopping list also comes off the pre-tax number.
+  const preTax =
+    input.revenue -
+    input.expenses -
+    input.equipment / (1 + VAT_RATE) -
+    input.crew -
+    (input.toBuy ?? 0);
   const incomeTax = incomeTaxMonthly(preTax);
   const nationalInsurance = nationalInsuranceMonthly(preTax);
   return { vat, preTax, incomeTax, nationalInsurance, net: preTax - incomeTax - nationalInsurance };
