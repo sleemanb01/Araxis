@@ -44,8 +44,6 @@ export interface TaxBreakdown {
   net: number; // רווח נקי אחרי הכל
 }
 
-const exVat = (gross: number) => gross / (1 + VAT_RATE);
-
 function incomeTaxMonthly(income: number): number {
   if (income <= 0) return 0;
   let tax = 0;
@@ -74,9 +72,9 @@ export function monthlyTaxes(input: {
   expenses: number; // general expenses (incl. VAT)
 }): TaxBreakdown {
   const vat = (input.revenue - input.equipment - input.expenses) * (VAT_RATE / (1 + VAT_RATE));
-  // Owner's convention: revenue and expenses at face value; only the equipment
-  // cost is VAT-stripped; crew wages carry no VAT.
-  const preTax = input.revenue - input.expenses - exVat(input.equipment) - input.crew;
+  // Owner's convention: EVERYTHING at face value, VAT included — revenue,
+  // expenses and equipment as billed/paid; crew wages carry no VAT anyway.
+  const preTax = input.revenue - input.expenses - input.equipment - input.crew;
   const incomeTax = incomeTaxMonthly(preTax);
   const nationalInsurance = nationalInsuranceMonthly(preTax);
   return { vat, preTax, incomeTax, nationalInsurance, net: preTax - incomeTax - nationalInsurance };

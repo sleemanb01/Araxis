@@ -211,8 +211,8 @@ export function FinancialDashboardScreen() {
     // Day taxes: VAT is transactional (exact); income tax + NI use the month's
     // effective rate, split by the month's proportions — an estimate.
     const dayVat = (dayT.gross - dayT.equipment - dayExpenses) * (VAT_RATE / (1 + VAT_RATE));
-    // Same convention as the month: revenue − expenses − equipment/1.18 − crew.
-    const dayPreTax = dayT.gross - dayExpenses - dayT.equipment / (1 + VAT_RATE) - dayT.payouts;
+    // Same convention as the month: everything at face value, VAT included.
+    const dayPreTax = dayT.gross - dayExpenses - dayT.equipment - dayT.payouts;
     const mDirect = monthTax.incomeTax + monthTax.nationalInsurance;
     const dayDirect = dayPreTax > 0 ? dayPreTax * directTaxRate(monthTax) : 0;
     const dayIT = mDirect > 0 ? dayDirect * (monthTax.incomeTax / mDirect) : 0;
