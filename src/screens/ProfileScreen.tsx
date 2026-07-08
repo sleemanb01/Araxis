@@ -196,6 +196,9 @@ export function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
+        <Text style={styles.monthCount}>
+          עבודות החודש: {calls.filter((c) => monthKey(new Date(c.scheduledDate)) === curKey).length}
+        </Text>
         {caps.viewFinancials && (
           <>
             <View style={styles.circlesRow}>
@@ -358,6 +361,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 28 },
   circlesRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 18 },
+  monthCount: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
   detailsBtn: {
     alignSelf: 'center',
     marginTop: 10,
