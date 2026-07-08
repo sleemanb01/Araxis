@@ -17,7 +17,7 @@ import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, monthKey, dayKey } from '../utils/finance';
-import { directTaxRate } from '../utils/tax';
+import { directTaxRate, VAT_RATE } from '../utils/tax';
 import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -141,9 +141,10 @@ export function ProfileScreen() {
   // target is reached the day ring pins at 100%.
   const remaining = Math.max(0, target - monthProfit);
   const dailyTarget = target > 0 ? remaining / workDaysLeftInMonth(profile?.availability?.days) : 0;
-  // Daily ring: today's cash minus the per-workday expense share, scaled by the
-  // month's effective direct-tax rate (same convention as רווח לפני מס).
-  const todayProfit = (todayCollected - dailyExpenseShare) * (1 - directTaxRate(monthTax));
+  // Daily ring: today's cash minus the per-workday expense share, minus the
+  // VAT share and the month's effective direct-tax rate — net after everything.
+  const todayProfit =
+    (todayCollected - dailyExpenseShare) * (1 - VAT_RATE / (1 + VAT_RATE) - directTaxRate(monthTax));
   const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : target > 0 ? 100 : 0;
 
   if (!profile) return null;

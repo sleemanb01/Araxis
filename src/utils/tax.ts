@@ -84,7 +84,9 @@ export function monthlyTaxes(input: {
     (input.toBuy ?? 0);
   const incomeTax = incomeTaxMonthly(preTax);
   const nationalInsurance = nationalInsuranceMonthly(preTax);
-  return { vat, preTax, incomeTax, nationalInsurance, net: preTax - incomeTax - nationalInsurance };
+  // Net after EVERYTHING: the pre-tax base still holds the VAT collected from
+  // clients, so the VAT payable comes off alongside the direct taxes.
+  return { vat, preTax, incomeTax, nationalInsurance, net: preTax - vat - incomeTax - nationalInsurance };
 }
 
 /** Share of pre-tax income taken by income tax + NI this month (0..1). */

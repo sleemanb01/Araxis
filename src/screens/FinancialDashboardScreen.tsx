@@ -228,7 +228,7 @@ export function FinancialDashboardScreen() {
     const dayDirect = dayPreTax > 0 ? dayPreTax * directTaxRate(monthTax) : 0;
     const dayIT = mDirect > 0 ? dayDirect * (monthTax.incomeTax / mDirect) : 0;
     const dayNI = mDirect > 0 ? dayDirect * (monthTax.nationalInsurance / mDirect) : 0;
-    const dayNet = dayPreTax - dayIT - dayNI;
+    const dayNet = dayPreTax - dayVat - dayIT - dayNI;
 
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
