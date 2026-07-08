@@ -128,6 +128,44 @@ export function aggregateTotals(
   return { gross, revenue, paid, outstanding: gross - paid, payouts, equipment, profit: revenue - payouts };
 }
 
+export interface BuyNeed {
+  id: string;
+  name: string;
+  qty: number; // units open jobs still need
+  stock: number; // on hand across all locations
+  buy: number; // units to purchase
+  price: number; // actual (cost) price
+  cost: number; // buy × price
+}
+
+/**
+ * Shopping list: what OPEN jobs still need beyond what's on hand anywhere
+ * (warehouse + crews), costed at the actual (cost) price. Checked items were
+ * already pulled for their job and don't count.
+ */
+export function buyListForOpenCalls(calls: ServiceCall[], items: InventoryItem[]): BuyNeed[] {
+  const need = new Map<string, number>();
+  calls.forEach((c) => {
+    if (c.status === 'completed') return;
+    const checked = new Set(c.checkedItems ?? []);
+    (c.requiredItems ?? []).forEach((id) => {
+      if (checked.has(id)) return;
+      need.set(id, (need.get(id) ?? 0) + qtyOn(c, id));
+    });
+  });
+  const byId = new Map(items.map((i) => [i.id, i])); // once, not per entry
+  return Array.from(need.entries())
+    .map(([id, qty]) => {
+      const item = byId.get(id);
+      const stock = item ? Object.values(item.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
+      const buy = Math.max(0, qty - stock);
+      const price = item?.price ?? 0;
+      return { id, name: item?.itemName ?? '—', qty, stock, buy, price, cost: buy * price };
+    })
+    .filter((n) => n.buy > 0)
+    .sort((a, b) => b.cost - a.cost);
+}
+
 export function financialStatus(overallPrice: number, paidAmount: number): FinancialStatus {
   if (paidAmount <= 0) return 'Unpaid';
   if (paidAmount >= overallPrice) return 'Paid in Full';

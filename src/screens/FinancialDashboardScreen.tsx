@@ -12,7 +12,7 @@ import { Expense } from '../types/expense';
 import { CustomButton } from '../components/CustomButton';
 import { TextField } from '../components/TextField';
 import { dialPhone, openWhatsapp } from '../utils/contact';
-import { aggregateTotals, dayKey, monthKey, qtyOn } from '../utils/finance';
+import { aggregateTotals, buyListForOpenCalls, dayKey, monthKey } from '../utils/finance';
 import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
@@ -56,6 +56,13 @@ export function FinancialDashboardScreen() {
     0
   );
 
+  // Shopping list: what OPEN jobs need beyond what's on hand (warehouse +
+  // crews). Per item: units to BUY and their cost at the actual (cost) price.
+  const [stockOpen, setStockOpen] = useState(false);
+  const buyList = useMemo(() => buyListForOpenCalls(calls, items), [calls, items]);
+  const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
+  const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
+
   // This month's Israeli taxes (VAT, income tax, national insurance).
   const monthTax = useMemo(() => {
     const month = monthKey(new Date());
@@ -68,8 +75,9 @@ export function FinancialDashboardScreen() {
       equipment: mt.equipment,
       crew: mt.payouts,
       expenses: monthExpenses,
+      toBuy: buyCost,
     });
-  }, [calls, fins, items, monthExpenses]);
+  }, [calls, fins, items, monthExpenses, buyCost]);
   // A day carries the month's expenses divided by the owner's WORK days.
   const dayExpenses = monthExpenses / workDaysInMonth(profile?.availability?.days);
 
@@ -115,33 +123,6 @@ export function FinancialDashboardScreen() {
         .sort((a, b) => b.balance - a.balance),
     [calls, fins, day]
   );
-
-  // Shopping list: what OPEN jobs need beyond what's on hand (warehouse +
-  // crews). Per item: units to BUY and their cost at the actual (cost) price.
-  const [stockOpen, setStockOpen] = useState(false);
-  const buyList = useMemo(() => {
-    const need = new Map<string, number>();
-    calls.forEach((c) => {
-      if (c.status === 'completed') return;
-      const checked = new Set(c.checkedItems ?? []);
-      (c.requiredItems ?? []).forEach((id) => {
-        if (checked.has(id)) return; // already pulled for the job
-        need.set(id, (need.get(id) ?? 0) + qtyOn(c, id));
-      });
-    });
-    return Array.from(need.entries())
-      .map(([id, qty]) => {
-        const item = items.find((i) => i.id === id);
-        const stock = item ? Object.values(item.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
-        const buy = Math.max(0, qty - stock);
-        const price = item?.price ?? 0;
-        return { id, name: item?.itemName ?? '—', qty, stock, buy, price, cost: buy * price };
-      })
-      .filter((n) => n.buy > 0)
-      .sort((a, b) => b.cost - a.cost);
-  }, [calls, items]);
-  const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
-  const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
   // Totals of the jobs scheduled on `day` (revenue = client price; costs/profit
   // per the dashboard formula: profit = revenue − equipment − crew).

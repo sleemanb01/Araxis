@@ -70,11 +70,13 @@ export function monthlyTaxes(input: {
   equipment: number; // equipment cost (incl. VAT)
   crew: number; // crew payouts (wages, no VAT)
   expenses: number; // general expenses (incl. VAT)
+  toBuy?: number; // ציוד לקנייה — shortages open jobs still need purchased
 }): TaxBreakdown {
   const vat = (input.revenue - input.equipment - input.expenses) * (VAT_RATE / (1 + VAT_RATE));
   // Owner's convention: EVERYTHING at face value, VAT included — revenue,
   // expenses and equipment as billed/paid; crew wages carry no VAT anyway.
-  const preTax = input.revenue - input.expenses - input.equipment - input.crew;
+  // The pending shopping list also comes off the pre-tax number.
+  const preTax = input.revenue - input.expenses - input.equipment - input.crew - (input.toBuy ?? 0);
   const incomeTax = incomeTaxMonthly(preTax);
   const nationalInsurance = nationalInsuranceMonthly(preTax);
   return { vat, preTax, incomeTax, nationalInsurance, net: preTax - incomeTax - nationalInsurance };

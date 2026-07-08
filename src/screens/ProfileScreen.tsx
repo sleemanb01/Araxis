@@ -16,7 +16,7 @@ import { subscribeToExpenses } from '../services/expenseService';
 import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
-import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, monthKey, dayKey } from '../utils/finance';
+import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, buyListForOpenCalls, monthKey, dayKey } from '../utils/finance';
 import { monthlyTaxes, directTaxRate } from '../utils/tax';
 import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
@@ -134,11 +134,13 @@ export function ProfileScreen() {
       (s, e) => s + (e.createdAt.slice(0, 7) === month ? e.amount : 0),
       0
     );
+    const toBuy = buyListForOpenCalls(calls, items).reduce((s, n) => s + n.cost, 0);
     return monthlyTaxes({
       revenue: totals.gross,
       equipment: totals.equipment,
       crew: totals.payouts,
       expenses: monthExp,
+      toBuy,
     });
   }, [calls, fins, items, expenses]);
   // Monthly ring: NET after-tax — revenue − costs − expenses − VAT −
