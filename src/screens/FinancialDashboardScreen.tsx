@@ -14,8 +14,8 @@ import { TextField } from '../components/TextField';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { isViewerReadOnly } from '../services/demoMode';
 import { dialPhone, openWhatsapp } from '../utils/contact';
-import { aggregateTotals, buyListForOpenCalls, dayKey } from '../utils/finance';
-import { monthlyTaxes, directTaxRate, VAT_RATE } from '../utils/tax';
+import { aggregateTotals, buyListForOpenCalls, monthPocketTaxes, dayKey } from '../utils/finance';
+import { directTaxRate, VAT_RATE } from '../utils/tax';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
 import { Colors } from '../constants/colors';
@@ -87,19 +87,11 @@ export function FinancialDashboardScreen() {
   const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
   const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
-  // Taxes over the CURRENT BOOK — the very same aggregates the cards above
-  // show, so the screen's arithmetic adds up exactly:
-  // revenue − expenses − equipment/1.18 − crew − shopping list.
+  // This month's taxes on a CASH basis — the MONTHLY POCKET (same shared
+  // implementation as the dashboard ring, so the two always agree).
   const monthTax = useMemo(
-    () =>
-      monthlyTaxes({
-        revenue: t.gross,
-        equipment: t.equipment,
-        crew: t.payouts,
-        expenses: monthExpenses,
-        toBuy: buyCost,
-      }),
-    [t, monthExpenses, buyCost]
+    () => monthPocketTaxes(calls, fins, payments, items, monthExpenses),
+    [calls, fins, payments, items, monthExpenses]
   );
   // A day carries the month's expenses divided by the owner's WORK days.
   const dayExpenses = monthExpenses / workDaysInMonth(profile?.availability?.days);

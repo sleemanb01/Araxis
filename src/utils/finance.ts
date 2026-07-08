@@ -4,6 +4,8 @@
  */
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { InventoryItem } from '../types/inventory';
+import { Payment } from '../types/payment';
+import { monthlyTaxes, TaxBreakdown } from './tax';
 
 export type FinancialStatus = 'Unpaid' | 'Partial' | 'Paid in Full';
 
@@ -164,6 +166,46 @@ export function buyListForOpenCalls(calls: ServiceCall[], items: InventoryItem[]
     })
     .filter((n) => n.buy > 0)
     .sort((a, b) => b.cost - a.cost);
+}
+
+/**
+ * The month's tax breakdown on a CASH basis — the MONTHLY POCKET. Revenue is
+ * the money actually received this month by payment date (manual "שולם"
+ * leftovers with no records fall back to the job's date); costs follow the
+ * owner's formula from the month's jobs, plus general expenses and the open
+ * shopping list. One implementation for the ring AND the details screen.
+ */
+export function monthPocketTaxes(
+  calls: ServiceCall[],
+  fins: (PrivateFinancials | null)[],
+  payments: Payment[],
+  items: InventoryItem[],
+  monthExpenses: number
+): TaxBreakdown {
+  const month = monthKey(new Date());
+  let pocket = 0;
+  const paidByCall: Record<string, number> = {};
+  payments.forEach((p) => {
+    if (p.status !== 'issued') return;
+    if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
+    if ((p.date || p.createdAt).slice(0, 7) === month) pocket += p.amount;
+  });
+  calls.forEach((c, i) => {
+    const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
+    if (manual > 0 && monthKey(new Date(c.scheduledDate)) === month) pocket += manual;
+  });
+  const pairs = calls
+    .map((c, i) => [c, fins[i]] as const)
+    .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
+  const totals = aggregateTotals(pairs.map(([c]) => c), pairs.map(([, f]) => f), items);
+  const toBuy = buyListForOpenCalls(calls, items).reduce((s, n) => s + n.cost, 0);
+  return monthlyTaxes({
+    revenue: pocket,
+    equipment: totals.equipment,
+    crew: totals.payouts,
+    expenses: monthExpenses,
+    toBuy,
+  });
 }
 
 export function financialStatus(overallPrice: number, paidAmount: number): FinancialStatus {

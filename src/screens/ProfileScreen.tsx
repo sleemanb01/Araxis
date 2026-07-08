@@ -16,8 +16,8 @@ import { subscribeToExpenses } from '../services/expenseService';
 import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
-import { monthlyProfit, callProfit, itemPriceMap, aggregateTotals, buyListForOpenCalls, monthKey, dayKey } from '../utils/finance';
-import { monthlyTaxes, directTaxRate } from '../utils/tax';
+import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, monthKey, dayKey } from '../utils/finance';
+import { directTaxRate } from '../utils/tax';
 import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -122,40 +122,12 @@ export function ProfileScreen() {
   );
   const dailyExpenseShare = monthExpensesNow / workDaysInMonth(profile?.availability?.days);
 
-  // This month's Israeli taxes (VAT, income tax, national insurance). Revenue
-  // is the MONTHLY POCKET — money actually received this month by payment date
-  // (manual "שולם" leftovers fall back to the job's date) — NOT the jobs'
-  // billed prices. Costs stay per the month's jobs (owner's formula).
-  const monthTax = useMemo(() => {
-    const month = monthKey(new Date());
-    let pocket = 0;
-    const paidByCall: Record<string, number> = {};
-    payments.forEach((p) => {
-      if (p.status !== 'issued') return;
-      if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
-      if ((p.date || p.createdAt).slice(0, 7) === month) pocket += p.amount;
-    });
-    calls.forEach((c, i) => {
-      const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
-      if (manual > 0 && monthKey(new Date(c.scheduledDate)) === month) pocket += manual;
-    });
-    const pairs = calls
-      .map((c, i) => [c, fins[i]] as const)
-      .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
-    const totals = aggregateTotals(pairs.map(([c]) => c), pairs.map(([, f]) => f), items);
-    const monthExp = expenses.reduce(
-      (s, e) => s + (e.createdAt.slice(0, 7) === month ? e.amount : 0),
-      0
-    );
-    const toBuy = buyListForOpenCalls(calls, items).reduce((s, n) => s + n.cost, 0);
-    return monthlyTaxes({
-      revenue: pocket,
-      equipment: totals.equipment,
-      crew: totals.payouts,
-      expenses: monthExp,
-      toBuy,
-    });
-  }, [payments, calls, fins, items, expenses]);
+  // This month's Israeli taxes on a CASH basis — the MONTHLY POCKET (shared
+  // implementation with the details screen).
+  const monthTax = useMemo(
+    () => monthPocketTaxes(calls, fins, payments, items, monthExpensesNow),
+    [calls, fins, payments, items, monthExpensesNow]
+  );
   // Monthly ring: NET after-tax — revenue − costs − expenses − VAT −
   // income tax − national insurance.
   const monthProfit = monthTax.net;
