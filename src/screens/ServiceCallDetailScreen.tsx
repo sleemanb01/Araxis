@@ -12,7 +12,7 @@ import { useUser } from '../context/UserContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { useInventory } from '../context/InventoryContext';
 import { subscribeToCall, subscribeToFinancials, setFinancials, updateServiceCall } from '../services/serviceCallService';
-import { subscribeToPayments, issuePaymentDocument, addJobPayment } from '../services/paymentService';
+import { subscribeToPayments, issuePaymentDocument, addJobPayment, deletePayment } from '../services/paymentService';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { Payment, PAYMENT_METHOD_HE, PAYMENT_STATUS_HE, DOC_KIND_HE } from '../types/payment';
@@ -538,6 +538,26 @@ export function ServiceCallDetailScreen() {
                             hitSlop={6}
                           >
                             <Ionicons name="refresh" size={20} color={Colors.danger} />
+                          </TouchableOpacity>
+                        )}
+                        {!readOnly && !p.morningDocumentId && (
+                          <TouchableOpacity
+                            onPress={() =>
+                              Alert.alert('מחיקת תשלום', `למחוק תשלום של ₪${p.amount.toLocaleString('he-IL')}?`, [
+                                { text: 'ביטול', style: 'cancel' },
+                                {
+                                  text: 'מחק',
+                                  style: 'destructive',
+                                  onPress: () =>
+                                    deletePayment(callId, p.id)
+                                      .then(invalidateFinancialData)
+                                      .catch((e: any) => Alert.alert('שגיאה', e?.message ?? 'המחיקה נכשלה.')),
+                                },
+                              ])
+                            }
+                            hitSlop={6}
+                          >
+                            <Ionicons name="trash-outline" size={20} color={Colors.danger} />
                           </TouchableOpacity>
                         )}
                       </View>

@@ -9,7 +9,7 @@
  */
 import { getApp } from '@react-native-firebase/app';
 import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
-import { collection, collectionGroup, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
+import { collection, collectionGroup, deleteDoc, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable } from './demoMode';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
@@ -135,6 +135,24 @@ export async function addJobPayment(input: {
     createdAt: new Date().toISOString(),
   });
   await setDoc(finRef, { paidAmount: baseIssued + amount }, { merge: true });
+}
+
+/**
+ * Delete a wrongly-entered payment and re-sync the job's paid amount to the
+ * remaining records. Local mode only — an issued Morning document is an
+ * accounting record and must be cancelled there, not deleted here.
+ */
+export async function deletePayment(callId: string, paymentId: string): Promise<void> {
+  assertWritable();
+  if (MORNING_ENABLED) throw new Error('לתשלום הופק מסמך — יש לבטל אותו במורנינג.');
+  await deleteDoc(doc(db, CALLS, callId, 'payments', paymentId));
+  const paysSnap = await getDocs(collection(db, CALLS, callId, 'payments'));
+  let issued = 0;
+  paysSnap.docs.forEach((d) => {
+    const p = d.data() as any;
+    if (p.status === 'issued' && typeof p.amount === 'number') issued += p.amount;
+  });
+  await setDoc(doc(db, CALLS, callId, 'privateData', 'financials'), { paidAmount: issued }, { merge: true });
 }
 
 /** Issue (or retry) the Morning document for a payment (Morning mode only). */
