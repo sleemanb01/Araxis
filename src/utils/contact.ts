@@ -1,13 +1,23 @@
 import { Alert, Linking } from 'react-native';
+import { isViewerReadOnly } from '../services/demoMode';
+
+/** The read-only viewer must not reach out of the app (real customer data). */
+function viewerBlocked(): boolean {
+  if (!isViewerReadOnly()) return false;
+  Alert.alert('מצב צפייה', 'חיוג, וואטסאפ וניווט מושבתים במצב צפייה.');
+  return true;
+}
 
 /** Open the phone dialer for a number (E.164 or local). */
 export function dialPhone(phone: string) {
+  if (viewerBlocked()) return;
   Linking.openURL(`tel:${phone}`).catch(() => Alert.alert('שגיאה', 'לא ניתן לחייג.'));
 }
 
 /** Open a WhatsApp chat with a number (optionally pre-filled with `text`).
  *  https://wa.me wants digits only. */
 export function openWhatsapp(phone: string, text?: string) {
+  if (viewerBlocked()) return;
   const digits = phone.replace(/\D/g, '');
   const suffix = text ? `?text=${encodeURIComponent(text)}` : '';
   Linking.openURL(`https://wa.me/${digits}${suffix}`).catch(() =>
@@ -34,6 +44,7 @@ export function openNavigation(
   current: NavApp | undefined,
   onChoose: (app: NavApp) => void
 ) {
+  if (viewerBlocked()) return;
   const go = (app: NavApp) =>
     Linking.openURL(navUrl(app, address)).catch(() => Alert.alert('שגיאה', 'לא ניתן לפתוח ניווט.'));
   if (current === 'waze' || current === 'google') {
