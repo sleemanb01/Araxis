@@ -5,6 +5,7 @@
 import { collection, doc, addDoc, deleteDoc, onSnapshot } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable } from './demoMode';
+import { awaitWrite } from '../utils/promise';
 import { Supplier } from '../types/supplier';
 
 const SUPPLIERS = 'suppliers';
@@ -39,15 +40,17 @@ export function subscribeToSuppliers(
 
 export async function addSupplier(name: string, phone: string, contact?: string): Promise<void> {
   assertWritable();
-  await addDoc(collection(db, SUPPLIERS), {
-    name,
-    phone,
-    ...(contact ? { contact } : {}),
-    createdAt: new Date().toISOString(),
-  });
+  await awaitWrite(
+    addDoc(collection(db, SUPPLIERS), {
+      name,
+      phone,
+      ...(contact ? { contact } : {}),
+      createdAt: new Date().toISOString(),
+    })
+  );
 }
 
 export async function deleteSupplier(id: string): Promise<void> {
   assertWritable();
-  await deleteDoc(doc(db, SUPPLIERS, id));
+  await awaitWrite(deleteDoc(doc(db, SUPPLIERS, id)));
 }

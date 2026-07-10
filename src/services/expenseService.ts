@@ -5,6 +5,7 @@
 import { collection, doc, addDoc, deleteDoc, onSnapshot } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable } from './demoMode';
+import { awaitWrite } from '../utils/promise';
 import { Expense } from '../types/expense';
 
 const EXPENSES = 'expenses';
@@ -33,10 +34,10 @@ export function subscribeToExpenses(
 
 export async function addExpense(name: string, amount: number): Promise<void> {
   assertWritable();
-  await addDoc(collection(db, EXPENSES), { name, amount, createdAt: new Date().toISOString() });
+  await awaitWrite(addDoc(collection(db, EXPENSES), { name, amount, createdAt: new Date().toISOString() }));
 }
 
 export async function deleteExpense(id: string): Promise<void> {
   assertWritable();
-  await deleteDoc(doc(db, EXPENSES, id));
+  await awaitWrite(deleteDoc(doc(db, EXPENSES, id)));
 }

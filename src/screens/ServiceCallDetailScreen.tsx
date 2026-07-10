@@ -55,6 +55,7 @@ export function ServiceCallDetailScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [payOpen, setPayOpen] = useState(false);
+  const [finSaving, setFinSaving] = useState(false);
   const [reschedOpen, setReschedOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
 
@@ -153,6 +154,7 @@ export function ServiceCallDetailScreen() {
   }
 
   async function saveFinancials() {
+    setFinSaving(true);
     try {
       if (caps.viewFinancials) {
         // Paid money is read-only here — it moves only through the payments
@@ -166,6 +168,8 @@ export function ServiceCallDetailScreen() {
       Alert.alert('נשמר', 'הכספים עודכנו.');
     } catch (e: any) {
       Alert.alert('שגיאה', e?.message ?? 'שמירת הכספים נכשלה.');
+    } finally {
+      setFinSaving(false);
     }
   }
 
@@ -456,7 +460,7 @@ export function ServiceCallDetailScreen() {
               <Text style={styles.line}>עלות ציוד: ₪{equipmentCost.toLocaleString('he-IL')}</Text>
             )}
             {!readOnly && !isDone && (
-              <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} style={styles.btnFin} />
+              <CustomButton label="שמור כספים" variant="secondary" onPress={saveFinancials} loading={finSaving} style={styles.btnFin} />
             )}
 
             {caps.viewFinancials && (

@@ -8,7 +8,7 @@
 import {
   collection,
   doc,
-  addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   getDocs,
@@ -18,6 +18,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable } from './demoMode';
+import { awaitWrite } from '../utils/promise';
 import { InventoryItem, CreateInventoryPayload, WAREHOUSE, crewLocation } from '../types/inventory';
 
 const INVENTORY = 'inventory';
@@ -67,7 +68,7 @@ export async function adjustQuantity(
   delta: number
 ): Promise<void> {
   assertWritable();
-  await updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) });
+  await awaitWrite(updateDoc(doc(db, INVENTORY, id), { [`locations.${location}`]: increment(delta) }));
 }
 
 /**
@@ -96,7 +97,7 @@ export async function withdrawToCrew(
     type: 'withdraw',
     createdAt: new Date().toISOString(),
   });
-  await batch.commit();
+  await awaitWrite(batch.commit());
 }
 
 /**
@@ -125,12 +126,14 @@ export async function returnToWarehouse(
     type: 'return',
     createdAt: new Date().toISOString(),
   });
-  await batch.commit();
+  await awaitWrite(batch.commit());
 }
 
 export async function createInventoryItem(payload: CreateInventoryPayload): Promise<string> {
   assertWritable();
-  const ref = await addDoc(collection(db, INVENTORY), payload);
+  // Local id → creating an item works offline; the write queues and syncs.
+  const ref = doc(collection(db, INVENTORY));
+  await awaitWrite(setDoc(ref, payload));
   return ref.id;
 }
 
@@ -139,10 +142,10 @@ export async function updateInventoryItem(
   patch: Partial<InventoryItem>
 ): Promise<void> {
   assertWritable();
-  await updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any });
+  await awaitWrite(updateDoc(doc(db, INVENTORY, id), patch as { [k: string]: any }));
 }
 
 export async function deleteInventoryItem(id: string): Promise<void> {
   assertWritable();
-  await deleteDoc(doc(db, INVENTORY, id));
+  await awaitWrite(deleteDoc(doc(db, INVENTORY, id)));
 }

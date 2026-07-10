@@ -12,6 +12,7 @@ import { getFunctions, httpsCallable } from '@react-native-firebase/functions';
 import { collection, collectionGroup, deleteDoc, doc, getDoc, getDocs, onSnapshot, setDoc } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable } from './demoMode';
+import { awaitWrite } from '../utils/promise';
 import { Payment, PaymentMethod, DocKind } from '../types/payment';
 
 /** Flip to true once the Morning secrets are set and the callables deployed. */
@@ -125,16 +126,18 @@ export async function addJobPayment(input: {
     );
   }
 
-  await setDoc(doc(collection(db, CALLS, input.callId, 'payments')), {
-    amount,
-    method: input.method,
-    date: input.date || new Date().toISOString().slice(0, 10),
-    note: input.note || '',
-    docKind: input.docKind ?? 'receipt',
-    status: 'issued', // counts as received; no document in local mode
-    createdAt: new Date().toISOString(),
-  });
-  await setDoc(finRef, { paidAmount: baseIssued + amount }, { merge: true });
+  await awaitWrite(
+    setDoc(doc(collection(db, CALLS, input.callId, 'payments')), {
+      amount,
+      method: input.method,
+      date: input.date || new Date().toISOString().slice(0, 10),
+      note: input.note || '',
+      docKind: input.docKind ?? 'receipt',
+      status: 'issued', // counts as received; no document in local mode
+      createdAt: new Date().toISOString(),
+    })
+  );
+  await awaitWrite(setDoc(finRef, { paidAmount: baseIssued + amount }, { merge: true }));
 }
 
 /**
@@ -145,14 +148,16 @@ export async function addJobPayment(input: {
 export async function deletePayment(callId: string, paymentId: string): Promise<void> {
   assertWritable();
   if (MORNING_ENABLED) throw new Error('לתשלום הופק מסמך — יש לבטל אותו במורנינג.');
-  await deleteDoc(doc(db, CALLS, callId, 'payments', paymentId));
+  await awaitWrite(deleteDoc(doc(db, CALLS, callId, 'payments', paymentId)));
   const paysSnap = await getDocs(collection(db, CALLS, callId, 'payments'));
   let issued = 0;
   paysSnap.docs.forEach((d) => {
     const p = d.data() as any;
     if (p.status === 'issued' && typeof p.amount === 'number') issued += p.amount;
   });
-  await setDoc(doc(db, CALLS, callId, 'privateData', 'financials'), { paidAmount: issued }, { merge: true });
+  await awaitWrite(
+    setDoc(doc(db, CALLS, callId, 'privateData', 'financials'), { paidAmount: issued }, { merge: true })
+  );
 }
 
 /** Issue (or retry) the Morning document for a payment (Morning mode only). */

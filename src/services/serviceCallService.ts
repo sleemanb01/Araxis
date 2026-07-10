@@ -9,7 +9,6 @@ import {
   collection,
   collectionGroup,
   doc,
-  addDoc,
   updateDoc,
   setDoc,
   onSnapshot,
@@ -18,6 +17,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable, isViewerReadOnly } from './demoMode';
+import { awaitWrite } from '../utils/promise';
 import {
   ServiceCall,
   ServiceCallStatus,
@@ -133,7 +133,10 @@ export async function getAllFinancialsCG(): Promise<Record<string, PrivateFinanc
 
 export async function createServiceCall(payload: CreateServiceCallPayload): Promise<string> {
   assertWritable();
-  const ref = await addDoc(collection(db, CALLS), payload);
+  // The doc id is generated LOCALLY, so creating a job works offline too: the
+  // write queues, the listeners echo it instantly, and the id returns now.
+  const ref = doc(collection(db, CALLS));
+  await awaitWrite(setDoc(ref, payload));
   return ref.id;
 }
 
@@ -142,7 +145,7 @@ export async function updateServiceCall(
   patch: Partial<ServiceCall>
 ): Promise<void> {
   assertWritable();
-  await updateDoc(doc(db, CALLS, id), patch as { [k: string]: any });
+  await awaitWrite(updateDoc(doc(db, CALLS, id), patch as { [k: string]: any }));
 }
 
 // ---- Admin-only financials (privateData subcollection) ----
@@ -170,5 +173,5 @@ export async function setFinancials(
   fin: PrivateFinancials
 ): Promise<void> {
   assertWritable();
-  await setDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS), fin, { merge: true });
+  await awaitWrite(setDoc(doc(db, CALLS, callId, 'privateData', FINANCIALS), fin, { merge: true }));
 }

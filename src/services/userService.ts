@@ -17,6 +17,7 @@ import {
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { assertWritable } from './demoMode';
+import { awaitWrite } from '../utils/promise';
 import { UserProfile, Availability, toCaps, NO_CAPS } from '../types/user';
 
 const USERS = 'users';
@@ -57,7 +58,7 @@ export async function updateProfile(
   data: Partial<UserProfile>
 ): Promise<void> {
   assertWritable();
-  await updateDoc(doc(db, USERS, uid), data as { [k: string]: any });
+  await awaitWrite(updateDoc(doc(db, USERS, uid), data as { [k: string]: any }));
 }
 
 /**
@@ -71,16 +72,18 @@ export async function createPendingProfile(
   opts?: { phone?: string; services?: string[]; availability?: Availability }
 ): Promise<void> {
   assertWritable();
-  await setDoc(doc(db, USERS, uid), {
-    uid,
-    name,
-    caps: NO_CAPS, // no access until an admin provisions capabilities (+ claim)
-    teamId: '',
-    ...(opts?.phone ? { phone: opts.phone } : {}),
-    ...(opts?.services?.length ? { services: opts.services } : {}),
-    ...(opts?.availability ? { availability: opts.availability } : {}),
-    createdAt: new Date().toISOString(),
-  });
+  await awaitWrite(
+    setDoc(doc(db, USERS, uid), {
+      uid,
+      name,
+      caps: NO_CAPS, // no access until an admin provisions capabilities (+ claim)
+      teamId: '',
+      ...(opts?.phone ? { phone: opts.phone } : {}),
+      ...(opts?.services?.length ? { services: opts.services } : {}),
+      ...(opts?.availability ? { availability: opts.availability } : {}),
+      createdAt: new Date().toISOString(),
+    })
+  );
 }
 
 /** Resolve a set of users by uid (chunked `in` queries). Used to show only a
