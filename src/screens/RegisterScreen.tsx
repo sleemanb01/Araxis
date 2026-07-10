@@ -5,8 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CustomButton } from '../components/CustomButton';
@@ -83,8 +81,14 @@ export function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      {/* No KeyboardAvoidingView here: together with the ScrollView's own
+          scroll-to-input it double-compensates and over-scrolls. The inset
+          adjustment alone keeps the focused field visible. */}
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+      >
           <Text style={styles.title}>השלמת רישום</Text>
           <Text style={styles.subtitle}>
             הזן את פרטיך. מנהל המערכת ישייך אותך לצוות ולהרשאות.
@@ -162,15 +166,13 @@ export function RegisterScreen() {
             style={styles.btn}
           />
           <CustomButton label="התנתק" variant="ghost" onPress={signOut} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  flex: { flex: 1 },
   container: { padding: Layout.screenPadding * 1.5, paddingTop: 40, paddingBottom: 40 },
   title: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 },
   subtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', marginBottom: 24 },
