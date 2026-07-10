@@ -18,7 +18,7 @@ import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, pocketFor, monthKey, dayKey } from '../utils/finance';
 import { directTaxRate, VAT_RATE } from '../utils/tax';
-import { isViewerReadOnly } from '../services/demoMode';
+import { isViewerReadOnly, viewerBlocked } from '../services/demoMode';
 import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -262,11 +262,10 @@ export function ProfileScreen() {
             <CustomButton
               label="ייצוא נתונים"
               variant="secondary"
-              onPress={() =>
-                isViewerReadOnly()
-                  ? Alert.alert('מצב צפייה', 'ייצוא ומחיקת נתונים מושבתים במצב צפייה.')
-                  : setExportOpen(true)
-              }
+              onPress={() => {
+                if (viewerBlocked('ייצוא ומחיקת נתונים מושבתים במצב צפייה.')) return;
+                setExportOpen(true);
+              }}
               style={styles.exportBtn}
             />
           </>

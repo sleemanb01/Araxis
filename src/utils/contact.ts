@@ -1,12 +1,8 @@
 import { Alert, Linking } from 'react-native';
-import { isViewerReadOnly } from '../services/demoMode';
+import { viewerBlocked as viewerBlockedWith } from '../services/demoMode';
 
 /** The read-only viewer must not reach out of the app (real customer data). */
-function viewerBlocked(): boolean {
-  if (!isViewerReadOnly()) return false;
-  Alert.alert('מצב צפייה', 'חיוג, וואטסאפ וניווט מושבתים במצב צפייה.');
-  return true;
-}
+const viewerBlocked = () => viewerBlockedWith('חיוג, וואטסאפ וניווט מושבתים במצב צפייה.');
 
 /** Open the phone dialer for a number (E.164 or local). */
 export function dialPhone(phone: string) {

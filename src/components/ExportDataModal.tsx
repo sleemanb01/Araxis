@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Modal, Alert, Share, Platform } from 'react-nat
 import * as FileSystem from 'expo-file-system/legacy';
 import { CustomButton } from './CustomButton';
 import { archiveAndErase } from '../services/archiveService';
-import { isViewerReadOnly } from '../services/demoMode';
+import { viewerBlocked } from '../services/demoMode';
 import { buildProfitCsv } from '../utils/report';
 import { monthlyProfit, dayKey } from '../utils/finance';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
@@ -26,10 +26,7 @@ export function ExportDataModal({ visible, onClose, calls, fins, items, onErased
 
   async function download() {
     // The read-only viewer must not take real data out of the app.
-    if (isViewerReadOnly()) {
-      Alert.alert('מצב צפייה', 'הורדת נתונים מושבתת במצב צפייה.');
-      return;
-    }
+    if (viewerBlocked('הורדת נתונים מושבתת במצב צפייה.')) return;
     try {
       setBusy(true);
       const csv = '﻿' + buildProfitCsv(calls, fins, items);

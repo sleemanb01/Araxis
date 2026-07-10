@@ -13,6 +13,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
+import { awaitWrite } from '../utils/promise';
 import { ServiceOption } from '../types/serviceCatalog';
 
 const SERVICES = 'services';
@@ -45,6 +46,6 @@ export async function addService(name: string): Promise<string> {
   const trimmed = name.trim();
   if (!trimmed) return '';
   const existing = await getDocs(query(collection(db, SERVICES), where('name', '==', trimmed)));
-  if (existing.empty) await addDoc(collection(db, SERVICES), { name: trimmed });
+  if (existing.empty) await awaitWrite(addDoc(collection(db, SERVICES), { name: trimmed }));
   return trimmed;
 }

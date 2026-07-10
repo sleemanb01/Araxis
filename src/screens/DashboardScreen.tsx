@@ -82,8 +82,6 @@ const DayStrip = React.memo(function DayStrip({
   );
 });
 
-const callKeyOf = (c: ServiceCall) => c.id;
-const monthKeyOf = (m: { month: string }) => m.month;
 
 export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
@@ -306,7 +304,7 @@ export function DashboardScreen() {
       {searchResults ? (
         <FlatList
           data={searchResults}
-          keyExtractor={callKeyOf}
+          keyExtractor={(c) => c.id}
           renderItem={renderJob}
           ListHeaderComponent={header}
           ListEmptyComponent={<Text style={styles.empty}>לא נמצאו עבודות.</Text>}
@@ -317,7 +315,7 @@ export function DashboardScreen() {
       ) : tab === 'schedule' ? (
         <FlatList
           data={dayJobs}
-          keyExtractor={callKeyOf}
+          keyExtractor={(c) => c.id}
           renderItem={renderJob}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
@@ -327,7 +325,7 @@ export function DashboardScreen() {
       ) : (
         <FlatList
           data={months}
-          keyExtractor={monthKeyOf}
+          keyExtractor={(m) => m.month}
           renderItem={renderMonth}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}

@@ -155,6 +155,7 @@ export function buyListForOpenCalls(calls: ServiceCall[], items: InventoryItem[]
       need.set(id, (need.get(id) ?? 0) + qtyOn(c, id));
     });
   });
+  if (need.size === 0) return []; // nothing to buy — skip building the index
   const byId = new Map(items.map((i) => [i.id, i])); // once, not per entry
   return Array.from(need.entries())
     .map(([id, qty]) => {
