@@ -14,7 +14,7 @@ import { TextField } from '../components/TextField';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { isViewerReadOnly } from '../services/demoMode';
 import { dialPhone, openWhatsapp } from '../utils/contact';
-import { aggregateTotals, buyListForOpenCalls, monthPocketTaxes, dayKey } from '../utils/finance';
+import { aggregateTotals, buyListForOpenCalls, monthPocketTaxes, pocketFor, dayKey } from '../utils/finance';
 import { directTaxRate, VAT_RATE } from '../utils/tax';
 import { ils } from '../utils/format';
 import { PAYMENT_METHOD_HE } from '../types/payment';
@@ -181,7 +181,7 @@ export function FinancialDashboardScreen() {
                         onPress={() =>
                           openWhatsapp(
                             call.contactPhone!,
-                            `שלום ${call.clientName}, תזכורת ליתרת תשלום של ₪${Math.round(balance).toLocaleString('he-IL')}.`
+                            `שלום ${call.clientName}, תזכורת ליתרת תשלום של ${ils(balance)}.`
                           )
                         }
                         hitSlop={6}
@@ -208,17 +208,8 @@ export function FinancialDashboardScreen() {
   );
 
   if (day && dayT) {
-    // The day's POCKET: payments received on `day` plus manual "שולם"
-    // leftovers of jobs scheduled that day — same cash basis as the month.
-    const paidByCall: Record<string, number> = {};
-    payments.forEach((p) => {
-      if (p.status === 'issued' && p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
-    });
-    let dayCollected = dayPays.reduce((s, p) => s + p.amount, 0);
-    calls.forEach((c, i) => {
-      const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
-      if (manual > 0 && dayKey(new Date(c.scheduledDate)) === day) dayCollected += manual;
-    });
+    // The day's POCKET — same shared cash-basis computation as the month.
+    const dayCollected = pocketFor(day, calls, fins, payments);
     // Day taxes: VAT is transactional (exact); income tax + NI use the month's
     // effective rate, split by the month's proportions — an estimate.
     const dayVat = (dayCollected - dayT.equipment - dayExpenses) * (VAT_RATE / (1 + VAT_RATE));

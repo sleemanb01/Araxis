@@ -16,7 +16,7 @@ import { useInventory } from '../context/InventoryContext';
 import { useLiveMetrics } from '../context/LiveMetricsContext';
 import { openWhatsapp } from '../utils/contact';
 import { containsCI } from '../utils/format';
-import { qtyOn } from '../utils/finance';
+import { buyListForOpenCalls } from '../utils/finance';
 import { BUSINESS_NAME } from '../constants/business';
 import { Supplier } from '../types/supplier';
 import { Colors } from '../constants/colors';
@@ -48,26 +48,10 @@ export function SupplierOrderModal({
   const nameOf = (id: string) => items.find((i) => i.id === id)?.itemName ?? '—';
   const qtyOf = (l: Line) => Math.max(1, parseInt(l.qty, 10) || 1);
 
-  // Prefill with the shopping list when the modal opens.
+  // Prefill with the shopping list when the modal opens (shared rules).
   useEffect(() => {
     if (!supplier) return;
-    const need = new Map<string, number>();
-    calls.forEach((c) => {
-      if (c.status === 'completed') return;
-      const checked = new Set(c.checkedItems ?? []);
-      (c.requiredItems ?? []).forEach((id) => {
-        if (checked.has(id)) return;
-        need.set(id, (need.get(id) ?? 0) + qtyOn(c, id));
-      });
-    });
-    const prefill: Line[] = [];
-    need.forEach((qty, id) => {
-      const it = items.find((i) => i.id === id);
-      const stock = it ? Object.values(it.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
-      const buy = Math.max(0, qty - stock);
-      if (buy > 0) prefill.push({ id, qty: String(buy) });
-    });
-    setLines(prefill);
+    setLines(buyListForOpenCalls(calls, items).map((n) => ({ id: n.id, qty: String(n.buy) })));
     setAdding(false);
     setSearch('');
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -16,7 +16,7 @@ import { subscribeToExpenses } from '../services/expenseService';
 import { Expense } from '../types/expense';
 import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
-import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, monthKey, dayKey } from '../utils/finance';
+import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, pocketFor, monthKey, dayKey } from '../utils/finance';
 import { directTaxRate, VAT_RATE } from '../utils/tax';
 import { isViewerReadOnly } from '../services/demoMode';
 import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
@@ -83,24 +83,11 @@ export function ProfileScreen() {
     });
     return out;
   }, [calls, fins, items, archive, expenses]);
-  // Daily ring: money actually RECEIVED today. Payment records count by
-  // PAYMENT date; amounts typed manually into "שולם" (no payment record) fall
-  // back to the JOB's date so older data still shows.
-  const todayCollected = useMemo(() => {
-    const today = dayKey(new Date());
-    let day = 0;
-    const paidByCall: Record<string, number> = {};
-    payments.forEach((p) => {
-      if (p.status !== 'issued') return;
-      if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
-      if (p.date === today) day += p.amount;
-    });
-    calls.forEach((c, i) => {
-      const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
-      if (manual > 0 && dayKey(new Date(c.scheduledDate)) === today) day += manual;
-    });
-    return day;
-  }, [payments, calls, fins]);
+  // Daily ring: money actually RECEIVED today (shared pocket computation).
+  const todayCollected = useMemo(
+    () => pocketFor(dayKey(new Date()), calls, fins, payments),
+    [payments, calls, fins]
+  );
 
   const crewProfits = useMemo(() => {
     const priceMap = itemPriceMap(items);

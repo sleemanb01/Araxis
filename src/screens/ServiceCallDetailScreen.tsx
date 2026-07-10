@@ -16,7 +16,7 @@ import { subscribeToPayments, issuePaymentDocument, deletePayment } from '../ser
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { AddPaymentModal } from '../components/AddPaymentModal';
 import { Payment, PAYMENT_METHOD_HE, PAYMENT_STATUS_HE, DOC_KIND_HE } from '../types/payment';
-import { financialStatus, FINANCIAL_STATUS_HE, qtyOn } from '../utils/finance';
+import { financialStatus, FINANCIAL_STATUS_HE, buyListForCall } from '../utils/finance';
 import { ils } from '../utils/format';
 import { adjustQuantity } from '../services/inventoryService';
 import { updateProfile } from '../services/userService';
@@ -112,19 +112,8 @@ export function ServiceCallDetailScreen() {
   const qtyOf = (id: string): number => call!.itemQuantities?.[id] ?? 1;
   const equipmentCost = reqItems.reduce((s, id) => s + (priceOf(id) ?? 0) * qtyOf(id), 0);
 
-  // THIS job's shopping list: unchecked required items beyond on-hand stock.
-  const buyList = reqItems
-    .filter((id) => !checked.has(id))
-    .map((id) => {
-      const it = items.find((i) => i.id === id);
-      const stock = it ? Object.values(it.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
-      const qty = qtyOn(call, id);
-      const buy = Math.max(0, qty - stock);
-      const price = it?.price ?? 0;
-      return { id, name: it?.itemName ?? '—', qty, stock, buy, price, cost: buy * price };
-    })
-    .filter((n) => n.buy > 0)
-    .sort((a, b) => b.cost - a.cost);
+  // THIS job's shopping list (shared shopping-list rules).
+  const buyList = buyListForCall(call, items);
   const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
   const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
   // Can't finish a job until every required item is checked off.
@@ -443,7 +432,7 @@ export function ServiceCallDetailScreen() {
                 {caps.viewFinancials && (
                   <>
                     <Text style={styles.line}>מחיר ללקוח: ₪{priceN.toLocaleString('he-IL')}</Text>
-                    <Text style={styles.line}>שולם: ₪{Math.round(paidShown).toLocaleString('he-IL')}</Text>
+                    <Text style={styles.line}>שולם: {ils(paidShown)}</Text>
                   </>
                 )}
               </>
@@ -482,8 +471,7 @@ export function ServiceCallDetailScreen() {
                 </View>
                 {priceN > 0 && (
                   <Text style={styles.paySummary}>
-                    שולם ₪{Math.round(paidShown).toLocaleString('he-IL')} · יתרה ₪
-                    {Math.round(balance).toLocaleString('he-IL')} ·{' '}
+                    שולם {ils(paidShown)} · יתרה {ils(balance)} ·{' '}
                     {FINANCIAL_STATUS_HE[financialStatus(priceN, paidShown)]}
                   </Text>
                 )}
@@ -564,7 +552,7 @@ export function ServiceCallDetailScreen() {
                   <View style={styles.payRow}>
                     <View style={styles.payActions} />
                     <View style={styles.payInfo}>
-                      <Text style={styles.payAmount}>₪{Math.round(manualPaid).toLocaleString('he-IL')}</Text>
+                      <Text style={styles.payAmount}>{ils(manualPaid)}</Text>
                       <Text style={styles.payMeta}>
                         {new Date(call.scheduledDate).toLocaleDateString('he-IL')} · רישום ידני
                       </Text>

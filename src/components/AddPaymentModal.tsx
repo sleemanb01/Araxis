@@ -5,6 +5,7 @@ import { TextField } from './TextField';
 import { addJobPayment, MORNING_ENABLED } from '../services/paymentService';
 import { invalidateFinancialData } from '../hooks/useFinancialData';
 import { PaymentMethod, DocKind, PAYMENT_METHOD_HE, DOC_KIND_HE } from '../types/payment';
+import { ils } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 
@@ -34,7 +35,7 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
       return;
     }
     if (balance != null && amt > balance + 0.005) {
-      Alert.alert('שגיאה', `הסכום גדול מהיתרה הפתוחה (₪${Math.round(balance).toLocaleString('he-IL')}).`);
+      Alert.alert('שגיאה', `הסכום גדול מהיתרה הפתוחה (${ils(balance)}).`);
       return;
     }
     setSaving(true);
@@ -64,7 +65,7 @@ export function AddPaymentModal({ visible, onClose, callId, balance }: Props) {
         <View style={styles.card}>
           <Text style={styles.title}>תשלום חדש</Text>
           {balance != null && balance > 0 && (
-            <Text style={styles.balance}>יתרה לתשלום: ₪{Math.round(balance).toLocaleString('he-IL')}</Text>
+            <Text style={styles.balance}>יתרה לתשלום: {ils(balance)}</Text>
           )}
           <TextField label="סכום שהתקבל (₪)" value={amount} onChange={setAmount} placeholder="0" keyboardType="numeric" />
 

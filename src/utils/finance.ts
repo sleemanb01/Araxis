@@ -169,11 +169,36 @@ export function buyListForOpenCalls(calls: ServiceCall[], items: InventoryItem[]
 }
 
 /**
- * The month's tax breakdown on a CASH basis — the MONTHLY POCKET. Revenue is
- * the money actually received this month by payment date (manual "שולם"
- * leftovers with no records fall back to the job's date); costs follow the
- * owner's formula from the month's jobs, plus general expenses and the open
- * shopping list. One implementation for the ring AND the details screen.
+ * Money actually RECEIVED in a period — the POCKET. Counts issued payments
+ * whose date starts with `prefix` (a "YYYY-MM-DD" day or "YYYY-MM" month);
+ * manual "שולם" leftovers with no records behind them fall back to the JOB's
+ * date. One implementation for the rings, the details screen and the day view.
+ */
+export function pocketFor(
+  prefix: string,
+  calls: ServiceCall[],
+  fins: (PrivateFinancials | null)[],
+  payments: Payment[]
+): number {
+  let pocket = 0;
+  const paidByCall: Record<string, number> = {};
+  payments.forEach((p) => {
+    if (p.status !== 'issued') return;
+    if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
+    if ((p.date || p.createdAt).startsWith(prefix)) pocket += p.amount;
+  });
+  calls.forEach((c, i) => {
+    const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
+    if (manual > 0 && dayKey(new Date(c.scheduledDate)).startsWith(prefix)) pocket += manual;
+  });
+  return pocket;
+}
+
+/**
+ * The month's tax breakdown on a CASH basis — the MONTHLY POCKET as revenue;
+ * costs follow the owner's formula from the month's jobs, plus general
+ * expenses and the open shopping list. One implementation for the ring AND
+ * the details screen.
  */
 export function monthPocketTaxes(
   calls: ServiceCall[],
@@ -183,17 +208,7 @@ export function monthPocketTaxes(
   monthExpenses: number
 ): TaxBreakdown {
   const month = monthKey(new Date());
-  let pocket = 0;
-  const paidByCall: Record<string, number> = {};
-  payments.forEach((p) => {
-    if (p.status !== 'issued') return;
-    if (p.callId) paidByCall[p.callId] = (paidByCall[p.callId] ?? 0) + p.amount;
-    if ((p.date || p.createdAt).slice(0, 7) === month) pocket += p.amount;
-  });
-  calls.forEach((c, i) => {
-    const manual = (fins[i]?.paidAmount ?? 0) - (paidByCall[c.id] ?? 0);
-    if (manual > 0 && monthKey(new Date(c.scheduledDate)) === month) pocket += manual;
-  });
+  const pocket = pocketFor(month, calls, fins, payments);
   const pairs = calls
     .map((c, i) => [c, fins[i]] as const)
     .filter(([c]) => monthKey(new Date(c.scheduledDate)) === month);
@@ -206,6 +221,11 @@ export function monthPocketTaxes(
     expenses: monthExpenses,
     toBuy,
   });
+}
+
+/** Shopping list of ONE job (same rules as the open-calls list). */
+export function buyListForCall(call: ServiceCall, items: InventoryItem[]): BuyNeed[] {
+  return buyListForOpenCalls([call], items);
 }
 
 export function financialStatus(overallPrice: number, paidAmount: number): FinancialStatus {

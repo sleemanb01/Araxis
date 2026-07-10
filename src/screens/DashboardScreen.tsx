@@ -18,7 +18,7 @@ import { useFinancialData } from '../hooks/useFinancialData';
 import { ServiceCall } from '../types/serviceCall';
 import { dayKey, monthKey, callProfit, itemPriceMap } from '../utils/finance';
 import { formatMonthLabel } from '../utils/date';
-import { containsCI } from '../utils/format';
+import { containsCI, ils } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -264,7 +264,7 @@ export function DashboardScreen() {
               <Text style={styles.chevMonth}>‹</Text>
               {caps.viewFinancials && (
                 <Text style={[styles.monthProfit, item.profit < 0 && styles.monthProfitNeg]}>
-                  ₪{Math.round(item.profit).toLocaleString('he-IL')}
+                  {ils(item.profit)}
                 </Text>
               )}
               <View style={styles.monthInfo}>

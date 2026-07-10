@@ -10,6 +10,7 @@ import { useFinancialData } from '../hooks/useFinancialData';
 import { ServiceCall } from '../types/serviceCall';
 import { monthKey } from '../utils/finance';
 import { formatMonthLabel } from '../utils/date';
+import { ils } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
 import type { RootStackParamList } from '../navigation/types';
@@ -39,7 +40,7 @@ export function MonthJobsScreen() {
   const subtitleFor = (c: ServiceCall) => {
     const f = finsById[c.id];
     if (caps.viewFinancials && f && f.overallPrice - f.paidAmount > 0.005) {
-      return `יתרה לגבייה: ₪${Math.round(f.overallPrice - f.paidAmount).toLocaleString('he-IL')}`;
+      return `יתרה לגבייה: ${ils(f.overallPrice - f.paidAmount)}`;
     }
     return showTeamPay
       ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`

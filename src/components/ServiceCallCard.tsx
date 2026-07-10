@@ -6,7 +6,7 @@ import { dialPhone, openWhatsapp, openNavigation } from '../utils/contact';
 import { useUser } from '../context/UserContext';
 import { useInventory } from '../context/InventoryContext';
 import { updateProfile } from '../services/userService';
-import { qtyOn } from '../utils/finance';
+import { buyListForCall } from '../utils/finance';
 import { ils } from '../utils/format';
 import { Colors, CallStatusColors, CallStatusLabelsHe } from '../constants/colors';
 
@@ -24,23 +24,9 @@ export const ServiceCallCard = React.memo(function ServiceCallCard({ call, subti
   const color = CallStatusColors[call.status];
   const date = new Date(call.scheduledDate).toLocaleDateString('he-IL');
 
-  // What this job still needs to BUY (unchecked required items beyond stock).
+  // What this job still needs to BUY (shared shopping-list rules).
   const [buyOpen, setBuyOpen] = useState(false);
-  const buyList: { id: string; name: string; qty: number; stock: number; buy: number; price: number; cost: number }[] = [];
-  if (caps.viewFinancials && call.status !== 'completed') {
-    const checked = new Set(call.checkedItems ?? []);
-    (call.requiredItems ?? []).forEach((id) => {
-      if (checked.has(id)) return;
-      const it = items.find((i) => i.id === id);
-      const stock = it ? Object.values(it.locations).reduce((s, n) => s + (n ?? 0), 0) : 0;
-      const qty = qtyOn(call, id);
-      const buy = Math.max(0, qty - stock);
-      if (buy <= 0) return;
-      const price = it?.price ?? 0;
-      buyList.push({ id, name: it?.itemName ?? '—', qty, stock, buy, price, cost: buy * price });
-    });
-    buyList.sort((a, b) => b.cost - a.cost);
-  }
+  const buyList = caps.viewFinancials ? buyListForCall(call, items) : [];
   const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
   const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
