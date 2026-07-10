@@ -18,6 +18,7 @@ import { ExportDataModal } from '../components/ExportDataModal';
 import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
 import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, monthKey, dayKey } from '../utils/finance';
 import { directTaxRate, VAT_RATE } from '../utils/tax';
+import { isViewerReadOnly } from '../services/demoMode';
 import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
@@ -64,7 +65,7 @@ export function ProfileScreen() {
   // Prompt an export at each bi-monthly Israeli VAT period start — the 1st of
   // Jan / Mar / May / Jul / Sep / Nov — once per period. (erase gated on download.)
   useEffect(() => {
-    if (!caps.viewFinancials || !archive.lastExportAt) return;
+    if (!caps.viewFinancials || !archive.lastExportAt || isViewerReadOnly()) return;
     const d = new Date();
     const periodStart = new Date(d.getFullYear(), Math.floor(d.getMonth() / 2) * 2, 1);
     if (new Date(archive.lastExportAt) < periodStart) setExportOpen(true);
@@ -271,12 +272,14 @@ export function ProfileScreen() {
                 })}
               </View>
             </View>
-            <CustomButton
-              label="ייצוא נתונים"
-              variant="secondary"
-              onPress={() => setExportOpen(true)}
-              style={styles.exportBtn}
-            />
+            {!isViewerReadOnly() && (
+              <CustomButton
+                label="ייצוא נתונים"
+                variant="secondary"
+                onPress={() => setExportOpen(true)}
+                style={styles.exportBtn}
+              />
+            )}
           </>
         )}
 
