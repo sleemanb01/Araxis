@@ -272,14 +272,16 @@ export function ProfileScreen() {
                 })}
               </View>
             </View>
-            {!isViewerReadOnly() && (
-              <CustomButton
-                label="ייצוא נתונים"
-                variant="secondary"
-                onPress={() => setExportOpen(true)}
-                style={styles.exportBtn}
-              />
-            )}
+            <CustomButton
+              label="ייצוא נתונים"
+              variant="secondary"
+              onPress={() =>
+                isViewerReadOnly()
+                  ? Alert.alert('מצב צפייה', 'ייצוא ומחיקת נתונים מושבתים במצב צפייה.')
+                  : setExportOpen(true)
+              }
+              style={styles.exportBtn}
+            />
           </>
         )}
 
