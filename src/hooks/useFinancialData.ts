@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { getAllCalls, getAllFinancialsByCallId } from '../services/serviceCallService';
+import { getAllCalls, getAllFinancialsCG, getFinancials } from '../services/serviceCallService';
 import { getAllPayments } from '../services/paymentService';
 import { ServiceCall, PrivateFinancials } from '../types/serviceCall';
 import { Payment } from '../types/payment';
@@ -29,11 +29,20 @@ export async function fetchFinancialData(force = false): Promise<FinancialData> 
   if (!inflight) {
     inflight = (async () => {
       try {
-        const calls = await getAllCalls();
-        const [finsById, payments] = await Promise.all([
-          getAllFinancialsByCallId(calls.map((c) => c.id)),
+        // All three reads are independent — ONE parallel round trip.
+        const [calls, payments, cg] = await Promise.all([
+          getAllCalls(),
           getAllPayments(),
+          getAllFinancialsCG().catch(() => null), // null until the CG rule is deployed
         ]);
+        const finsById: Record<string, PrivateFinancials | null> = {};
+        if (cg) {
+          calls.forEach((c) => (finsById[c.id] = cg[c.id] ?? null));
+        } else {
+          // Fallback: one read per job — goes away once firestore.rules ships.
+          const fins = await Promise.all(calls.map((c) => getFinancials(c.id).catch(() => null)));
+          calls.forEach((c, i) => (finsById[c.id] = fins[i]));
+        }
         const data: FinancialData = {
           calls,
           fins: calls.map((c) => finsById[c.id] ?? null),
