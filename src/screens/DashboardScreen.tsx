@@ -1,247 +1,367 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Modal } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, ScrollView, ActivityIndicator, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { JobCard } from '../components/JobCard';
-import { useJobStore } from '../store/useJobStore';
-import { useAuthStore } from '../store/useAuthStore';
+import { ServiceCallCard } from '../components/ServiceCallCard';
+import { SectionHeader } from '../components/SectionHeader';
+import { CustomButton } from '../components/CustomButton';
+import { Calendar } from '../components/Calendar';
+import { FAB } from '../components/FAB';
+import { QuoteModal } from '../components/QuoteModal';
+import { useUser } from '../context/UserContext';
+import { useLiveMetrics } from '../context/LiveMetricsContext';
+import { useInventory } from '../context/InventoryContext';
+import { subscribeToArchive, ArchiveSummary } from '../services/archiveService';
+import { useFinancialData } from '../hooks/useFinancialData';
+import { ServiceCall } from '../types/serviceCall';
+import { dayKey, monthKey, callProfit, itemPriceMap } from '../utils/finance';
+import { formatMonthLabel } from '../utils/date';
+import { containsCI, ils } from '../utils/format';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { Job } from '../types/job';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const HE_WEEKDAYS = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'];
+const STRIP_DAYS = 15; // today + 2 weeks ahead
 
-function dayKey(d: Date | string): string {
-  const dt = typeof d === 'string' ? new Date(d) : d;
-  return `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
+/** Strip chip data, precomputed ONCE — the Intl weekday call is expensive and
+ *  must not run 15× on every render. */
+interface StripDay {
+  date: Date;
+  key: string;
+  wd: string;
+  num: number;
 }
+
+/** The horizontal day strip. Memoized: modal toggles, search keystrokes and
+ *  financial updates re-render the screen but skip this whole subtree. */
+const DayStrip = React.memo(function DayStrip({
+  days,
+  selectedKey,
+  jobDays,
+  onPick,
+  onCalendar,
+}: {
+  days: StripDay[];
+  selectedKey: string;
+  jobDays: Set<string>;
+  onPick: (d: Date) => void;
+  onCalendar: () => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.strip}
+      contentContainerStyle={styles.stripRow}
+    >
+      <TouchableOpacity style={[styles.dayChip, styles.calChip]} onPress={onCalendar} activeOpacity={0.8}>
+        <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
+      </TouchableOpacity>
+      {days.map((d) => {
+        const sel = d.key === selectedKey;
+        return (
+          <TouchableOpacity
+            key={d.key}
+            style={[styles.dayChip, sel && styles.dayChipOn]}
+            onPress={() => onPick(d.date)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.dayChipWd, sel && styles.dayChipTextOn]}>{d.wd}</Text>
+            <Text style={[styles.dayChipNum, sel && styles.dayChipTextOn]}>{d.num}</Text>
+            <View
+              style={[styles.jobDot, !jobDays.has(d.key) && styles.jobDotOff, sel && jobDays.has(d.key) && styles.jobDotOn]}
+            />
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+});
+
 
 export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
-  const uid = useAuthStore((s) => s.user?.uid) ?? '';
-  const jobs = useJobStore((s) => s.jobs);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [pastOpen, setPastOpen] = useState(false);
-  const [owedOpen, setOwedOpen] = useState(false);
-  const calRef = useRef<ScrollView>(null);
+  const { profile, caps } = useUser();
+  const { calls, loading } = useLiveMetrics();
+  const { items } = useInventory();
+  const uid = profile?.uid ?? '';
+  const showTeamPay = caps.viewTeamPayouts;
 
-  const mine = useMemo(() => jobs.filter((j) => j.assignedTo === uid), [jobs, uid]);
-  const active = useMemo(() => mine.filter((j) => j.status !== 'completed'), [mine]);
-  const completed = useMemo(() => mine.filter((j) => j.status === 'completed'), [mine]);
-  // Revenue from all assigned jobs, based on the actual amount paid.
-  const income = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const collected = mine.reduce((s, j) => s + (j.paidAmount ?? 0), 0);
-    const owed = mine.reduce((s, j) => s + Math.max(0, (j.price ?? 0) - (j.paidAmount ?? 0)), 0);
-    const expected = mine.reduce((s, j) => s + (j.price ?? 0), 0);
-    const month = mine.reduce((s, j) => {
-      if (!j.paidAt) return s;
-      const d = new Date(j.paidAt);
-      return d.getFullYear() === y && d.getMonth() === m ? s + (j.paidAmount ?? 0) : s;
-    }, 0);
-    return { total: collected, month, paid: collected, owed, expected };
+  // Capability-scoped visibility. (Rules enforce this too; this filters the client copy.)
+  const mine = useMemo(
+    () =>
+      caps.viewAllCalls
+        ? calls
+        : calls.filter(
+            (c) => c.teamAssignment.leadTech === uid || c.teamAssignment.assistants.includes(uid)
+          ),
+    [calls, caps.viewAllCalls, uid]
+  );
+
+  const [tab, setTab] = useState<'schedule' | 'months'>('schedule');
+  const [selectedDay, setSelectedDay] = useState(() => new Date());
+  const [calOpen, setCalOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
+
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    return subscribeToArchive(setArchive, () => {});
+  }, [caps.viewFinancials]);
+
+  // Financials aren't on the live call docs; one shared cached fetch covers them.
+  const { finsById: fins } = useFinancialData(caps.viewFinancials);
+
+  /** Days that have jobs — green dots on the strip and the calendar. */
+  const jobDays = useMemo(() => {
+    const s = new Set<string>();
+    mine.forEach((c) => s.add(dayKey(new Date(c.scheduledDate))));
+    return s;
   }, [mine]);
 
-  // Jobs that still owe money (price greater than paid so far).
-  const unpaidJobs = useMemo(
-    () => mine.filter((j) => (j.price ?? 0) - (j.paidAmount ?? 0) > 0),
-    [mine]
-  );
-
-  // Next 14 days, each with a count of my active jobs scheduled that day.
-  const days = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return Array.from({ length: 14 }, (_, i) => {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const key = dayKey(d);
-      const count = active.filter((j) => j.scheduledAt && dayKey(j.scheduledAt) === key).length;
-      return { date: d, key, count, isToday: i === 0 };
+  const stripDays = useMemo<StripDay[]>(() => {
+    const base = new Date();
+    return Array.from({ length: STRIP_DAYS }, (_, i) => {
+      const date = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+      return {
+        date,
+        key: dayKey(date),
+        wd: date.toLocaleDateString('he-IL', { weekday: 'short' }),
+        num: date.getDate(),
+      };
     });
-  }, [active]);
+  }, []);
 
-  const shown = useMemo(
-    () =>
-      selectedKey
-        ? active.filter((j) => j.scheduledAt && dayKey(j.scheduledAt) === selectedKey)
-        : active,
-    [active, selectedKey]
+  // Search across ALL jobs by customer name or phone (any date, any status).
+  const searchResults = useMemo(() => {
+    const q = search.trim();
+    if (!searchOpen || !q) return null;
+    const qDigits = q.replace(/\D/g, '').replace(/^972/, '0');
+    const phoneOf = (c: ServiceCall) => (c.contactPhone ?? '').replace(/\D/g, '').replace(/^972/, '0');
+    return mine
+      .filter((c) => containsCI(c.clientName, q) || (!!qDigits && phoneOf(c).includes(qDigits)))
+      .sort((a, b) => b.scheduledDate.localeCompare(a.scheduledDate));
+  }, [mine, search, searchOpen]);
+
+  const dayJobs = useMemo(() => {
+    const k = dayKey(selectedDay);
+    return mine
+      .filter((c) => dayKey(new Date(c.scheduledDate)) === k)
+      .sort(
+        (a, b) =>
+          // finished jobs sink to the bottom; within each group, by time
+          (a.status === 'completed' ? 1 : 0) - (b.status === 'completed' ? 1 : 0) ||
+          a.scheduledDate.localeCompare(b.scheduledDate)
+      );
+  }, [mine, selectedDay]);
+
+  // "Months" → one row per month with its profit + how many jobs are still
+  // OPEN (unfinished, or finished but not fully paid). Live months are merged
+  // with the archived monthly totals, so recycled months still show.
+  const months = useMemo(() => {
+    const priceMap = itemPriceMap(items);
+    const m: Record<string, number> = { ...archive.monthlyProfit };
+    const open: Record<string, number> = {};
+    mine.forEach((c) => {
+      const k = monthKey(new Date(c.scheduledDate));
+      const f = fins[c.id] ?? null;
+      m[k] = (m[k] ?? 0) + callProfit(c, f, priceMap);
+      const isOpen = c.status !== 'completed' || (!!f && f.overallPrice - f.paidAmount > 0.005);
+      if (isOpen) open[k] = (open[k] ?? 0) + 1;
+    });
+    return Object.entries(m)
+      .sort((a, b) => b[0].localeCompare(a[0])) // most recent first
+      .map(([month, profit]) => ({ month, profit, open: open[month] ?? 0 }));
+  }, [mine, fins, items, archive]);
+
+  const subtitleFor = useCallback(
+    (c: ServiceCall) =>
+      showTeamPay
+        ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
+        : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`,
+    [showTeamPay, uid]
   );
 
-  function handlePress(job: Job) {
-    navigation.navigate('JobCoordination', { jobId: job.id });
-  }
+  const openCall = useCallback(
+    (c: ServiceCall) => navigation.navigate('ServiceCallDetail', { callId: c.id }),
+    [navigation]
+  );
+
+  // Stable render callbacks: FlatList rows re-render only when their own data
+  // changes, not because the screen re-rendered around them.
+  const renderJob = useCallback(
+    ({ item }: { item: ServiceCall }) => (
+      <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
+    ),
+    [subtitleFor, openCall]
+  );
+
+  const renderMonth = useCallback(
+    ({ item }: { item: { month: string; profit: number; open: number } }) => (
+      <TouchableOpacity
+        style={styles.monthRow}
+        onPress={() => navigation.navigate('MonthJobs', { month: item.month })}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.chevMonth}>‹</Text>
+        {caps.viewFinancials && (
+          <Text style={[styles.monthProfit, item.profit < 0 && styles.monthProfitNeg]}>
+            {ils(item.profit)}
+          </Text>
+        )}
+        <View style={styles.monthInfo}>
+          <Text style={styles.monthName}>{formatMonthLabel(item.month)}</Text>
+          <Text style={styles.monthMeta}>
+            {item.open > 0 ? `${item.open} עבודות פתוחות` : 'אין עבודות פתוחות'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    ),
+    [navigation, caps.viewFinancials]
+  );
+
+  const pickDay = useCallback((d: Date) => setSelectedDay(d), []);
+  const openCalendar = useCallback(() => setCalOpen(true), []);
+
+  const selectedKey = dayKey(selectedDay);
+  const header = (
+    <View>
+      <SectionHeader
+        title="הקריאות שלי"
+        count={searchResults ? searchResults.length : tab === 'schedule' ? dayJobs.length : mine.length}
+      />
+      <View style={styles.segment}>
+        <TouchableOpacity
+          style={styles.searchToggle}
+          onPress={() => {
+            setSearchOpen((o) => !o);
+            setSearch('');
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={searchOpen ? 'close' : 'search'} size={18} color={Colors.textPrimary} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segBtn, tab === 'schedule' && styles.segBtnOn]}
+          onPress={() => {
+            setTab('schedule');
+            setSelectedDay(new Date()); // "today" jumps back to today
+          }}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.segText, tab === 'schedule' && styles.segTextOn]}>היום</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.segBtn, tab === 'months' && styles.segBtnOn]}
+          onPress={() => setTab('months')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.segText, tab === 'months' && styles.segTextOn]}>הכל</Text>
+        </TouchableOpacity>
+      </View>
+
+      {searchOpen && (
+        <View style={styles.searchRow}>
+          <Ionicons name="search" size={17} color={Colors.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="חיפוש לפי שם לקוח או טלפון…"
+            placeholderTextColor={Colors.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+            textAlign="right"
+            autoFocus
+          />
+        </View>
+      )}
+
+      {tab === 'schedule' && !searchOpen && (
+        <DayStrip
+          days={stripDays}
+          selectedKey={selectedKey}
+          jobDays={jobDays}
+          onPick={pickDay}
+          onCalendar={openCalendar}
+        />
+      )}
+    </View>
+  );
+
+  const emptyComp = loading ? (
+    <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+  ) : (
+    <Text style={styles.empty}>{tab === 'schedule' ? 'אין עבודות ביום זה.' : 'אין קריאות קרובות.'}</Text>
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>לוח בקרה</Text>
+      {searchResults ? (
+        <FlatList
+          data={searchResults}
+          keyExtractor={(c) => c.id}
+          renderItem={renderJob}
+          ListHeaderComponent={header}
+          ListEmptyComponent={<Text style={styles.empty}>לא נמצאו עבודות.</Text>}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        />
+      ) : tab === 'schedule' ? (
+        <FlatList
+          data={dayJobs}
+          keyExtractor={(c) => c.id}
+          renderItem={renderJob}
+          ListHeaderComponent={header}
+          ListEmptyComponent={emptyComp}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <FlatList
+          data={months}
+          keyExtractor={(m) => m.month}
+          renderItem={renderMonth}
+          ListHeaderComponent={header}
+          ListEmptyComponent={emptyComp}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
 
-        <View style={styles.metrics}>
-          <View style={styles.metric}>
-            <Text style={styles.metricLabel}>סך הכנסות</Text>
-            <Text style={styles.metricValue}>₪{income.total}</Text>
-          </View>
-          <View style={styles.metric}>
-            <Text style={styles.metricLabel}>הכנסות החודש</Text>
-            <Text style={styles.metricValue}>₪{income.month}</Text>
-          </View>
-        </View>
-
-        <View style={styles.payRow}>
-          <View style={styles.payCell}>
-            <Text style={[styles.payVal, { color: '#16A34A' }]}>₪{income.paid}</Text>
-            <Text style={styles.payLabel}>נגבה</Text>
-          </View>
-          <TouchableOpacity style={styles.payCell} onPress={() => setOwedOpen(true)} activeOpacity={0.7}>
-            <Text style={[styles.payVal, { color: '#854F0B' }]}>₪{income.owed}</Text>
-            <Text style={styles.payLabel}>ממתין לתשלום ›</Text>
-          </TouchableOpacity>
-          <View style={styles.payCell}>
-            <Text style={[styles.payVal, { color: Colors.textSecondary }]}>₪{income.expected}</Text>
-            <Text style={styles.payLabel}>שווי כולל</Text>
-          </View>
-        </View>
-
-        <View style={styles.calHeader}>
-          <Text style={styles.calTitle}>השבועיים הקרובים</Text>
+      {caps.createCalls && (
+        <>
+          <FAB onPress={() => navigation.navigate('NewServiceCall')} bottomOffset={Layout.tabBarHeight} />
           <TouchableOpacity
-            style={styles.calLink}
-            onPress={() => navigation.navigate('FullCalendar')}
-            activeOpacity={0.7}
+            style={styles.quoteFab}
+            onPress={() => setQuoteOpen(true)}
+            activeOpacity={0.85}
           >
-            <Text style={styles.calLinkText}>יומן מלא</Text>
-            <Ionicons name="chevron-back" size={16} color={Colors.primary} />
+            <Ionicons name="document-text-outline" size={20} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
-        <ScrollView
-          ref={calRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.calendar}
-          onContentSizeChange={() => calRef.current?.scrollToEnd({ animated: false })}
-        >
-          {days.map(({ date, key, count, isToday }) => {
-            const selected = selectedKey === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.dayCell,
-                  !selected && isToday && styles.dayCellToday,
-                  selected && styles.dayCellSelected,
-                ]}
-                onPress={() => setSelectedKey(selected ? null : key)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.weekday, selected && styles.daySelText]}>
-                  {isToday ? 'היום' : HE_WEEKDAYS[date.getDay()]}
-                </Text>
-                <Text style={[styles.dayNum, selected && styles.daySelText]}>
-                  {date.getDate()}
-                </Text>
-                {count > 0 ? (
-                  <View style={[styles.dot, selected && styles.dotSelected]}>
-                    <Text style={[styles.dotText, selected && styles.dotTextSelected]}>{count}</Text>
-                  </View>
-                ) : (
-                  <View style={styles.dotPlaceholder} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        </>
+      )}
 
-        <Text style={styles.sectionTitle}>
-          {selectedKey ? 'משימות ביום זה' : 'המשימות שמשובצות אליי'} · {shown.length}
-        </Text>
-        {shown.length === 0 ? (
-          <Text style={styles.empty}>
-            {selectedKey ? 'אין משימות ביום זה.' : 'אין משימות משובצות.'}
-          </Text>
-        ) : (
-          shown.map((job) => <JobCard key={job.id} job={job} onPress={handlePress} canCall />)
-        )}
+      <QuoteModal visible={quoteOpen} onClose={() => setQuoteOpen(false)} />
 
-        {/* Past jobs — collapsible */}
-        <TouchableOpacity
-          style={styles.collapseHeader}
-          onPress={() => setPastOpen((o) => !o)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.collapseTitle}>עבודות קודמות · {completed.length}</Text>
-          <Ionicons
-            name={pastOpen ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={Colors.textSecondary}
-          />
-        </TouchableOpacity>
-        {pastOpen &&
-          (completed.length === 0 ? (
-            <Text style={styles.empty}>אין עבודות קודמות.</Text>
-          ) : (
-            completed.map((job) => (
-              <JobCard key={job.id} job={job} onPress={handlePress} />
-            ))
-          ))}
-      </ScrollView>
-
-      <Modal
-        visible={owedOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setOwedOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>ממתין לתשלום · ₪{income.owed}</Text>
-              <TouchableOpacity
-                onPress={() => setOwedOpen(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {unpaidJobs.length === 0 ? (
-                <Text style={styles.modalEmpty}>אין חובות פתוחים.</Text>
-              ) : (
-                unpaidJobs.map((j) => {
-                  const remaining = (j.price ?? 0) - (j.paidAmount ?? 0);
-                  return (
-                    <TouchableOpacity
-                      key={j.id}
-                      style={styles.owedRow}
-                      onPress={() => {
-                        setOwedOpen(false);
-                        navigation.navigate('JobCoordination', { jobId: j.id });
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.owedInfo}>
-                        <Text style={styles.owedName} numberOfLines={1}>{j.customerName}</Text>
-                        <Text style={styles.owedSub}>
-                          שולם ₪{j.paidAmount ?? 0} מתוך ₪{j.price ?? 0}
-                        </Text>
-                      </View>
-                      <View style={styles.owedRemainingWrap}>
-                        <Text style={styles.owedRemaining}>₪{remaining}</Text>
-                        <Text style={styles.owedRemainingLabel}>נותר</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
+      <Modal visible={calOpen} transparent animationType="fade" onRequestClose={() => setCalOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Calendar
+              selected={selectedDay}
+              onSelect={(d) => {
+                setSelectedDay(d);
+                setCalOpen(false);
+              }}
+              markedDays={jobDays}
+              allowPast
+            />
+            <CustomButton label="סגור" variant="ghost" onPress={() => setCalOpen(false)} />
           </View>
         </View>
       </Modal>
@@ -251,116 +371,94 @@ export function DashboardScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'right',
-    paddingTop: 10,
-    paddingBottom: 12,
-  },
-  metrics: { flexDirection: 'row', gap: 10, marginBottom: 8 },
-  metric: { flex: 1, backgroundColor: Colors.surface, borderRadius: 10, padding: 14 },
-  payRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  payCell: {
+  list: { paddingHorizontal: Layout.screenPadding, paddingBottom: Layout.tabBarHeight + 16 },
+  segment: { flexDirection: 'row', gap: 8, marginTop: 14, marginBottom: 2 },
+  segBtn: {
     flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    gap: 3,
-  },
-  payVal: { fontSize: 16, fontWeight: '700' },
-  payLabel: { fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
-  metricLabel: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginBottom: 4 },
-  metricValue: { fontSize: 24, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'right',
-    marginTop: 16,
-    marginBottom: 10,
-  },
-  calHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 10,
-  },
-  calTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  calLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  calLinkText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
-  calendar: { gap: 8, paddingBottom: 2 },
-  dayCell: {
-    width: 52,
     paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
-    gap: 4,
   },
-  dayCellSelected: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  dayCellToday: { borderColor: Colors.primary, borderWidth: 1.5 },
-  weekday: { fontSize: 12, color: Colors.textSecondary },
-  dayNum: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  daySelText: { color: '#FFFFFF' },
-  dot: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 4,
-    backgroundColor: Colors.primary,
+  segBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  segText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
+  segTextOn: { color: '#FFFFFF' },
+  searchToggle: {
+    width: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotSelected: { backgroundColor: '#FFFFFF' },
-  dotText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
-  dotTextSelected: { color: Colors.primary },
-  dotPlaceholder: { height: 18 },
-  empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 16, marginBottom: 8, fontSize: 14 },
-  collapseHeader: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 18,
-    marginBottom: 10,
-    paddingVertical: 4,
-  },
-  collapseTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
-  modalSheet: {
+    gap: 8,
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 18,
-    paddingBottom: 28,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 4,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: Colors.textPrimary },
+  strip: { height: 74, marginTop: 12, marginBottom: 4 },
+  stripRow: { gap: 8, alignItems: 'center' },
+  dayChip: {
+    width: 52,
+    height: 64,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    gap: 2,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
-  modalEmpty: { textAlign: 'center', color: Colors.textSecondary, paddingVertical: 24, fontSize: 15 },
-  owedRow: {
+  dayChipOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dayChipWd: { fontSize: 11, color: Colors.textSecondary, fontWeight: '600' },
+  dayChipNum: { fontSize: 17, color: Colors.textPrimary, fontWeight: '700' },
+  dayChipTextOn: { color: '#FFFFFF' },
+  jobDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#1E9E5A' },
+  jobDotOn: { backgroundColor: '#FFFFFF' },
+  jobDotOff: { backgroundColor: 'transparent' },
+  calChip: { justifyContent: 'center' },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 16 },
+  quoteFab: {
+    position: 'absolute',
+    left: 26, // centered above the 56px new-job FAB (left 20)
+    bottom: Layout.tabBarHeight + 80, // 12 gap + 56 FAB + 12 gap
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#0F766E',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0F766E',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  monthRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 10,
   },
-  owedInfo: { flex: 1, minWidth: 0, marginEnd: 10 },
-  owedName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
-  owedSub: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 3 },
-  owedRemainingWrap: { alignItems: 'center' },
-  owedRemaining: { fontSize: 16, fontWeight: '700', color: '#854F0B' },
-  owedRemainingLabel: { fontSize: 11, color: Colors.textSecondary },
+  chevMonth: { fontSize: 24, color: Colors.textSecondary, marginEnd: 8 },
+  monthProfit: { fontSize: 16, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr', marginEnd: 12 },
+  monthProfitNeg: { color: Colors.danger },
+  monthInfo: { flex: 1, alignItems: 'flex-end' },
+  monthName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  monthMeta: { fontSize: 12, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  empty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 30, fontSize: 15 },
 });

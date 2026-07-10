@@ -22,7 +22,7 @@ export function TextField({
 }: Props) {
   return (
     <View style={styles.wrap}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       <TextInput
         style={[styles.input, multiline && styles.multiline]}
         value={value}

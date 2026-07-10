@@ -1,79 +1,54 @@
 import React from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { JobPoolScreen }    from '../screens/JobPoolScreen';
-import { MyJobsScreen }     from '../screens/MyJobsScreen';
-import { WarehouseScreen }  from '../screens/WarehouseScreen';
-import { DashboardScreen }  from '../screens/DashboardScreen';
-import { MyRequestsScreen } from '../screens/customer/MyRequestsScreen';
-import { ProfileScreen }    from '../screens/ProfileScreen';
-import { useAuthStore }     from '../store/useAuthStore';
-import { Colors }           from '../constants/colors';
-import { Layout }           from '../constants/layout';
-import { TabParamList }     from './types';
+import { DashboardScreen } from '../screens/DashboardScreen';
+import { WarehouseScreen } from '../screens/WarehouseScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { useInventory } from '../context/InventoryContext';
+import { Colors } from '../constants/colors';
+import { Layout } from '../constants/layout';
+import { TabParamList } from './types';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const TAB_ICONS: Record<keyof TabParamList, keyof typeof Ionicons.glyphMap> = {
-  JobPool:    'grid-outline',
-  MyJobs:     'construct-outline',
-  Warehouse:  'cube-outline',
-  Dashboard:  'stats-chart-outline',
-  MyRequests: 'clipboard-outline',
-  Profile:    'person-outline',
+  Dashboard: 'briefcase-outline',
+  Warehouse: 'cube-outline',
+  Profile:   'speedometer-outline',
 };
 
 const TAB_LABELS: Record<keyof TabParamList, string> = {
-  JobPool:    'בריכה',
-  MyJobs:     'המשימות שלי',
-  Warehouse:  'מחסן',
-  Dashboard:  'לוח בקרה',
-  MyRequests: 'הקריאות שלי',
-  Profile:    'פרופיל',
+  Dashboard: 'עבודות',
+  Warehouse: 'מחסן',
+  Profile:   'לוח בקרה',
 };
 
 export function TabNavigator() {
-  // Customers and providers get different tab sets. A customer opens service
-  // requests; a provider works the job pool / warehouse.
-  const isCustomer = useAuthStore((s) => s.profile?.role) === 'customer';
-
+  const { items } = useInventory();
+  const lacksCount = items.filter((i) => i.lacks).length;
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarBadge: route.name === 'Warehouse' && lacksCount > 0 ? lacksCount : undefined,
+        tabBarBadgeStyle: { backgroundColor: Colors.danger, color: '#FFFFFF', fontSize: 10 },
         tabBarStyle: {
           height: Layout.tabBarHeight,
           backgroundColor: Colors.tabBar,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
         },
-        tabBarActiveTintColor:   Colors.tabBarActive,
+        tabBarActiveTintColor: Colors.tabBarActive,
         tabBarInactiveTintColor: Colors.tabBarInactive,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          paddingBottom: 4,
-        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', paddingBottom: 4 },
         tabBarIcon: ({ color }) => (
-          <Ionicons
-            name={TAB_ICONS[route.name as keyof TabParamList]}
-            size={22}
-            color={color}
-          />
+          <Ionicons name={TAB_ICONS[route.name as keyof TabParamList]} size={22} color={color} />
         ),
         tabBarLabel: TAB_LABELS[route.name as keyof TabParamList],
       })}
     >
-      {isCustomer ? (
-        <Tab.Screen name="MyRequests" component={MyRequestsScreen} />
-      ) : (
-        <>
-          <Tab.Screen name="JobPool"   component={JobPoolScreen} />
-          <Tab.Screen name="MyJobs"    component={MyJobsScreen} />
-          <Tab.Screen name="Warehouse" component={WarehouseScreen} />
-          <Tab.Screen name="Dashboard" component={DashboardScreen} />
-        </>
-      )}
+      <Tab.Screen name="Dashboard" component={DashboardScreen} />
+      <Tab.Screen name="Warehouse" component={WarehouseScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useUser } from '../../context/UserContext';
 import { confirmOtp, sendOtp } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
@@ -26,8 +26,7 @@ export function OtpScreen() {
   const route = useRoute<RouteP>();
   const { phone } = route.params;
 
-  const confirmation = useAuthStore((s) => s.confirmation);
-  const setConfirmation = useAuthStore((s) => s.setConfirmation);
+  const { confirmation, setConfirmation } = useUser();
 
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,7 +51,7 @@ export function OtpScreen() {
       await confirmOtp(confirmation, code);
       // Auth listener in App.tsx will swap to the main app automatically.
     } catch (e: any) {
-      setError(translateError(e?.code) ?? 'הקוד שגוי. נסה שוב.');
+      setError(translateError(e?.code) ?? `הקוד שגוי. נסה שוב. (${e?.code ?? 'unknown'})`);
       setLoading(false);
     }
   }
@@ -128,6 +127,10 @@ function translateError(code?: string): string | null {
       return 'הקוד פג תוקף. שלח קוד חדש.';
     case 'auth/session-expired':
       return 'פג תוקף ההפעלה. שלח קוד חדש.';
+    case 'auth/timeout':
+      return 'הפעולה נמשכה זמן רב מדי. בדוק את החיבור ונסה שוב.';
+    case 'auth/network-request-failed':
+      return 'בעיית רשת. בדוק את החיבור לאינטרנט.';
     default:
       return null;
   }

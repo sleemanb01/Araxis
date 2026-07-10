@@ -1,19 +1,15 @@
-import { JobStatus } from '../types/job';
+import { ServiceCallStatus } from '../types/serviceCall';
 
-export const StatusColors: Record<JobStatus, string> = {
-  awaiting:    '#EF4444', // Red
-  scheduled:   '#8B5CF6', // Purple — a date is set
-  en_route:    '#F97316', // Orange
-  in_progress: '#3B82F6', // Blue
-  completed:   '#22C55E', // Green
+export const CallStatusColors: Record<ServiceCallStatus, string> = {
+  pending:   '#F59E0B', // Amber — scheduled, not started
+  active:    '#3B82F6', // Blue  — crew on site
+  completed: '#22C55E', // Green — done
 };
 
-export const StatusLabelsHe: Record<JobStatus, string> = {
-  awaiting:    'ממתין לתיאום',
-  scheduled:   'נקבע תאריך',
-  en_route:    'בדרך',
-  in_progress: 'בביצוע',
-  completed:   'הושלם',
+export const CallStatusLabelsHe: Record<ServiceCallStatus, string> = {
+  pending:   'ממתין',
+  active:    'בביצוע',
+  completed: 'הושלם',
 };
 
 export const Colors = {

@@ -1,252 +1,422 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { CustomButton } from '../components/CustomButton';
+import { TextField } from '../components/TextField';
+import { ProgressRing } from '../components/ProgressRing';
+import { useUser } from '../context/UserContext';
+import { useInventory } from '../context/InventoryContext';
+import { createCrew } from '../services/adminService';
+import { subscribeToTargets, setMonthTarget } from '../services/targetsService';
+import { subscribeToArchive, initArchiveIfMissing, ArchiveSummary } from '../services/archiveService';
+import { subscribeToExpenses } from '../services/expenseService';
+import { Expense } from '../types/expense';
+import { ExportDataModal } from '../components/ExportDataModal';
+import { useFinancialData, invalidateFinancialData } from '../hooks/useFinancialData';
+import { monthlyProfit, callProfit, itemPriceMap, monthPocketTaxes, pocketFor, monthKey, dayKey } from '../utils/finance';
+import { directTaxRate, VAT_RATE } from '../utils/tax';
+import { isViewerReadOnly, viewerBlocked } from '../services/demoMode';
+import { workDaysInMonth, workDaysLeftInMonth } from '../utils/date';
 import { Colors } from '../constants/colors';
 import { Layout } from '../constants/layout';
-import { useAuthStore } from '../store/useAuthStore';
-import { useJobStore } from '../store/useJobStore';
-import { nextAvailableDate, HE_WEEKDAYS_SHORT, DEFAULT_WORKING_DAYS } from '../utils/availability';
-import { signOutUser } from '../services/authService';
-import { subscribeToReviews, summarize } from '../services/reviewService';
-import { StarRating } from '../components/StarRating';
-import { Review } from '../types/review';
-import { SOCIAL_PLATFORMS, SOCIAL_META, socialUrl, SocialPlatform } from '../utils/social';
+import { ils } from '../utils/format';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-function SocialLogo({
-  platform, value, onAdd,
-}: { platform: SocialPlatform; value?: string; onAdd: () => void }) {
-  const meta = SOCIAL_META[platform];
-  const url = socialUrl(platform, value);
-
-  if (url) {
-    return (
-      <TouchableOpacity
-        style={[styles.logoBtn, { backgroundColor: meta.color }]}
-        onPress={() => Linking.openURL(url)}
-      >
-        <FontAwesome5 name={meta.icon} size={22} color="#FFFFFF" brand />
-      </TouchableOpacity>
-    );
-  }
-  // No link yet — muted icon with a + badge to add it.
-  return (
-    <TouchableOpacity style={[styles.logoBtn, styles.logoEmpty]} onPress={onAdd}>
-      <FontAwesome5 name={meta.icon} size={22} color={Colors.textSecondary} brand />
-      <View style={styles.plusBadge}>
-        <Text style={styles.plusText}>+</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
-  const user = useAuthStore((s) => s.user);
-  const profile = useAuthStore((s) => s.profile);
+  const { profile, caps, crews, signOut } = useUser();
+  const { items } = useInventory();
 
-  const isProvider = profile?.role === 'provider';
-  const fullName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : '';
-  const accent = isProvider ? profile.themeColor : Colors.primary;
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  const jobs = useJobStore((s) => s.jobs);
-  const workingDays = isProvider ? profile.workingDays ?? DEFAULT_WORKING_DAYS : DEFAULT_WORKING_DAYS;
-  const nextAvail = useMemo(() => {
-    if (!isProvider) return null;
-    if (profile.nextAvailable) return profile.nextAvailable;
-    const busy = jobs.filter((j) => j.assignedTo === user?.uid).map((j) => j.scheduledAt);
-    return nextAvailableDate(workingDays, busy);
-  }, [isProvider, profile, jobs, user?.uid, workingDays]);
-
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const { calls, fins, payments } = useFinancialData(caps.viewFinancials);
+  const [targets, setTargets] = useState<Record<string, number>>({});
+  const [settingTarget, setSettingTarget] = useState(false);
+  const [targetInput, setTargetInput] = useState('');
+  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
+  const [archive, setArchive] = useState<ArchiveSummary>({ monthlyProfit: {}, lastExportAt: null });
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
-    if (!isProvider || !user) return;
-    const unsub = subscribeToReviews(user.uid, setReviews);
+    if (!caps.viewFinancials) return;
+    const unsub = subscribeToTargets(setTargets, () => {});
     return unsub;
-  }, [isProvider, user]);
+  }, [caps.viewFinancials]);
 
-  const { avg, count } = summarize(reviews);
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    initArchiveIfMissing().catch(() => {});
+    return subscribeToArchive(setArchive, () => {});
+  }, [caps.viewFinancials]);
+
+  useEffect(() => {
+    if (!caps.viewFinancials) return;
+    return subscribeToExpenses(setExpenses, () => {});
+  }, [caps.viewFinancials]);
+
+  // Prompt an export at each bi-monthly Israeli VAT period start — the 1st of
+  // Jan / Mar / May / Jul / Sep / Nov — once per period. (erase gated on download.)
+  useEffect(() => {
+    if (!caps.viewFinancials || !archive.lastExportAt || isViewerReadOnly()) return;
+    const d = new Date();
+    const periodStart = new Date(d.getFullYear(), Math.floor(d.getMonth() / 2) * 2, 1);
+    if (new Date(archive.lastExportAt) < periodStart) setExportOpen(true);
+  }, [caps.viewFinancials, archive.lastExportAt]);
+
+  // Live monthly profit merged with archived months (so the chart keeps history
+  // after old data is erased), minus each month's GENERAL EXPENSES.
+  const monthly = useMemo(() => {
+    const live = monthlyProfit(calls, fins, items);
+    const out: Record<string, number> = { ...archive.monthlyProfit };
+    Object.entries(live).forEach(([k, v]) => (out[k] = (out[k] ?? 0) + v));
+    expenses.forEach((e) => {
+      const k = e.createdAt.slice(0, 7);
+      out[k] = (out[k] ?? 0) - e.amount;
+    });
+    return out;
+  }, [calls, fins, items, archive, expenses]);
+  // Daily ring: money actually RECEIVED today (shared pocket computation).
+  const todayCollected = useMemo(
+    () => pocketFor(dayKey(new Date()), calls, fins, payments),
+    [payments, calls, fins]
+  );
+
+  const crewProfits = useMemo(() => {
+    const priceMap = itemPriceMap(items);
+    const out: Record<string, number> = {};
+    calls.forEach((c, i) => {
+      if (c.crewId) out[c.crewId] = (out[c.crewId] ?? 0) + callProfit(c, fins[i], priceMap);
+    });
+    return out;
+  }, [calls, fins, items]);
+
+  const now = new Date();
+  const curKey = monthKey(now);
+  const monthLabel = String(now.getMonth() + 1).padStart(2, '0') + '/' + now.getFullYear();
+  const dayLabel = String(now.getDate()).padStart(2, '0') + '/' + String(now.getMonth() + 1).padStart(2, '0');
+  // The month's general expenses spread over the days the owner WORKS —
+  // that per-workday share is what reduces the daily ring.
+  const monthExpensesNow = expenses.reduce(
+    (s, e) => s + (e.createdAt.slice(0, 7) === monthKey(now) ? e.amount : 0),
+    0
+  );
+  const dailyExpenseShare = monthExpensesNow / workDaysInMonth(profile?.availability?.days);
+
+  // This month's Israeli taxes on a CASH basis — the MONTHLY POCKET (shared
+  // implementation with the details screen).
+  const monthTax = useMemo(
+    () => monthPocketTaxes(calls, fins, payments, items, monthExpensesNow),
+    [calls, fins, payments, items, monthExpensesNow]
+  );
+  // Monthly ring: NET after-tax — revenue − costs − expenses − VAT −
+  // income tax − national insurance.
+  const monthProfit = monthTax.net;
+  const target = targets[curKey] ?? 0;
+  const percent = target > 0 ? Math.round((monthProfit / target) * 100) : 0;
+  const year = Array.from({ length: 12 }, (_, m) => monthly[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0);
+  const maxAbs = Math.max(1, ...year.map((v) => Math.abs(v)));
+
+  // Daily target = what's still missing from the monthly NET target, spread
+  // over the working days left in the month (today included). Once the month
+  // target is reached the day ring pins at 100%.
+  const remaining = Math.max(0, target - monthProfit);
+  const dailyTarget = target > 0 ? remaining / workDaysLeftInMonth(profile?.availability?.days) : 0;
+  // Daily ring: today's cash minus the per-workday expense share, minus the
+  // VAT share and the month's effective direct-tax rate — net after everything.
+  const todayProfit =
+    (todayCollected - dailyExpenseShare) * (1 - VAT_RATE / (1 + VAT_RATE) - directTaxRate(monthTax));
+  const dayPercent = dailyTarget > 0 ? Math.round((todayProfit / dailyTarget) * 100) : target > 0 ? 100 : 0;
+
+  if (!profile) return null;
+
+  async function doCreate() {
+    const name = newName.trim();
+    if (!name) return;
+    setSaving(true);
+    try {
+      const crewId = await createCrew(name);
+      setSaving(false);
+      setCreating(false);
+      setNewName('');
+      if (crewId) navigation.navigate('CrewDetail', { crewId });
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert('שגיאה', e?.message ?? 'יצירת הצוות נכשלה (ודא שפונקציית הענן פרוסה).');
+    }
+  }
+
+  function openSetTarget() {
+    setTargetInput(target > 0 ? String(target) : '');
+    setSettingTarget(true);
+  }
+  async function saveTarget() {
+    const amount = Math.max(0, parseFloat(targetInput) || 0);
+    try {
+      await setMonthTarget(curKey, amount);
+      setTargets((prev) => ({ ...prev, [curKey]: amount })); // reflect immediately
+      setSettingTarget(false);
+    } catch {
+      Alert.alert('שגיאה', 'שמירת היעד נכשלה.');
+    }
+  }
+
+  const monthColor =
+    target <= 0 ? Colors.textSecondary : percent >= 100 ? '#1E9E5A' : percent >= 50 ? '#D97706' : Colors.danger;
+  const dayColor =
+    target <= 0
+      ? todayProfit < 0
+        ? Colors.danger
+        : '#1E9E5A'
+      : dayPercent >= 100
+      ? '#1E9E5A'
+      : dayPercent >= 50
+      ? '#D97706'
+      : Colors.danger;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.titleRow}>
-          <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-            <Text style={[styles.editLink, { color: accent }]}>ערוך</Text>
-          </TouchableOpacity>
-          <Text style={styles.title}>פרופיל</Text>
+      <View style={styles.container}>
+        <Text style={styles.monthCount}>
+          עבודות החודש: {calls.filter((c) => monthKey(new Date(c.scheduledDate)) === curKey).length}
+        </Text>
+        {caps.viewFinancials && (
+          <>
+            <View style={styles.circlesRow}>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('FinancialDashboard', { day: dayKey(new Date()) })}
+                activeOpacity={0.85}
+              >
+                <ProgressRing size={150} strokeWidth={12} progress={target > 0 ? dayPercent / 100 : 1} color={dayColor}>
+                  <Text style={styles.rLabel}>{dayLabel}</Text>
+                  {target > 0 ? (
+                    <>
+                      <Text style={[styles.rValue, { color: dayColor }]}>{dayPercent}%</Text>
+                      <Text style={styles.rSub}>{ils(dailyTarget)}</Text>
+                    </>
+                  ) : (
+                    <Text style={[styles.rValue, { color: dayColor }]}>{ils(todayProfit)}</Text>
+                  )}
+                </ProgressRing>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={openSetTarget} activeOpacity={0.85}>
+                <ProgressRing size={150} strokeWidth={12} progress={target > 0 ? percent / 100 : 0} color={monthColor}>
+                  <Text style={styles.rLabel}>{monthLabel}</Text>
+                  {target > 0 ? (
+                    <>
+                      <Text style={[styles.rValue, { color: monthColor }]}>{percent}%</Text>
+                      <Text style={styles.rSub}>{ils(monthProfit)} / {ils(target)}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.rSet}>הגדר יעד</Text>
+                  )}
+                </ProgressRing>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.detailsBtn}
+              onPress={() => navigation.navigate('FinancialDashboard', {})}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.detailsText}>פרטים</Text>
+            </TouchableOpacity>
+
+            <View style={styles.chart}>
+              <View style={styles.chartHeader}>
+                <TouchableOpacity onPress={() => setViewYear((y) => y - 1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.yearNav}>‹</Text>
+                </TouchableOpacity>
+                <Text style={styles.chartTitle}>{viewYear}</Text>
+                <TouchableOpacity
+                  onPress={() => setViewYear((y) => Math.min(y + 1, now.getFullYear()))}
+                  disabled={viewYear >= now.getFullYear()}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={[styles.yearNav, viewYear >= now.getFullYear() && styles.yearNavOff]}>›</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.bars}>
+                {year.map((val, m) => {
+                  const h = Math.max(2, Math.round((Math.abs(val) / maxAbs) * 64));
+                  const tgt = targets[`${viewYear}-${String(m + 1).padStart(2, '0')}`] ?? 0;
+                  const pct = tgt > 0 ? (val / tgt) * 100 : -1; // -1 = no target set
+                  const color = pct < 0 ? '#CBD5E1' : pct >= 100 ? '#1E9E5A' : pct >= 50 ? '#D97706' : Colors.danger;
+                  return (
+                    <View key={m} style={styles.barCol}>
+                      <View style={[styles.bar, { height: h, backgroundColor: color }]} />
+                      <Text style={styles.barLabel}>{m + 1}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+            <CustomButton
+              label="ייצוא נתונים"
+              variant="secondary"
+              onPress={() => {
+                if (viewerBlocked('ייצוא ומחיקת נתונים מושבתים במצב צפייה.')) return;
+                setExportOpen(true);
+              }}
+              style={styles.exportBtn}
+            />
+          </>
+        )}
+
+        <View style={styles.crewSection}>
+          <View style={styles.crewHeader}>
+            {caps.manageCrew && (
+              <TouchableOpacity style={styles.addBtn} onPress={() => setCreating(true)} activeOpacity={0.85}>
+                <Ionicons name="add" size={18} color="#FFFFFF" />
+                <Text style={styles.addText}>צוות חדש</Text>
+              </TouchableOpacity>
+            )}
+            <Text style={styles.crewTitle}>הצוותים שלי</Text>
+          </View>
+          <FlatList
+            data={crews}
+            keyExtractor={(c) => c.id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.crewRow}
+                onPress={() => navigation.navigate('CrewDetail', { crewId: item.id })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.chev}>‹</Text>
+                {caps.viewFinancials && (
+                  <Text style={[styles.crewProfit, (crewProfits[item.id] ?? 0) < 0 && styles.crewProfitNeg]}>
+                    {ils(crewProfits[item.id] ?? 0)}
+                  </Text>
+                )}
+                <View style={styles.crewInfo}>
+                  <Text style={styles.crewName}>{item.name}</Text>
+                  <Text style={styles.crewMeta}>
+                    {item.memberIds.length} חברים
+                    {item.manager === profile.uid ? ' · אתה המנהל' : ''}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={<Text style={styles.crewEmpty}>אינך חבר באף צוות עדיין.</Text>}
+            style={styles.crewList}
+            showsVerticalScrollIndicator={false}
+          />
         </View>
 
-        {/* Avatar / logo */}
-        {isProvider && profile.logoUrl ? (
-          <Image source={{ uri: profile.logoUrl }} style={styles.logo} />
-        ) : (
-          <View style={[styles.avatarCircle, { backgroundColor: accent }]}>
-            <Text style={styles.avatarText}>{fullName.charAt(0) || '?'}</Text>
+        <CustomButton label="התנתק" variant="danger" onPress={signOut} style={styles.btn} />
+      </View>
+
+      <Modal visible={creating} transparent animationType="fade" onRequestClose={() => setCreating(false)}>
+        <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>צוות חדש</Text>
+            <TextField label="שם הצוות" value={newName} onChange={setNewName} placeholder="לדוגמה: צוות צפון" />
+            <CustomButton label="צור" onPress={doCreate} loading={saving} disabled={!newName.trim()} style={styles.btn} />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setCreating(false)} />
           </View>
-        )}
+        </KeyboardAvoidingView>
+      </Modal>
 
-        <Text style={styles.name}>{fullName || 'משתמש'}</Text>
-        <Text style={[styles.role, { color: accent }]}>
-          {isProvider ? 'נותן שירות' : 'לקוח'}
-        </Text>
-        {isProvider && !!profile.location && (
-          <Text style={styles.location}>{profile.location}</Text>
-        )}
-
-        {/* Call button (instead of showing the raw number) */}
-        {!!user?.phoneNumber && (
-          <TouchableOpacity
-            style={[styles.callBtn, { backgroundColor: accent }]}
-            onPress={() => Linking.openURL(`tel:${user.phoneNumber}`)}
-          >
-            <Text style={styles.callBtnText}>📞 התקשר</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Social links — brand logos; "+" badge when missing */}
-        {isProvider && (
-          <View style={styles.socialRow}>
-            {SOCIAL_PLATFORMS.map((pf) => (
-              <SocialLogo
-                key={pf}
-                platform={pf}
-                value={profile.links?.[pf]}
-                onAdd={() => navigation.navigate('EditLink', { platform: pf })}
-              />
-            ))}
+      <Modal visible={settingTarget} transparent animationType="fade" onRequestClose={() => setSettingTarget(false)}>
+        <KeyboardAvoidingView style={styles.modalBg} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>יעד ל{now.toLocaleDateString('he-IL', { month: 'long', year: 'numeric' })}</Text>
+            <TextField label="סכום יעד (₪)" value={targetInput} onChange={setTargetInput} placeholder="0" keyboardType="numeric" />
+            <CustomButton label="שמור" onPress={saveTarget} style={styles.btn} />
+            <CustomButton label="ביטול" variant="ghost" onPress={() => setSettingTarget(false)} />
           </View>
-        )}
+        </KeyboardAvoidingView>
+      </Modal>
 
-        {/* Services offered */}
-        {isProvider && profile.services?.length > 0 && (
-          <View style={styles.serviceChips}>
-            {profile.services.map((s) => (
-              <View key={s} style={[styles.serviceChip, { borderColor: accent }]}>
-                <Text style={[styles.serviceChipText, { color: accent }]}>{s}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Availability (public) */}
-        {isProvider && (
-          <View style={styles.availBox}>
-            <Text style={styles.availTitle}>זמינות</Text>
-            <View style={styles.availDays}>
-              {HE_WEEKDAYS_SHORT.map((w, idx) => {
-                const on = workingDays.includes(idx);
-                return (
-                  <View
-                    key={idx}
-                    style={[styles.dayDot, on && { backgroundColor: accent, borderColor: accent }]}
-                  >
-                    <Text style={[styles.dayDotText, on && { color: '#FFF' }]}>{w}</Text>
-                  </View>
-                );
-              })}
-            </View>
-            {nextAvail && (
-              <Text style={styles.nextAvailText}>
-                התור הפנוי הבא:{' '}
-                {new Date(nextAvail).toLocaleDateString('he-IL', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'numeric',
-                })}
-              </Text>
-            )}
-          </View>
-        )}
-
-        {/* Provider rating */}
-        {isProvider && (
-          <View style={styles.ratingBox}>
-            <StarRating rating={avg} size={26} />
-            <Text style={styles.ratingText}>
-              {count > 0 ? `${avg.toFixed(1)} (${count} דירוגים)` : 'אין דירוגים עדיין'}
-            </Text>
-          </View>
-        )}
-
-        <View style={styles.divider} />
-
-        <TouchableOpacity style={styles.logoutBtn} onPress={() => signOutUser()}>
-          <Text style={styles.logoutText}>התנתק</Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <ExportDataModal
+        visible={exportOpen}
+        onClose={() => setExportOpen(false)}
+        calls={calls}
+        fins={fins}
+        items={items}
+        onErased={invalidateFinancialData}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
-  container: { alignItems: 'center', paddingBottom: Layout.tabBarHeight + 24 },
-  availBox: { alignItems: 'center', marginTop: 16, gap: 8 },
-  availTitle: { fontSize: 13, fontWeight: '600', color: Colors.textSecondary },
-  availDays: { flexDirection: 'row', gap: 6 },
-  dayDot: {
-    width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center',
-  },
-  dayDotText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
-  nextAvailText: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
-  titleRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    width: '100%', paddingHorizontal: Layout.screenPadding, paddingTop: 10, paddingBottom: 20,
-  },
-  title: { fontSize: 22, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
-  editLink: { fontSize: 15, fontWeight: '700' },
-  logo: { width: 88, height: 88, borderRadius: 20, marginBottom: 12 },
-  avatarCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
-  },
-  avatarText: { fontSize: 32, fontWeight: '700', color: '#FFFFFF' },
-  name: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
-  role: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  location: { fontSize: 13, color: Colors.textSecondary, marginBottom: 12 },
-  callBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 10, paddingHorizontal: 28, borderRadius: 22, marginBottom: 14,
-  },
-  callBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
-  socialRow: { flexDirection: 'row', gap: 14, marginBottom: 16 },
-  logoBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  logoEmpty: {
+  container: { flex: 1, alignItems: 'center', padding: Layout.screenPadding, paddingTop: 28 },
+  circlesRow: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 18 },
+  monthCount: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center' },
+  detailsBtn: {
+    alignSelf: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
     backgroundColor: Colors.surface,
-    borderWidth: 1, borderColor: Colors.border, borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 18,
   },
-  plusBadge: {
-    position: 'absolute', top: -2, right: -2,
-    width: 18, height: 18, borderRadius: 9, backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: Colors.background,
+  detailsText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
+  rLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  rValue: { fontSize: 24, fontWeight: '800', marginTop: 4, writingDirection: 'ltr' },
+  rSub: { color: Colors.textSecondary, fontSize: 10, marginTop: 3, writingDirection: 'ltr' },
+  rSet: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginTop: 6 },
+  chart: {
+    alignSelf: 'stretch',
+    marginTop: 18,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
   },
-  plusText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900', lineHeight: 13 },
-  serviceChips: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
-    justifyContent: 'center', paddingHorizontal: Layout.screenPadding, marginBottom: 14,
+  exportBtn: { alignSelf: 'stretch', marginTop: 12 },
+  chartHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  chartTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', flex: 1, writingDirection: 'ltr' },
+  yearNav: { fontSize: 26, color: Colors.primary, fontWeight: '700', paddingHorizontal: 12 },
+  yearNavOff: { color: Colors.border },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 80 },
+  barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  bar: { width: 11, borderRadius: 3, backgroundColor: Colors.primary },
+  barLabel: { fontSize: 9, color: Colors.textSecondary, marginTop: 4 },
+  crewSection: { alignSelf: 'stretch', flex: 1, marginTop: 18 },
+  crewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  crewTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right' },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.primary,
+    borderRadius: 9,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
   },
-  serviceChip: {
-    borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4,
+  addText: { color: '#FFFFFF', fontSize: 14, fontWeight: '600' },
+  crewList: { flex: 1, alignSelf: 'stretch' },
+  crewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
   },
-  serviceChipText: { fontSize: 12, fontWeight: '600' },
-  ratingBox: { alignItems: 'center', gap: 4, marginBottom: 8 },
-  ratingText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
-  divider: { height: 1, backgroundColor: Colors.border, width: '100%', marginVertical: 12 },
-  logoutBtn: {
-    marginTop: 32, paddingVertical: 14, paddingHorizontal: 40,
-    borderRadius: 10, borderWidth: 1, borderColor: Colors.danger,
-  },
-  logoutText: { color: Colors.danger, fontSize: 15, fontWeight: '600' },
+  crewProfit: { fontSize: 15, fontWeight: '800', color: '#1E9E5A', writingDirection: 'ltr', marginHorizontal: 10 },
+  crewProfitNeg: { color: Colors.danger },
+  crewInfo: { flex: 1, alignItems: 'flex-end' },
+  crewName: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary, textAlign: 'right' },
+  crewMeta: { fontSize: 13, color: Colors.textSecondary, textAlign: 'right', marginTop: 2 },
+  chev: { fontSize: 24, color: Colors.textSecondary },
+  crewEmpty: { textAlign: 'center', color: Colors.textSecondary, marginTop: 24, fontSize: 14 },
+  btn: { alignSelf: 'stretch', marginTop: 12 },
+  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: Layout.screenPadding },
+  modalCard: { backgroundColor: Colors.background, borderRadius: 14, padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, textAlign: 'right', marginBottom: 14 },
 });

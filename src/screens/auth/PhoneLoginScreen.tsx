@@ -11,10 +11,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
-import { useAuthStore } from '../../store/useAuthStore';
+import { useUser } from '../../context/UserContext';
 import { sendOtp, toE164 } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
+import { BUSINESS_NAME } from '../../constants/business';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '../../navigation/types';
 
@@ -22,10 +23,11 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'PhoneLogin'>;
 
 export function PhoneLoginScreen() {
   const navigation = useNavigation<Nav>();
-  const setConfirmation = useAuthStore((s) => s.setConfirmation);
+  const { setConfirmation, enterViewer } = useUser();
 
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [viewerLoading, setViewerLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isValid = phone.replace(/\D/g, '').length >= 9;
@@ -39,7 +41,8 @@ export function PhoneLoginScreen() {
       navigation.navigate('Otp', { phone: toE164(phone) });
     } catch (e: any) {
       if (__DEV__) console.log('[sendOtp] failed:', e?.code, e);
-      setError(translateError(e?.code) ?? 'שליחת הקוד נכשלה. נסה שוב.');
+      // Show the raw code too — a reviewer/user screenshot then tells us the exact failure.
+      setError(translateError(e?.code) ?? `שליחת הקוד נכשלה. נסה שוב. (${e?.code ?? 'unknown'})`);
     } finally {
       setLoading(false);
     }
@@ -53,7 +56,7 @@ export function PhoneLoginScreen() {
       >
         <View style={styles.container}>
           <Image source={require('../../../assets/icon.png')} style={styles.logo} />
-          <Text style={styles.title}>ברוכים הבאים ל-Mima</Text>
+          <Text style={styles.title}>ברוכים הבאים ל-{BUSINESS_NAME}</Text>
           <Text style={styles.subtitle}>הזן את מספר הטלפון שלך לכניסה</Text>
 
           <View style={styles.inputWrapper}>
@@ -84,6 +87,26 @@ export function PhoneLoginScreen() {
           <Text style={styles.disclaimer}>
             בלחיצה על "שלח קוד" ישלח אליך קוד אימות חד-פעמי ב-SMS.
           </Text>
+
+          <CustomButton
+            label="כניסה כצופה (לקריאה בלבד)"
+            variant="secondary"
+            loading={viewerLoading}
+            onPress={async () => {
+              setError(null);
+              setViewerLoading(true);
+              try {
+                await enterViewer(); // auth listener swaps to the app on success
+              } catch {
+                setError('כניסת צופה נכשלה. נסה שוב.');
+                setViewerLoading(false);
+              }
+            }}
+            style={styles.demoBtn}
+          />
+          <Text style={styles.demoHint}>
+            מצב צפייה: הנתונים האמיתיים, לקריאה בלבד — לא ניתן לשנות דבר.
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -98,6 +121,8 @@ function translateError(code?: string): string | null {
       return 'יותר מדי ניסיונות. נסה שוב מאוחר יותר.';
     case 'auth/network-request-failed':
       return 'בעיית רשת. בדוק את החיבור לאינטרנט.';
+    case 'auth/timeout':
+      return 'הפעולה נמשכה זמן רב מדי. בדוק את החיבור ונסה שוב.';
     default:
       return null;
   }
@@ -160,6 +185,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   button: { marginTop: 8 },
+  demoBtn: { marginTop: 24 },
+  demoHint: { fontSize: 11, color: Colors.textSecondary, textAlign: 'center', marginTop: 6 },
   disclaimer: {
     fontSize: 12,
     color: Colors.textSecondary,

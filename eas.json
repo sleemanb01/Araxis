@@ -30,9 +30,11 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "sleeman.nabwani@gmail.com",
+        "ascAppId": "6784227071",
         "appleTeamId": "89F5K29LBN",
-        "ascAppId": "6782345078"
+        "ascApiKeyPath": "./AuthKey_5A363MD647.p8",
+        "ascApiKeyId": "5A363MD647",
+        "ascApiKeyIssuerId": "7755e3ea-f335-45de-bafe-518d1f1b4abe"
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-service-account.json",
