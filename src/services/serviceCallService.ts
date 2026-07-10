@@ -17,7 +17,7 @@ import {
   getDoc,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
-import { assertWritable } from './demoMode';
+import { assertWritable, isViewerReadOnly } from './demoMode';
 import {
   ServiceCall,
   ServiceCallStatus,
@@ -31,11 +31,15 @@ const FINANCIALS = 'financials';
 
 function toCall(snap: { id: string; data: () => any }): ServiceCall {
   const d = snap.data();
+  // The read-only viewer sees real numbers but NOT real identities: every
+  // client name and phone is masked at the data's single entry point, so no
+  // screen can leak them.
+  const mask = isViewerReadOnly();
   return {
     id: snap.id,
-    clientName: d.clientName ?? '',
+    clientName: mask ? 'לקוח' : d.clientName ?? '',
     address: d.address ?? undefined,
-    contactPhone: d.contactPhone ?? undefined,
+    contactPhone: d.contactPhone ? (mask ? '+972 500000000' : d.contactPhone) : undefined,
     notes: d.notes ?? undefined,
     requiredItems: Array.isArray(d.requiredItems) ? d.requiredItems : undefined,
     itemQuantities:
