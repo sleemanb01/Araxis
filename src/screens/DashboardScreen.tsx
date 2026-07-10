@@ -27,6 +27,64 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const STRIP_DAYS = 15; // today + 2 weeks ahead
 
+/** Strip chip data, precomputed ONCE — the Intl weekday call is expensive and
+ *  must not run 15× on every render. */
+interface StripDay {
+  date: Date;
+  key: string;
+  wd: string;
+  num: number;
+}
+
+/** The horizontal day strip. Memoized: modal toggles, search keystrokes and
+ *  financial updates re-render the screen but skip this whole subtree. */
+const DayStrip = React.memo(function DayStrip({
+  days,
+  selectedKey,
+  jobDays,
+  onPick,
+  onCalendar,
+}: {
+  days: StripDay[];
+  selectedKey: string;
+  jobDays: Set<string>;
+  onPick: (d: Date) => void;
+  onCalendar: () => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.strip}
+      contentContainerStyle={styles.stripRow}
+    >
+      <TouchableOpacity style={[styles.dayChip, styles.calChip]} onPress={onCalendar} activeOpacity={0.8}>
+        <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
+      </TouchableOpacity>
+      {days.map((d) => {
+        const sel = d.key === selectedKey;
+        return (
+          <TouchableOpacity
+            key={d.key}
+            style={[styles.dayChip, sel && styles.dayChipOn]}
+            onPress={() => onPick(d.date)}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.dayChipWd, sel && styles.dayChipTextOn]}>{d.wd}</Text>
+            <Text style={[styles.dayChipNum, sel && styles.dayChipTextOn]}>{d.num}</Text>
+            <View
+              style={[styles.jobDot, !jobDays.has(d.key) && styles.jobDotOff, sel && jobDays.has(d.key) && styles.jobDotOn]}
+            />
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+});
+
+const callKeyOf = (c: ServiceCall) => c.id;
+const monthKeyOf = (m: { month: string }) => m.month;
+
 export function DashboardScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, caps } = useUser();
@@ -69,12 +127,17 @@ export function DashboardScreen() {
     return s;
   }, [mine]);
 
-  const stripDays = useMemo(() => {
+  const stripDays = useMemo<StripDay[]>(() => {
     const base = new Date();
-    return Array.from(
-      { length: STRIP_DAYS },
-      (_, i) => new Date(base.getFullYear(), base.getMonth(), base.getDate() + i)
-    );
+    return Array.from({ length: STRIP_DAYS }, (_, i) => {
+      const date = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i);
+      return {
+        date,
+        key: dayKey(date),
+        wd: date.toLocaleDateString('he-IL', { weekday: 'short' }),
+        num: date.getDate(),
+      };
+    });
   }, []);
 
   // Search across ALL jobs by customer name or phone (any date, any status).
@@ -119,15 +182,54 @@ export function DashboardScreen() {
       .map(([month, profit]) => ({ month, profit, open: open[month] ?? 0 }));
   }, [mine, fins, items, archive]);
 
-  const subtitleFor = (c: ServiceCall) =>
-    showTeamPay
-      ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
-      : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`;
+  const subtitleFor = useCallback(
+    (c: ServiceCall) =>
+      showTeamPay
+        ? `תשלום צוות: ₪${c.payouts.totalTechPayout.toLocaleString('he-IL')}`
+        : `התשלום שלי: ₪${(c.payouts.splits[uid] ?? 0).toLocaleString('he-IL')}`,
+    [showTeamPay, uid]
+  );
 
   const openCall = useCallback(
     (c: ServiceCall) => navigation.navigate('ServiceCallDetail', { callId: c.id }),
     [navigation]
   );
+
+  // Stable render callbacks: FlatList rows re-render only when their own data
+  // changes, not because the screen re-rendered around them.
+  const renderJob = useCallback(
+    ({ item }: { item: ServiceCall }) => (
+      <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
+    ),
+    [subtitleFor, openCall]
+  );
+
+  const renderMonth = useCallback(
+    ({ item }: { item: { month: string; profit: number; open: number } }) => (
+      <TouchableOpacity
+        style={styles.monthRow}
+        onPress={() => navigation.navigate('MonthJobs', { month: item.month })}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.chevMonth}>‹</Text>
+        {caps.viewFinancials && (
+          <Text style={[styles.monthProfit, item.profit < 0 && styles.monthProfitNeg]}>
+            {ils(item.profit)}
+          </Text>
+        )}
+        <View style={styles.monthInfo}>
+          <Text style={styles.monthName}>{formatMonthLabel(item.month)}</Text>
+          <Text style={styles.monthMeta}>
+            {item.open > 0 ? `${item.open} עבודות פתוחות` : 'אין עבודות פתוחות'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    ),
+    [navigation, caps.viewFinancials]
+  );
+
+  const pickDay = useCallback((d: Date) => setSelectedDay(d), []);
+  const openCalendar = useCallback(() => setCalOpen(true), []);
 
   const selectedKey = dayKey(selectedDay);
   const header = (
@@ -182,38 +284,13 @@ export function DashboardScreen() {
       )}
 
       {tab === 'schedule' && !searchOpen && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.strip}
-          contentContainerStyle={styles.stripRow}
-        >
-          <TouchableOpacity
-            style={[styles.dayChip, styles.calChip]}
-            onPress={() => setCalOpen(true)}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="calendar-outline" size={22} color={Colors.primary} />
-          </TouchableOpacity>
-          {stripDays.map((d) => {
-            const k = dayKey(d);
-            const sel = k === selectedKey;
-            return (
-              <TouchableOpacity
-                key={k}
-                style={[styles.dayChip, sel && styles.dayChipOn]}
-                onPress={() => setSelectedDay(d)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.dayChipWd, sel && styles.dayChipTextOn]}>
-                  {d.toLocaleDateString('he-IL', { weekday: 'short' })}
-                </Text>
-                <Text style={[styles.dayChipNum, sel && styles.dayChipTextOn]}>{d.getDate()}</Text>
-                <View style={[styles.jobDot, !jobDays.has(k) && styles.jobDotOff, sel && jobDays.has(k) && styles.jobDotOn]} />
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <DayStrip
+          days={stripDays}
+          selectedKey={selectedKey}
+          jobDays={jobDays}
+          onPick={pickDay}
+          onCalendar={openCalendar}
+        />
       )}
     </View>
   );
@@ -229,10 +306,8 @@ export function DashboardScreen() {
       {searchResults ? (
         <FlatList
           data={searchResults}
-          keyExtractor={(c) => c.id}
-          renderItem={({ item }) => (
-            <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
-          )}
+          keyExtractor={callKeyOf}
+          renderItem={renderJob}
           ListHeaderComponent={header}
           ListEmptyComponent={<Text style={styles.empty}>לא נמצאו עבודות.</Text>}
           contentContainerStyle={styles.list}
@@ -242,10 +317,8 @@ export function DashboardScreen() {
       ) : tab === 'schedule' ? (
         <FlatList
           data={dayJobs}
-          keyExtractor={(c) => c.id}
-          renderItem={({ item }) => (
-            <ServiceCallCard call={item} subtitle={subtitleFor(item)} onPress={openCall} />
-          )}
+          keyExtractor={callKeyOf}
+          renderItem={renderJob}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
           contentContainerStyle={styles.list}
@@ -254,27 +327,8 @@ export function DashboardScreen() {
       ) : (
         <FlatList
           data={months}
-          keyExtractor={(m) => m.month}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.monthRow}
-              onPress={() => navigation.navigate('MonthJobs', { month: item.month })}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.chevMonth}>‹</Text>
-              {caps.viewFinancials && (
-                <Text style={[styles.monthProfit, item.profit < 0 && styles.monthProfitNeg]}>
-                  {ils(item.profit)}
-                </Text>
-              )}
-              <View style={styles.monthInfo}>
-                <Text style={styles.monthName}>{formatMonthLabel(item.month)}</Text>
-                <Text style={styles.monthMeta}>
-                  {item.open > 0 ? `${item.open} עבודות פתוחות` : 'אין עבודות פתוחות'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
+          keyExtractor={monthKeyOf}
+          renderItem={renderMonth}
           ListHeaderComponent={header}
           ListEmptyComponent={emptyComp}
           contentContainerStyle={styles.list}
