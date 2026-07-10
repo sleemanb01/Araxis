@@ -87,6 +87,24 @@ export function FinancialDashboardScreen() {
   const buyUnits = buyList.reduce((s, n) => s + n.buy, 0);
   const buyCost = buyList.reduce((s, n) => s + n.cost, 0);
 
+  // What the on-hand inventory already COST: every item's stock (all
+  // locations) at the actual purchase price. Tapping the card lists it.
+  const [ownedOpen, setOwnedOpen] = useState(false);
+  const owned = useMemo(
+    () =>
+      items
+        .map((i) => {
+          const qty = Object.values(i.locations).reduce((s, n) => s + (n ?? 0), 0);
+          const price = i.price ?? 0;
+          return { id: i.id, name: i.itemName, qty, price, cost: qty * price };
+        })
+        .filter((n) => n.qty > 0)
+        .sort((a, b) => b.cost - a.cost),
+    [items]
+  );
+  const ownedUnits = owned.reduce((s, n) => s + n.qty, 0);
+  const ownedCost = owned.reduce((s, n) => s + n.cost, 0);
+
   // This month's taxes on a CASH basis — the MONTHLY POCKET (same shared
   // implementation as the dashboard ring, so the two always agree).
   const monthTax = useMemo(
@@ -318,6 +336,9 @@ export function FinancialDashboardScreen() {
           <Metric label="עלות צוות" value={ils(t.payouts)} tone="orange" />
         </View>
         <View style={styles.row}>
+          <TouchableOpacity style={styles.flexTouch} onPress={() => setOwnedOpen(true)} activeOpacity={0.8}>
+            <Metric label="ציוד במלאי" value={`${ownedUnits} · ${ils(ownedCost)}`} tone="blue" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.flexTouch} onPress={() => setStockOpen(true)} activeOpacity={0.8}>
             <Metric label="ציוד לקנייה" value={`${buyUnits} · ${ils(buyCost)}`} tone="blue" />
           </TouchableOpacity>
@@ -415,6 +436,34 @@ export function FinancialDashboardScreen() {
             <CustomButton label="ביטול" variant="ghost" onPress={() => setExpAddOpen(false)} />
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={ownedOpen} transparent animationType="fade" onRequestClose={() => setOwnedOpen(false)}>
+        <View style={styles.modalBg}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>ציוד במלאי</Text>
+            {owned.length > 0 && (
+              <Text style={styles.buyTotal}>סה״כ {ownedUnits} יחידות · {ils(ownedCost)}</Text>
+            )}
+            <ScrollView style={styles.unpaidList}>
+              {owned.length === 0 && <Text style={styles.note}>אין פריטים במלאי.</Text>}
+              {owned.map((n) => (
+                <View key={n.id} style={styles.payRow}>
+                  <Text style={styles.stockCount}>{ils(n.cost)}</Text>
+                  <View style={styles.payInfo}>
+                    <Text style={styles.payClient} numberOfLines={1}>{n.name}</Text>
+                    <Text style={styles.payMeta}>
+                      {n.qty} × {ils(n.price)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity onPress={() => setOwnedOpen(false)} style={styles.closeBtn} activeOpacity={0.8}>
+              <Text style={styles.closeText}>סגור</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       <Modal visible={stockOpen} transparent animationType="fade" onRequestClose={() => setStockOpen(false)}>
