@@ -62,6 +62,9 @@ module.exports = () => ({
         },
       ],
       '@react-native-firebase/app-check',
+      // Registers the REVERSED_CLIENT_ID URL scheme that Firebase phone auth
+      // needs for its reCAPTCHA fallback in release builds.
+      './plugins/withFirebasePhoneAuth',
       [
         'expo-image-picker',
         {

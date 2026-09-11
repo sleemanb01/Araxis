@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
 import { useAuthStore } from '../../store/useAuthStore';
-import { sendOtp, toE164 } from '../../services/authService';
+import { sendOtp, toE164, describeAuthError } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,8 +38,10 @@ export function PhoneLoginScreen() {
       setConfirmation(confirmation);
       navigation.navigate('Otp', { phone: toE164(phone) });
     } catch (e: any) {
-      if (__DEV__) console.log('[sendOtp] failed:', e?.code, e);
-      setError(translateError(e?.code) ?? 'שליחת הקוד נכשלה. נסה שוב.');
+      // Logged unconditionally: this path is only reachable in release builds,
+      // where the device console is the only diagnostic available.
+      console.warn('[sendOtp] failed:', e?.code, e?.message);
+      setError(describeAuthError(e, 'שליחת הקוד נכשלה. נסה שוב.'));
     } finally {
       setLoading(false);
     }
@@ -88,19 +90,6 @@ export function PhoneLoginScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
-
-function translateError(code?: string): string | null {
-  switch (code) {
-    case 'auth/invalid-phone-number':
-      return 'מספר טלפון לא תקין.';
-    case 'auth/too-many-requests':
-      return 'יותר מדי ניסיונות. נסה שוב מאוחר יותר.';
-    case 'auth/network-request-failed':
-      return 'בעיית רשת. בדוק את החיבור לאינטרנט.';
-    default:
-      return null;
-  }
 }
 
 const styles = StyleSheet.create({

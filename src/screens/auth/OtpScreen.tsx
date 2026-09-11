@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { CustomButton } from '../../components/CustomButton';
 import { useAuthStore } from '../../store/useAuthStore';
-import { confirmOtp, sendOtp } from '../../services/authService';
+import { confirmOtp, sendOtp, describeAuthError } from '../../services/authService';
 import { Colors } from '../../constants/colors';
 import { Layout } from '../../constants/layout';
 import type { AuthStackParamList } from '../../navigation/types';
@@ -52,7 +52,8 @@ export function OtpScreen() {
       await confirmOtp(confirmation, code);
       // Auth listener in App.tsx will swap to the main app automatically.
     } catch (e: any) {
-      setError(translateError(e?.code) ?? 'הקוד שגוי. נסה שוב.');
+      console.warn('[confirmOtp] failed:', e?.code, e?.message);
+      setError(describeAuthError(e, 'הקוד שגוי. נסה שוב.'));
       setLoading(false);
     }
   }
@@ -65,8 +66,9 @@ export function OtpScreen() {
       setConfirmation(fresh);
       setCountdown(RESEND_SECONDS);
       setCode('');
-    } catch {
-      setError('שליחה מחדש נכשלה. נסה שוב.');
+    } catch (e: any) {
+      console.warn('[resendOtp] failed:', e?.code, e?.message);
+      setError(describeAuthError(e, 'שליחה מחדש נכשלה. נסה שוב.'));
     }
   }
 
@@ -118,19 +120,6 @@ export function OtpScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
-
-function translateError(code?: string): string | null {
-  switch (code) {
-    case 'auth/invalid-verification-code':
-      return 'קוד אימות שגוי.';
-    case 'auth/code-expired':
-      return 'הקוד פג תוקף. שלח קוד חדש.';
-    case 'auth/session-expired':
-      return 'פג תוקף ההפעלה. שלח קוד חדש.';
-    default:
-      return null;
-  }
 }
 
 const styles = StyleSheet.create({
